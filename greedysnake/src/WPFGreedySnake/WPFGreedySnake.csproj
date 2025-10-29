@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net472</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<LangVersion>11.0</LangVersion>
+		<PlatformTarget>x64</PlatformTarget>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="log4net" Version="2.0.15" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="Quicker">
+			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
+		</Reference>
+		<Reference Include="Quicker.Common">
+			<HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
+		</Reference>
+		<Reference Include="Quicker.Public">
+			<HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
+		</Reference>
+		<Reference Include="HandyControl">
+			<HintPath>C:\Program Files\Quicker\HandyControl.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+</Project>
