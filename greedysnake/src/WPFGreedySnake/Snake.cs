@@ -155,6 +155,7 @@ namespace WPFGreedySnake
         }
         private void CheckCollection()
         {
+            // Check boundary collision
             Rect rect = new Rect(-1, -1, GameArea.Width, GameArea.Height);
             if (!rect.Contains(Head.Position))
             {
@@ -164,6 +165,29 @@ namespace WPFGreedySnake
                 //    Position = Head.Position
                 //});
                 Collided?.Invoke(Head, new EventArgs());
+                return;
+            }
+            
+            // Check self collision
+            CheckSelfCollision();
+        }
+        
+        private void CheckSelfCollision()
+        {
+            // Skip self collision check if snake is too short (less than 4 parts)
+            if (SnakeParts.Count < 4)
+                return;
+                
+            var headPosition = Head.Position;
+            
+            // Check collision with body parts (skip the head itself)
+            for (int i = 1; i < SnakeParts.Count; i++)
+            {
+                if (headPosition.DistanceOf(SnakeParts[i].Position) < 1)
+                {
+                    Collided?.Invoke(Head, new EventArgs());
+                    return;
+                }
             }
         }
         public event EventHandler Collided;
