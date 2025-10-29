@@ -1,0 +1,34 @@
+# BuildTools 简化配置文件
+# 将此文件放在你的项目根目录，然后运行 BuildTools.exe 即可自动构建
+
+# 基本项目信息
+name: wpf-greedy-snake
+displayName: WPFGreedySnake
+versionKey: WPFGreedySnake          # 对应 version.json 中的键名
+subprogramName: GreedySnake
+# 项目路径（可选，默认为当前目录）
+projectDir: .
+
+# 发布相关配置
+uploadDir: WPFGreedySnake
+packageName: cea.wpf-greedy-snake
+instruction: WPF Greedy Snake game
+
+# 文件处理配置
+filesToInclude:
+  - "WPFGreedySnake*.exe"
+binaryFilter: "WPFGreedySnake*"
+filesToExclude:               # 要排除的文件
+  - "*.pdb"
+  - "*.xml"
+
+# 混淆配置（可选）
+obfuscate: true
+toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
+  - "WPFGreedySnake.{version}.exe"
+
+# 测试配置（可选）
+testDir: "Quicker/_packages/cea.wpf-greedy-snake"
+
+# 构建控制
+enabled: true
