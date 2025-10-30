@@ -1,0 +1,1 @@
+qkbuild build -c "build.yaml" --project-path "src\WClipTools" @args
