@@ -1,0 +1,74 @@
+<Window x:Class="CoDetectNet.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CoDetectNet.Desktop"
+        mc:Ignorable="d"
+        Title="Code Language Detection" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#F0F0F0" Padding="10">
+            <TextBlock Text="Paste your code below to detect the programming language" 
+                      FontSize="14" FontWeight="SemiBold"/>
+        </Border>
+        
+        <!-- Main content area with TextBox and Result panel -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- TextBox for code input -->
+            <TextBox x:Name="CodeTextBox" 
+                    Grid.Row="0"
+                    TextChanged="CodeTextBox_TextChanged"
+                    TextWrapping="Wrap"
+                    AcceptsReturn="True"
+                    AcceptsTab="True"
+                    FontFamily="Consolas"
+                    FontSize="12"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Auto"
+                    Padding="10"
+                    Margin="5"/>
+            
+            <!-- Result panel in bottom-right corner -->
+            <Border x:Name="ResultPanel"
+                   Grid.Row="0"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Bottom"
+                   Background="#E0E0E0"
+                   BorderBrush="#888888"
+                   BorderThickness="1"
+                   CornerRadius="5"
+                   Padding="10"
+                   Margin="10"
+                   Opacity="0.9"
+                   Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="Top 5 Languages:" 
+                              FontWeight="Bold" 
+                              FontSize="12"
+                              Margin="0,0,0,5"/>
+                    <ItemsControl x:Name="LanguageResults">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" 
+                                          FontSize="11"
+                                          Margin="0,2"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
+

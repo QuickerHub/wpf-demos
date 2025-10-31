@@ -1,0 +1,10 @@
+<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+  <Costura>
+    <IncludeAssemblies>
+      CoDetectNet
+      Microsoft.ML.OnnxRuntime
+      FastHashes
+    </IncludeAssemblies>
+  </Costura>
+</Weavers>
+

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <Version Condition="'$(Version)' == ''">1.0.0.0</Version>
+    <AssemblyName Condition="'$(Configuration)' != 'Release'">$(MSBuildProjectName)</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <OutputType>Library</OutputType>
+    <AssemblyName>$(MSBuildProjectName).$(Version)</AssemblyName>
+    <ApplicationDefinition />
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Compile Remove="App.xaml.cs" />
+    <Page Remove="App.xaml" />
+    <ApplicationDefinition Remove="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoDetectNet\CoDetectNet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Costura.Fody" Version="5.7.0">
+      <PrivateAssets>All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>
+
