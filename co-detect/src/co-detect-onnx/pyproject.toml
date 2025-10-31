@@ -1,0 +1,10 @@
+[project]
+name = "co-detect-onnx"
+version = "1.0.0"
+requires-python = ">=3.7"
+dependencies = [
+    "onnxruntime>=1.10.0",
+    "numpy>=1.19.0",
+    "pyfarmhash>=0.4.0",
+]
+

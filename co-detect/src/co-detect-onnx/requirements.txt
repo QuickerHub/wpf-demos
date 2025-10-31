@@ -1,0 +1,4 @@
+onnxruntime>=1.10.0
+numpy>=1.19.0
+pyfarmhash>=0.4.0
+
