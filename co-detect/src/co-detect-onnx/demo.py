@@ -1,7 +1,7 @@
 """Demo script for ONNX language detection"""
 
 from pathlib import Path
-from model_onnx import LanguagePredictorONNXFinal
+from model import CoDetectModel
 
 
 def demo():
@@ -12,7 +12,7 @@ def demo():
     print("=" * 70)
     
     try:
-        predictor = LanguagePredictorONNXFinal()
+        predictor = CoDetectModel()
         print("Model loaded successfully!\n")
     except Exception as e:
         print(f"Error loading model: {e}")

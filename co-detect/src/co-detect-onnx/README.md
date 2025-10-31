@@ -15,10 +15,10 @@ python demo.py
 ## 使用示例
 
 ```python
-from model_onnx import LanguagePredictorONNXFinal
+from model import CoDetectModel
 
 # 初始化
-predictor = LanguagePredictorONNXFinal()
+predictor = CoDetectModel()
 
 # 预测语言
 result = predictor.predict_language('def hello(): pass')
