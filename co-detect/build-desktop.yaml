@@ -1,0 +1,39 @@
+# BuildTools 简化配置文件
+# 将此文件放在你的项目根目录，然后运行 BuildTools.exe 即可自动构建
+
+# 基本项目信息
+name: co-detect-net-desktop
+displayName: CoDetectNet.Desktop
+versionKey: CoDetectNet.Server          # 对应 version.json 中的键名（与 Server 使用相同的版本）
+subprogramName: CoDetectNetDesktop
+# 项目路径（可选，默认为当前目录）
+projectDir: .
+
+# 发布相关配置
+uploadDir: cea.co-detect-net-desktop
+packageName: cea.co-detect-net-desktop
+instruction: CoDetectNet language detection desktop application
+
+# 文件处理配置
+filesToInclude:
+  - "CoDetectNet.Desktop*.dll"
+  # CoDetectNet.dll and Microsoft.ML.OnnxRuntime.dll are embedded using Costura.Fody
+  - "codetect.onnx"
+  - "languages.json"
+binaryFilter: "CoDetectNet*"
+filesToExclude:               # 要排除的文件
+  - "*.pdb"
+  - "*.xml"
+  - "*.config"
+
+# 混淆配置（可选）
+obfuscate: true
+toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
+  - "CoDetectNet.Desktop.{version}.dll"
+
+# 测试配置（可选）
+testDir: "Quicker/_packages/cea.co-detect-net-desktop"
+
+# 构建控制
+enabled: true
+
