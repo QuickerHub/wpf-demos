@@ -17,7 +17,7 @@ def demo():
     except Exception as e:
         print(f"Error loading model: {e}")
         print("\nPlease ensure:")
-        print("  1. model_final.onnx exists in this directory")
+        print("  1. codetect.onnx exists in this directory")
         print("  2. languages.json exists in this directory")
         return
     

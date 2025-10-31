@@ -59,7 +59,7 @@ def preprocess_text(text: str) -> List[int]:
 class CoDetectModel:
     """Language detection predictor using ONNX runtime"""
 
-    def __init__(self, onnx_model_path: str = 'model_final.onnx', 
+    def __init__(self, onnx_model_path: str = 'codetect.onnx', 
                  languages_file: Optional[str] = None) -> None:
         self._session = ort.InferenceSession(onnx_model_path, providers=['CPUExecutionProvider'])
         self._input_name = self._session.get_inputs()[0].name
