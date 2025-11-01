@@ -1,0 +1,107 @@
+[
+  {
+    "language": "Python",
+    "code": "def hello():\n    print('Hi')\n    return True"
+  },
+  {
+    "language": "JavaScript",
+    "code": "function greet() {\n    console.log('Hi');\n    return true;"
+  },
+  {
+    "language": "Java",
+    "code": "public class Test {\n    public static void main(String[] args) {\n        System.out.println(\"Hi\");\n    }\n}"
+  },
+  {
+    "language": "C++",
+    "code": "#include <iostream>\nint main() {\n    std::cout << \"Hi\" << std::endl;\n    return 0;\n}"
+  },
+  {
+    "language": "C",
+    "code": "#include <stdio.h>\nint main() {\n    printf(\"Hi\");\n    return 0;\n}"
+  },
+  {
+    "language": "Go",
+    "code": "package main\nimport \"fmt\"\nfunc main() {\n    fmt.Println(\"Hi\")\n}"
+  },
+  {
+    "language": "Rust",
+    "code": "fn main() {\n    println!(\"Hi\");\n}"
+  },
+  {
+    "language": "Ruby",
+    "code": "def hello\n    puts 'Hi'\n    return true\nend"
+  },
+  {
+    "language": "PHP",
+    "code": "<?php\nfunction hello() {\n    echo 'Hi';\n    return true;\n}"
+  },
+  {
+    "language": "Swift",
+    "code": "func hello() {\n    print(\"Hi\")\n    return true\n}"
+  },
+  {
+    "language": "Python",
+    "code": "for value in items:\n    print(value)\n    pass"
+  },
+  {
+    "language": "JavaScript",
+    "code": "for (var i = 0; i < items.length; i++) {\n    console.log(items[i]);\n}"
+  },
+  {
+    "language": "Java",
+    "code": "for (int i = 0; i < items.length; i++) {\n    System.out.println(items[i]);\n}"
+  },
+  {
+    "language": "C++",
+    "code": "for (int i = 0; i < n; i++) {\n    std::cout << items[i];\n}"
+  },
+  {
+    "language": "C",
+    "code": "for (int i = 0; i < n; i++) {\n    printf(\"%d\", items[i]);\n}"
+  },
+  {
+    "language": "Python",
+    "code": "if x > 0:\n    print('positive')\n    return True"
+  },
+  {
+    "language": "JavaScript",
+    "code": "if (x > 0) {\n    console.log('positive');\n    return true;"
+  },
+  {
+    "language": "Java",
+    "code": "if (x > 0) {\n    System.out.println(\"positive\");\n    return true;"
+  },
+  {
+    "language": "Python",
+    "code": "def add(a, b):\n    return a + b\n    pass"
+  },
+  {
+    "language": "JavaScript",
+    "code": "function add(a, b) {\n    console.log(a + b);\n    return a + b;"
+  },
+  {
+    "language": "C++",
+    "code": "int add(int a, int b) {\n    std::cout << a + b;\n    return a + b; \n}"
+  },
+  {
+    "language": "Python",
+    "code": "items = [1, 2, 3]\nfor item in items:\n    print(f'{item}')"
+  },
+  {
+    "language": "JavaScript",
+    "code": "var arr = [1, 2, 3];\narr.forEach(function(item) {\n    console.log(item);"
+  },
+  {
+    "language": "Go",
+    "code": "for i := 0; i < len(items); i++ {\n    fmt.Println(items[i])\n}"
+  },
+  {
+    "language": "Rust",
+    "code": "for item in items {\n    println!(\"{}\", item);\n}"
+  },
+  {
+    "language": "Ruby",
+    "code": "items.each do |item|\n    puts item\nend"
+  }
+]
+

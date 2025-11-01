@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
     "onnxruntime>=1.10.0",
     "pyfarmhash>=0.4.0",
+    "pygments>=2.17.2",
     "tensorflow==2.5.0",
     "tf2onnx>=1.16.1",
 ]
