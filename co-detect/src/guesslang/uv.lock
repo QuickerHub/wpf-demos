@@ -428,6 +428,8 @@ source = { editable = "." }
 dependencies = [
     { name = "onnxruntime" },
     { name = "pyfarmhash" },
+    { name = "pygments", version = "2.17.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.8'" },
+    { name = "pygments", version = "2.19.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.8'" },
     { name = "tensorflow" },
     { name = "tf2onnx" },
 ]
@@ -455,6 +457,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "onnxruntime", specifier = ">=1.10.0" },
     { name = "pyfarmhash", specifier = ">=0.4.0" },
+    { name = "pygments", specifier = ">=2.17.2" },
     { name = "pylint", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "sphinx", marker = "extra == 'dev'" },
