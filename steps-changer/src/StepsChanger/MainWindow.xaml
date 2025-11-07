@@ -1,0 +1,16 @@
+<Window x:Class="StepsChanger.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:StepsChanger"
+        mc:Ignorable="d" WindowStartupLocation="CenterScreen"
+        Title="Steps Changer" Height="450" Width="800">
+    <Grid>
+        <TextBlock Text="Steps Changer" 
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"
+                   FontSize="24"/>
+    </Grid>
+</Window>
+
