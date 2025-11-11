@@ -1,0 +1,121 @@
+---
+alwaysApply: true
+---
+# WPF 开发规范
+
+## 属性定义规范
+
+### DependencyProperty 使用规范
+- 使用 `[DependencyProperty<Type>("PropertyName")]` 特性添加在类上
+- 类必须声明为 `public partial class` 并继承自 `DependencyObject`
+- 支持附加属性使用 `[AttachedDependencyProperty<Type, Target>("PropertyName")]`
+
+```csharp
+[DependencyProperty<bool>("IsSpinning", DefaultValue = true)]
+[AttachedDependencyProperty<object, TreeView>("SelectedItem")]
+public partial class MyControl : UserControl
+{
+    // 可选的属性变化回调
+    partial void OnIsSpinningChanged(bool oldValue, bool newValue) { }
+}
+```
+
+### ObservableProperty 使用规范
+- 类必须声明为 `public partial class` 并继承 `ObservableObject`
+- **推荐方式**：使用 `[ObservableProperty]` 特性标记 `public partial` 属性（默认方式，简洁明了）
+- **替代方式**：使用 `[ObservableProperty]` 特性标记私有字段（适用于需要额外控制或复杂场景）
+- 属性的 get/set 中不应包含复杂逻辑，复杂逻辑应在构造函数或方法中处理
+
+```csharp
+public partial class MyViewModel : ObservableObject
+{
+    // 推荐：使用 [ObservableProperty] 标记 public partial 属性（默认方式）
+    [ObservableProperty]
+    public partial string Title { get; set; } = "默认标题";
+    
+    [ObservableProperty]
+    public partial bool IsLoading { get; set; }
+    
+    // 替代方式：使用 [ObservableProperty] 特性标记私有字段
+    [ObservableProperty]
+    private string _description;
+    
+    // 属性变化回调（自动生成的方法）
+    partial void OnTitleChanged(string value)
+    {
+        // 处理属性变化逻辑
+    }
+}
+```
+
+### INotifyPropertyChanged 使用规范
+- 用于无法继承 `ObservableObject` 的场景
+- 使用 `[INotifyPropertyChanged]` 特性
+
+```csharp
+[INotifyPropertyChanged]
+public partial class MyViewModel : SomeBaseClass
+{
+    // 优先使用 public partial 属性
+    public partial string Name { get; set; }
+}
+```
+
+## 命令定义规范
+
+### RelayCommand 使用规范
+- 使用 `[RelayCommand]` 特性
+
+```csharp
+public partial class MyViewModel : ObservableObject
+{
+    [RelayCommand]
+    private void Save() { }
+    
+    [RelayCommand]
+    private async Task LoadAsync() { }
+    
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private void SaveWithCondition() { }
+    
+    private bool CanSave() => !string.IsNullOrEmpty(Title);
+}
+```
+
+## 最佳实践
+
+### 属性设计原则
+- **不要在 get/set 中编写复杂逻辑**：属性的 get/set 应该保持简洁，只负责数据的读取和写入
+- **复杂逻辑放在构造函数或方法中**：初始化逻辑放在构造函数，属性变化后的处理逻辑放在 `partial void On{PropertyName}Changed` 方法中
+- **使用属性变化回调处理副作用**：当属性变化需要触发其他操作时，使用自动生成的 `On{PropertyName}Changed` 方法
+
+```csharp
+public partial class MyViewModel : ObservableObject
+{
+    [ObservableProperty]
+    public partial string Name { get; set; }
+    
+    // ✅ 正确：在属性变化回调中处理逻辑
+    partial void OnNameChanged(string value)
+    {
+        // 处理属性变化后的逻辑
+        UpdateDisplayName();
+    }
+    
+    // ❌ 错误：不要在 get/set 中写逻辑
+    // [ObservableProperty]
+    // public partial string Name
+    // {
+    //     get => _name;
+    //     set
+    //     {
+    //         _name = value;
+    //         UpdateDisplayName(); // 不要这样做
+    //     }
+    // }
+}
+```
+
+### 必需的包
+- `CommunityToolkit.Mvvm` - MVVM 特性
+- `DependencyPropertyGenerator` - DependencyProperty 源生成器
