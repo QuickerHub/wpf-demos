@@ -28,7 +28,7 @@ namespace QuickerCodeEditor
             _testPopup = new WindowAttachedPopup
             {
                 TargetWindow = this,
-                WindowPlacement = WindowPlacement.Right,
+                WindowPlacement = WindowPlacement.Left,
                 OffsetX = 10,
                 OffsetY = 0,
                 Width = 300,

@@ -24,6 +24,23 @@ namespace QuickerCodeEditor.View
         [DllImport("user32.dll")]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+        private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MONITORINFO
+        {
+            public int Size;
+            public RECT Monitor;
+            public RECT WorkArea;
+            public uint Flags;
+        }
+
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOSIZE = 0x0001;
@@ -257,23 +274,44 @@ namespace QuickerCodeEditor.View
                 return;
 
             var hwndSource = source as HwndSource;
-            if (hwndSource == null)
+            if (hwndSource == null || hwndSource.Handle == IntPtr.Zero)
+                return;
+
+            // Get window's monitor (screen) first
+            var monitor = MonitorFromWindow(hwndSource.Handle, MONITOR_DEFAULTTONEAREST);
+            if (monitor == IntPtr.Zero)
+                return;
+
+            var monitorInfo = new MONITORINFO { Size = Marshal.SizeOf(typeof(MONITORINFO)) };
+            if (!GetMonitorInfo(monitor, ref monitorInfo))
                 return;
 
             RECT windowRect;
             if (!GetWindowRect(hwndSource.Handle, out windowRect))
                 return;
 
-            // Get DPI scale factor
+            // Get DPI scale factor for the window's screen
             var compositionTarget = source.CompositionTarget;
+            if (compositionTarget == null)
+                return;
+
             var dpiScaleX = compositionTarget.TransformToDevice.M11;
             var dpiScaleY = compositionTarget.TransformToDevice.M22;
+
+            if (dpiScaleX <= 0 || dpiScaleY <= 0)
+                return;
 
             // Convert physical pixels to device-independent pixels
             double windowLeft = windowRect.Left / dpiScaleX;
             double windowTop = windowRect.Top / dpiScaleY;
             double windowWidth = (windowRect.Right - windowRect.Left) / dpiScaleX;
             double windowHeight = (windowRect.Bottom - windowRect.Top) / dpiScaleY;
+
+            // Get screen work area in device-independent pixels
+            double screenLeft = monitorInfo.WorkArea.Left / dpiScaleX;
+            double screenTop = monitorInfo.WorkArea.Top / dpiScaleY;
+            double screenRight = monitorInfo.WorkArea.Right / dpiScaleX;
+            double screenBottom = monitorInfo.WorkArea.Bottom / dpiScaleY;
 
             // Calculate popup position based on placement
             double popupX = 0, popupY = 0;
@@ -313,6 +351,16 @@ namespace QuickerCodeEditor.View
                     popupY = windowTop + windowHeight - this.Height - OffsetY;
                     break;
             }
+
+            // Constrain popup position to screen bounds (work area)
+            if (popupX < screenLeft)
+                popupX = screenLeft;
+            if (popupY < screenTop)
+                popupY = screenTop;
+            if (popupX + this.Width > screenRight)
+                popupX = screenRight - this.Width;
+            if (popupY + this.Height > screenBottom)
+                popupY = screenBottom - this.Height;
 
             // Use Absolute placement mode
             this.Placement = PlacementMode.Absolute;
