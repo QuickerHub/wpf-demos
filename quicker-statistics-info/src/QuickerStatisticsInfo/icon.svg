@@ -1,0 +1,73 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5F7FA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8ECF1;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF5252;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E53935;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="barGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#42A5F5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1976D2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="barGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#66BB6A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#388E3C;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.15"/>
+    </filter>
+    <filter id="heartShadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="256" height="256" rx="24" fill="url(#bgGradient)"/>
+  
+  <!-- Perfect heart shape - standard mathematical heart curve -->
+  <!-- Heart formula: symmetric curves with proper control points -->
+  <path d="M 128 50
+           C 105 25, 85 30, 85 50
+           C 85 70, 105 90, 128 105
+           C 151 90, 171 70, 171 50
+           C 171 30, 151 25, 128 50 Z" 
+        fill="url(#heartGradient)" 
+        filter="url(#heartShadow)"/>
+  
+  <!-- Chart bars (representing statistics) with gradients, larger -->
+  <g filter="url(#shadow)">
+    <!-- Bar 1 -->
+    <rect x="45" y="160" width="28" height="48" rx="4" fill="url(#barGradient1)"/>
+    <!-- Bar 2 -->
+    <rect x="80" y="135" width="28" height="73" rx="4" fill="url(#barGradient2)"/>
+    <!-- Bar 3 (highest) -->
+    <rect x="115" y="100" width="28" height="108" rx="4" fill="url(#barGradient1)"/>
+    <!-- Bar 4 -->
+    <rect x="150" y="120" width="28" height="88" rx="4" fill="url(#barGradient2)"/>
+    <!-- Bar 5 -->
+    <rect x="185" y="150" width="28" height="58" rx="4" fill="url(#barGradient1)"/>
+  </g>
+  
+  <!-- Chart base line -->
+  <line x1="40" y1="208" x2="220" y2="208" stroke="#CFD8DC" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Decorative dots on bars (representing data points), larger -->
+  <g fill="#FFFFFF" opacity="0.9">
+    <circle cx="59" cy="180" r="3.5"/>
+    <circle cx="94" cy="155" r="3.5"/>
+    <circle cx="129" cy="120" r="3.5"/>
+    <circle cx="164" cy="140" r="3.5"/>
+    <circle cx="199" cy="170" r="3.5"/>
+  </g>
+  
+  <!-- Connecting line (trend line), thicker -->
+  <path d="M 59 180 Q 94 155, 129 120 T 199 170" 
+        stroke="#FFFFFF" 
+        stroke-width="3.5" 
+        fill="none" 
+        stroke-linecap="round" 
+        opacity="0.7"/>
+</svg>
