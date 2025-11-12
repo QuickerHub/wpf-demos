@@ -1,0 +1,49 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with semi-transparent elegant color -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5A5A5A;stop-opacity:0.75" />
+      <stop offset="100%" style="stop-color:#3D3D3D;stop-opacity:0.75" />
+    </linearGradient>
+    <!-- Ribbon gradient for 3D effect -->
+    <linearGradient id="ribbonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE55C;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E6C200;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main window (left, larger) - enlarged for better visibility -->
+  <rect x="10" y="20" width="140" height="180" rx="8" fill="#FFFFFF" stroke="#2A2A2A" stroke-width="3"/>
+  <!-- Window title bar -->
+  <rect x="15" y="30" width="130" height="16" rx="2" fill="#E8E8E8"/>
+  <!-- Window content lines -->
+  <rect x="15" y="55" width="100" height="10" rx="1" fill="#D5D5D5"/>
+  <rect x="15" y="70" width="110" height="10" rx="1" fill="#D5D5D5"/>
+  <rect x="15" y="85" width="95" height="10" rx="1" fill="#D5D5D5"/>
+  <rect x="15" y="100" width="105" height="10" rx="1" fill="#D5D5D5"/>
+  <rect x="15" y="115" width="90" height="10" rx="1" fill="#D5D5D5"/>
+  <rect x="15" y="130" width="100" height="10" rx="1" fill="#D5D5D5"/>
+  
+  <!-- Attached window (right, smaller, attached to main window) -->
+  <rect x="160" y="30" width="90" height="140" rx="8" fill="#FFFFFF" stroke="#2A2A2A" stroke-width="3"/>
+  <!-- Window title bar -->
+  <rect x="165" y="40" width="80" height="14" rx="2" fill="#E8E8E8"/>
+  <!-- Window content lines -->
+  <rect x="165" y="62" width="65" height="9" rx="1" fill="#D5D5D5"/>
+  <rect x="165" y="76" width="75" height="9" rx="1" fill="#D5D5D5"/>
+  <rect x="165" y="90" width="60" height="9" rx="1" fill="#D5D5D5"/>
+  <rect x="165" y="104" width="70" height="9" rx="1" fill="#D5D5D5"/>
+  <rect x="165" y="118" width="65" height="9" rx="1" fill="#D5D5D5"/>
+  
+  <!-- Connection indicator - simple rectangle connecting two windows -->
+  <!-- Window1 right edge: x=150 (10+140), Window2 left edge: x=160 -->
+  <!-- Window1 center y: 20 + 180/2 = 110, Window2 center y: 30 + 140/2 = 100 -->
+  <!-- Average center: (110 + 100) / 2 = 105 -->
+  <!-- Rectangle height: ~70px (half of window2 height 140), centered at y=105 -->
+  <rect x="150" y="70" width="10" height="70" rx="2" 
+        fill="url(#ribbonGradient)" 
+        fill-opacity="0.3"
+        stroke="#E6C200" 
+        stroke-width="2"/>
+</svg>

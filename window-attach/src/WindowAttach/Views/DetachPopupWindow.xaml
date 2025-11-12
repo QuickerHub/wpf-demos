@@ -1,0 +1,48 @@
+<Window x:Class="WindowAttach.Views.DetachPopupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DetachPopup"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight">
+    <Border Background="#80000000" 
+            CornerRadius="4" 
+            Padding="8,4"
+            BorderThickness="1"
+            BorderBrush="#40FFFFFF">
+        <Button Content="取消吸附" 
+                Click="DetachButton_Click"
+                Background="Transparent"
+                Foreground="White"
+                BorderThickness="0"
+                Padding="8,4"
+                Cursor="Hand"
+                FontSize="12">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" 
+                                        CornerRadius="2"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#40FFFFFF"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+        </Button>
+    </Border>
+</Window>
+

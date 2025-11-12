@@ -1,0 +1,94 @@
+<Window x:Class="WindowAttach.Views.WindowAttachListWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:WindowAttach.ViewModels"
+        mc:Ignorable="d"
+        Title="窗口吸附管理" Height="500" Width="800"
+        WindowStartupLocation="CenterScreen">
+    <Window.DataContext>
+        <vm:WindowAttachListViewModel />
+    </Window.DataContext>
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                <TextBlock Text="已注册的窗口吸附" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                <Button Content="刷新" Command="{Binding RefreshCommand}" Margin="10,0,0,0" Padding="10,5"/>
+            </StackPanel>
+            <TextBlock Text="说明：窗口2会吸附到窗口1上，跟随窗口1移动" 
+                       FontSize="12" 
+                       Foreground="Gray" 
+                       Margin="0,5,0,0"/>
+        </StackPanel>
+
+        <!-- List -->
+        <DataGrid Grid.Row="1" 
+                  ItemsSource="{Binding Attachments}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="All"
+                  HeadersVisibility="Column"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="窗口1标题" Binding="{Binding Window1Title}" Width="*"/>
+                <DataGridTextColumn Header="窗口1句柄" Binding="{Binding Window1HandleText}" Width="120"/>
+                <DataGridTextColumn Header="窗口2标题" Binding="{Binding Window2Title}" Width="*"/>
+                <DataGridTextColumn Header="窗口2句柄" Binding="{Binding Window2HandleText}" Width="120"/>
+                <DataGridTemplateColumn Header="操作" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="取消吸附" 
+                                    Command="{Binding DetachCommand}"
+                                    Padding="5,2"
+                                    HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Footer -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <TextBlock Text="{Binding Attachments.Count, StringFormat='共 {0} 个吸附'}" 
+                       VerticalAlignment="Center" 
+                       Margin="0,0,10,0">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasAttachments}" Value="False">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="暂无已注册的窗口吸附" 
+                       VerticalAlignment="Center" 
+                       Margin="0,0,10,0"
+                       Foreground="Gray">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasAttachments}" Value="False">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <Button Content="关闭" Command="{Binding CloseWindowCommand}" Padding="15,5"/>
+        </StackPanel>
+    </Grid>
+</Window>
+

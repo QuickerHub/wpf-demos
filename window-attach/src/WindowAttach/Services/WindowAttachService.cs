@@ -1,0 +1,437 @@
+using System;
+using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Threading;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.UI.WindowsAndMessaging;
+using static Windows.Win32.PInvoke;
+using WindowAttach.Models;
+using WindowAttach.Utils;
+
+namespace WindowAttach.Services
+{
+    /// <summary>
+    /// Service for attaching window2 to window1, making window2 follow window1 permanently
+    /// </summary>
+    public class WindowAttachService : IDisposable
+    {
+        private HWND _window1Handle;
+        private HWND _window2Handle;
+        private WindowPlacement _placement;
+        private double _offsetX;
+        private double _offsetY;
+        private bool _restrictToSameScreen;
+        private bool _isAttached;
+        private WindowEventHook? _window1EventHook;
+        private WindowEventHook? _window2EventHook;
+        private bool _isUpdatingPosition;
+        private AttachType _attachType = AttachType.Main;
+
+        /// <summary>
+        /// Event raised when either window is destroyed
+        /// </summary>
+        public event Action<IntPtr, IntPtr>? WindowDestroyed;
+
+        /// <summary>
+        /// Event raised when window2 visibility state changes (for syncing popup button)
+        /// </summary>
+        public event Action<IntPtr, bool>? Window2VisibilityChanged;
+
+        /// <summary>
+        /// Initialize window attachment
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window (window to follow)</param>
+        /// <param name="window2Handle">Handle of the window to attach (window that follows)</param>
+        /// <param name="placement">Placement position</param>
+        /// <param name="offsetX">Horizontal offset</param>
+        /// <param name="offsetY">Vertical offset</param>
+        /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1</param>
+        /// <param name="attachType">Type of attachment (Main or Popup)</param>
+        public void Attach(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement, 
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, AttachType attachType = AttachType.Main)
+        {
+            var hwnd1 = new HWND(window1Handle);
+            var hwnd2 = new HWND(window2Handle);
+
+            if (!IsWindow(hwnd1) || !IsWindow(hwnd2))
+                throw new ArgumentException("Invalid window handles");
+
+            Detach();
+
+            _window1Handle = hwnd1;
+            _window2Handle = hwnd2;
+            _placement = placement;
+            _offsetX = offsetX;
+            _offsetY = offsetY;
+            _restrictToSameScreen = restrictToSameScreen;
+            _attachType = attachType;
+            _isAttached = true;
+
+            // Start unified event hooks for both windows
+            StartEventHooks();
+
+            // Initial position update
+            UpdatePosition();
+        }
+
+        /// <summary>
+        /// Detach windows
+        /// </summary>
+        public void Detach()
+        {
+            _isAttached = false;
+            StopEventHooks();
+            _window1Handle = HWND.Null;
+            _window2Handle = HWND.Null;
+        }
+
+        /// <summary>
+        /// Update placement settings
+        /// </summary>
+        public void UpdateSettings(WindowPlacement placement, double offsetX, double offsetY, bool restrictToSameScreen)
+        {
+            _placement = placement;
+            _offsetX = offsetX;
+            _offsetY = offsetY;
+            _restrictToSameScreen = restrictToSameScreen;
+            
+            if (_isAttached)
+            {
+                UpdatePosition();
+            }
+        }
+
+        /// <summary>
+        /// Force an immediate position update
+        /// </summary>
+        public void ForceUpdatePosition()
+        {
+            if (_isAttached)
+            {
+                UpdatePosition();
+            }
+        }
+
+        private void StartEventHooks()
+        {
+            StopEventHooks();
+
+            // Create unified hook for window1 (monitors location changes, visibility, activation, and destruction)
+            _window1EventHook = new WindowEventHook(_window1Handle.Value);
+            _window1EventHook.LocationChanged += OnWindow1LocationChanged;
+            _window1EventHook.VisibilityChanged += OnWindow1VisibilityChanged;
+            _window1EventHook.Activated += OnWindow1Activated;
+            _window1EventHook.Destroyed += OnWindow1Destroyed;
+            _window1EventHook.StartHook();
+
+            // Create unified hook for window2 (monitors visibility and destruction)
+            _window2EventHook = new WindowEventHook(_window2Handle.Value);
+            _window2EventHook.VisibilityChanged += OnWindow2VisibilityChanged;
+            _window2EventHook.Destroyed += OnWindow2Destroyed;
+            _window2EventHook.StartHook();
+        }
+
+        private void StopEventHooks()
+        {
+            if (_window1EventHook != null)
+            {
+                _window1EventHook.LocationChanged -= OnWindow1LocationChanged;
+                _window1EventHook.VisibilityChanged -= OnWindow1VisibilityChanged;
+                _window1EventHook.Activated -= OnWindow1Activated;
+                _window1EventHook.Destroyed -= OnWindow1Destroyed;
+                _window1EventHook.Dispose();
+                _window1EventHook = null;
+            }
+
+            if (_window2EventHook != null)
+            {
+                _window2EventHook.VisibilityChanged -= OnWindow2VisibilityChanged;
+                _window2EventHook.Destroyed -= OnWindow2Destroyed;
+                _window2EventHook.Dispose();
+                _window2EventHook = null;
+            }
+        }
+
+        private void OnWindow1LocationChanged(IntPtr hwnd)
+        {
+            // Use Dispatcher to ensure UpdatePosition runs on UI thread
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(UpdatePosition),
+                DispatcherPriority.Normal);
+        }
+
+        private void OnWindow1VisibilityChanged(IntPtr hwnd, bool isVisible)
+        {
+            // Use Dispatcher to ensure UpdatePosition runs on UI thread
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(UpdatePosition),
+                DispatcherPriority.Normal);
+        }
+
+        private void OnWindow1Activated(IntPtr hwnd)
+        {
+            // When window1 is activated, adjust window2's z-order to be visible but not activated
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(AdjustWindow2ZOrder),
+                DispatcherPriority.Normal);
+        }
+
+        /// <summary>
+        /// Adjust window2's z-order to be visible when window1 is activated, but don't activate window2
+        /// </summary>
+        private void AdjustWindow2ZOrder()
+        {
+            if (!_isAttached)
+                return;
+
+            // Check if windows still exist
+            if (!IsWindow(_window1Handle) || !IsWindow(_window2Handle))
+                return;
+
+            // Check if window1 is visible and not minimized
+            if (!IsWindowVisible(_window1Handle) || IsIconic(_window1Handle))
+                return;
+
+            // Check if window2 is visible and not minimized
+            if (!IsWindowVisible(_window2Handle) || IsIconic(_window2Handle))
+                return;
+
+            // Set window2's z-order to be right after window1, but don't activate it
+            // This makes window2 visible when window1 is in foreground, but window2 won't steal focus
+            WindowHelper.SetWindowZOrder(_window2Handle.Value, _window1Handle.Value, 
+                SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE);
+        }
+
+        private void OnWindow2VisibilityChanged(IntPtr hwnd, bool isVisible)
+        {
+            // Notify visibility change for syncing popup button (only for Main attachments)
+            if (_attachType == AttachType.Main)
+            {
+                Application.Current.Dispatcher.BeginInvoke(
+                    new Action(() => Window2VisibilityChanged?.Invoke(hwnd, isVisible)),
+                    DispatcherPriority.Normal);
+            }
+        }
+
+        private void OnWindow1Destroyed(IntPtr hwnd)
+        {
+            // Use Dispatcher to ensure callback runs on UI thread
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    // Notify that window1 was destroyed
+                    WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
+                    Detach();
+                }),
+                DispatcherPriority.Normal);
+        }
+
+        private void OnWindow2Destroyed(IntPtr hwnd)
+        {
+            // Use Dispatcher to ensure callback runs on UI thread
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    // Notify that window2 was destroyed
+                    WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
+                    Detach();
+                }),
+                DispatcherPriority.Normal);
+        }
+
+        private void UpdatePosition()
+        {
+            if (!_isAttached || _isUpdatingPosition)
+                return;
+
+            // Check if windows still exist, if not, auto-detach
+            if (!IsWindow(_window1Handle) || !IsWindow(_window2Handle))
+            {
+                // Windows were destroyed, trigger event and detach
+                WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
+                Detach();
+                return;
+            }
+
+            _isUpdatingPosition = true;
+
+            try
+            {
+                // Check if window2 is a tool window (not shown in taskbar) or a popup attachment
+                bool isWindow2ToolWindow = WindowHelper.IsToolWindow(_window2Handle.Value);
+                bool isPopupAttachment = _attachType == AttachType.Popup;
+
+                // Check if window1 is minimized or hidden (both count as hidden)
+                bool isWindow1Hidden = IsIconic(_window1Handle) || !IsWindowVisible(_window1Handle);
+
+                if (isWindow1Hidden)
+                {
+                    if (isPopupAttachment || isWindow2ToolWindow)
+                    {
+                        // Hide window2 if it's a popup attachment or tool window (not shown in taskbar)
+                        if (IsWindowVisible(_window2Handle))
+                        {
+                            ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_HIDE);
+                        }
+                    }
+                    else
+                    {
+                        // Minimize window2 if window1 is hidden (normal window)
+                        if (!IsIconic(_window2Handle))
+                        {
+                            ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_MINIMIZE);
+                        }
+                    }
+                    return;
+                }
+                else
+                {
+                    if (isPopupAttachment || isWindow2ToolWindow)
+                    {
+                        // Show window2 without activating if it's a popup attachment or tool window
+                        if (!IsWindowVisible(_window2Handle))
+                        {
+                            ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_SHOWNA);
+                        }
+                    }
+                    else
+                    {
+                        // Restore window2 if window1 is restored (normal window)
+                        if (IsIconic(_window2Handle))
+                        {
+                            ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_RESTORE);
+                        }
+                    }
+                }
+
+                // Get window1 rectangle (physical pixels)
+                var window1Rect = WindowHelper.GetWindowRect(_window1Handle.Value);
+                if (window1Rect == null)
+                    return;
+
+                // Get window2 rectangle (physical pixels)
+                var window2Rect = WindowHelper.GetWindowRect(_window2Handle.Value);
+                if (window2Rect == null)
+                    return;
+
+                // Calculate window dimensions in physical pixels
+                int window1Left = window1Rect.Value.Left;
+                int window1Top = window1Rect.Value.Top;
+                int window1Width = window1Rect.Value.Width;
+                int window1Height = window1Rect.Value.Height;
+                int window2Width = window2Rect.Value.Width;
+                int window2Height = window2Rect.Value.Height;
+
+                // Calculate window2 position based on placement (all in physical pixels)
+                int window2X = 0, window2Y = 0;
+                int offsetX = (int)_offsetX;
+                int offsetY = (int)_offsetY;
+
+                switch (_placement)
+                {
+                    case WindowPlacement.LeftTop:
+                        window2X = window1Left - window2Width - offsetX;
+                        window2Y = window1Top + offsetY;
+                        break;
+                    case WindowPlacement.LeftCenter:
+                        window2X = window1Left - window2Width - offsetX;
+                        window2Y = window1Top + (window1Height - window2Height) / 2 + offsetY;
+                        break;
+                    case WindowPlacement.LeftBottom:
+                        window2X = window1Left - window2Width - offsetX;
+                        window2Y = window1Top + window1Height - window2Height - offsetY;
+                        break;
+                    case WindowPlacement.TopLeft:
+                        window2X = window1Left + offsetX;
+                        window2Y = window1Top - window2Height - offsetY;
+                        break;
+                    case WindowPlacement.TopCenter:
+                        window2X = window1Left + (window1Width - window2Width) / 2 + offsetX;
+                        window2Y = window1Top - window2Height - offsetY;
+                        break;
+                    case WindowPlacement.TopRight:
+                        window2X = window1Left + window1Width - window2Width - offsetX;
+                        window2Y = window1Top - window2Height - offsetY;
+                        break;
+                    case WindowPlacement.RightTop:
+                        window2X = window1Left + window1Width + offsetX;
+                        window2Y = window1Top + offsetY;
+                        break;
+                    case WindowPlacement.RightCenter:
+                        window2X = window1Left + window1Width + offsetX;
+                        window2Y = window1Top + (window1Height - window2Height) / 2 + offsetY;
+                        break;
+                    case WindowPlacement.RightBottom:
+                        window2X = window1Left + window1Width + offsetX;
+                        window2Y = window1Top + window1Height - window2Height - offsetY;
+                        break;
+                    case WindowPlacement.BottomLeft:
+                        window2X = window1Left + offsetX;
+                        window2Y = window1Top + window1Height + offsetY;
+                        break;
+                    case WindowPlacement.BottomCenter:
+                        window2X = window1Left + (window1Width - window2Width) / 2 + offsetX;
+                        window2Y = window1Top + window1Height + offsetY;
+                        break;
+                    case WindowPlacement.BottomRight:
+                        window2X = window1Left + window1Width - window2Width - offsetX;
+                        window2Y = window1Top + window1Height + offsetY;
+                        break;
+                }
+
+                // Get screen bounds if restriction is enabled (all in physical pixels)
+                if (_restrictToSameScreen)
+                {
+                    var workArea = WindowHelper.GetMonitorWorkArea(_window1Handle.Value);
+                    if (workArea != null)
+                    {
+                        int screenLeft = workArea.Value.Left;
+                        int screenTop = workArea.Value.Top;
+                        int screenRight = workArea.Value.Right;
+                        int screenBottom = workArea.Value.Bottom;
+
+                        // Constrain window2 position to screen bounds
+                        if (window2X < screenLeft)
+                            window2X = screenLeft;
+                        if (window2Y < screenTop)
+                            window2Y = screenTop;
+                        if (window2X + window2Width > screenRight)
+                            window2X = screenRight - window2Width;
+                        if (window2Y + window2Height > screenBottom)
+                            window2Y = screenBottom - window2Height;
+                    }
+                }
+
+                // Set window position (all values are already in physical pixels)
+                if (_attachType == AttachType.Popup)
+                {
+                    // For popup attachments, set z-order to be the same as window1 (which is window2 in the main attachment)
+                    // This ensures popup follows window2's z-order and doesn't stay on top when window1 goes to background
+                    WindowHelper.SetWindowZOrder(_window2Handle.Value, _window1Handle.Value, 
+                        SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
+                    // Then set position (with SWP_NOZORDER to preserve the z-order we just set)
+                    WindowHelper.SetWindowPos(_window2Handle.Value, window2X, window2Y, window2Width, window2Height,
+                        SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
+                }
+                else
+                {
+                    // For main attachments, use normal position update
+                    WindowHelper.SetWindowPos(_window2Handle.Value, window2X, window2Y, window2Width, window2Height,
+                        SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
+                }
+            }
+            finally
+            {
+                _isUpdatingPosition = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            Detach();
+        }
+    }
+}
+

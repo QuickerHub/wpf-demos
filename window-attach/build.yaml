@@ -1,0 +1,36 @@
+# BuildTools 简化配置文件
+# 将此文件放在你的项目根目录，然后运行 BuildTools.exe 即可自动构建
+
+# 基本项目信息
+name: window-attach
+displayName: WindowAttach
+versionKey: WindowAttach          # 对应 version.json 中的键名
+subprogramName: WindowAttach
+# 项目路径（可选，默认为当前目录）
+projectDir: src/WindowAttach
+
+# 发布相关配置
+uploadDir: WindowAttach
+packageName: cea.window-attach
+instruction: Window attachment tool for Quicker
+
+# 文件处理配置
+filesToInclude:
+  - "WindowAttach*.dll"
+  # DynamicData.dll is embedded using Costura.Fody
+binaryFilter: "WindowAttach*"
+filesToExclude:               # 要排除的文件
+  - "*.pdb"
+  - "*.xml"
+
+# 混淆配置（可选）
+obfuscate: true
+toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
+  - "WindowAttach.{version}.dll"
+
+# 测试配置（可选）
+testDir: "Quicker/_packages/cea.window-attach"
+
+# 构建控制
+enabled: true
+
