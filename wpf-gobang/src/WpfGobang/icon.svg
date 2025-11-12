@@ -1,0 +1,61 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="boardGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#DEB887;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#CD853F;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="url(#boardGradient)" stroke="#8B7355" stroke-width="3" filter="url(#shadow)"/>
+  
+  <!-- Board grid lines (simplified 7x7 grid) -->
+  <g stroke="#654321" stroke-width="1.5" opacity="0.5">
+    <!-- Horizontal lines -->
+    <line x1="48" y1="68" x2="208" y2="68"/>
+    <line x1="48" y1="88" x2="208" y2="88"/>
+    <line x1="48" y1="108" x2="208" y2="108"/>
+    <line x1="48" y1="128" x2="208" y2="128"/>
+    <line x1="48" y1="148" x2="208" y2="148"/>
+    <line x1="48" y1="168" x2="208" y2="168"/>
+    <line x1="48" y1="188" x2="208" y2="188"/>
+    
+    <!-- Vertical lines -->
+    <line x1="68" y1="48" x2="68" y2="208"/>
+    <line x1="88" y1="48" x2="88" y2="208"/>
+    <line x1="108" y1="48" x2="108" y2="208"/>
+    <line x1="128" y1="48" x2="128" y2="208"/>
+    <line x1="148" y1="48" x2="148" y2="208"/>
+    <line x1="168" y1="48" x2="168" y2="208"/>
+    <line x1="188" y1="48" x2="188" y2="208"/>
+  </g>
+  
+  <!-- Star points (Tian Yuan and Xing Wei) -->
+  <circle cx="128" cy="128" r="3" fill="#654321"/>
+  <circle cx="88" cy="88" r="2" fill="#654321"/>
+  <circle cx="168" cy="88" r="2" fill="#654321"/>
+  <circle cx="88" cy="168" r="2" fill="#654321"/>
+  <circle cx="168" cy="168" r="2" fill="#654321"/>
+  
+  <!-- Black pieces (showing a winning pattern) -->
+  <circle cx="88" cy="108" r="9" fill="#1a1a1a" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="108" cy="128" r="9" fill="#1a1a1a" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="128" cy="148" r="9" fill="#1a1a1a" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="148" cy="168" r="9" fill="#1a1a1a" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  
+  <!-- White pieces -->
+  <circle cx="148" cy="108" r="9" fill="#FFFFFF" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="168" cy="128" r="9" fill="#FFFFFF" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="188" cy="148" r="9" fill="#FFFFFF" stroke="#000000" stroke-width="1.5" filter="url(#shadow)"/>
+  
+  <!-- Highlight the winning line (5 black pieces in a row - diagonal) -->
+  <line x1="88" y1="108" x2="168" y2="188" stroke="#FFD700" stroke-width="4" opacity="0.9" stroke-linecap="round"/>
+  
+  <!-- Last move marker (golden circle with glow) -->
+  <circle cx="168" cy="188" r="14" fill="none" stroke="#FFD700" stroke-width="3" opacity="0.95"/>
+  <circle cx="168" cy="188" r="11" fill="none" stroke="#FFA500" stroke-width="2" opacity="0.7"/>
+</svg>
