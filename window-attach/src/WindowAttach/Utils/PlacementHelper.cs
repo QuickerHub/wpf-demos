@@ -21,24 +21,24 @@ namespace WindowAttach.Utils
             return mainPlacement switch
             {
                 // Window2 is on the left of window1, popup should be on the right of window2 (opposite side)
-                WindowPlacement.LeftTop => WindowPlacement.BottomRight,      // Opposite corner
+                WindowPlacement.LeftTop => WindowPlacement.BottomCenter,      // Opposite corner
                 WindowPlacement.LeftCenter => WindowPlacement.BottomCenter,   // Opposite side, same vertical position
-                WindowPlacement.LeftBottom => WindowPlacement.BottomLeft,      // Opposite corner
+                WindowPlacement.LeftBottom => WindowPlacement.TopCenter,      // Opposite corner
 
                 // Window2 is on the top of window1, popup should be on the bottom of window2 (opposite side)
-                WindowPlacement.TopLeft => WindowPlacement.RightBottom,      // Bottom-right corner
+                WindowPlacement.TopLeft => WindowPlacement.RightCenter,      // Bottom-right corner
                 WindowPlacement.TopCenter => WindowPlacement.RightCenter,    // Bottom-right corner
-                WindowPlacement.TopRight => WindowPlacement.LeftBottom,      // Bottom-left corner
+                WindowPlacement.TopRight => WindowPlacement.LeftCenter,      // Bottom-left corner
 
                 // Window2 is on the right of window1, popup should be on the left of window2 (opposite side)
-                WindowPlacement.RightTop => WindowPlacement.BottomLeft,      // Opposite corner
+                WindowPlacement.RightTop => WindowPlacement.BottomCenter,      // Opposite corner
                 WindowPlacement.RightCenter => WindowPlacement.BottomCenter,   // Opposite side, same vertical position
-                WindowPlacement.RightBottom => WindowPlacement.BottomLeft,      // Opposite corner
+                WindowPlacement.RightBottom => WindowPlacement.TopCenter,      // Opposite corner
 
                 // Window2 is on the bottom of window1, popup should be on the top of window2 (opposite side)
-                WindowPlacement.BottomLeft => WindowPlacement.RightTop,      // Top-right corner
+                WindowPlacement.BottomLeft => WindowPlacement.RightCenter,      // Top-right corner
                 WindowPlacement.BottomCenter => WindowPlacement.RightCenter,   // Top center
-                WindowPlacement.BottomRight => WindowPlacement.LeftTop,      // Top-left corner
+                WindowPlacement.BottomRight => WindowPlacement.LeftCenter,      // Top-left corner
 
                 _ => WindowPlacement.BottomRight // Default fallback
             };

@@ -2,6 +2,10 @@ using System;
 using System.Windows;
 using System.Windows.Interop;
 using WindowAttach;
+using WindowAttach.Models;
+using WindowAttach.Services;
+using WindowAttach.Utils;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace WindowAttach.Views
 {
@@ -21,6 +25,38 @@ namespace WindowAttach.Views
             
             // Set initial position - will be updated by attachment service
             WindowStartupLocation = WindowStartupLocation.Manual;
+            
+            // Prevent window from getting focus
+            ShowActivated = false;
+            Focusable = false;
+            
+            // Load current settings
+            LoadCurrentSettings();
+        }
+        
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            
+            // Set WS_EX_NOACTIVATE immediately after window creation, BEFORE window is shown
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                // Set WS_EX_NOACTIVATE to prevent window from getting focus
+                WindowHelper.SetWindowExStyle(hwnd, WINDOW_EX_STYLE.WS_EX_NOACTIVATE, true);
+            }
+        }
+        
+        private void LoadCurrentSettings()
+        {
+            var managerService = AppState.ManagerService;
+            var key = $"{Window1Handle}_{Window2Handle}_{AttachType.Main}";
+            var pair = managerService.GetPair(key);
+            
+            if (pair != null)
+            {
+                SettingsSelector.SetSettings(pair.RestrictToSameScreen, pair.AutoAdjustToScreen);
+            }
         }
 
         private void DetachButton_Click(object sender, RoutedEventArgs e)
@@ -28,6 +64,23 @@ namespace WindowAttach.Views
             // Unregister the main attachment (this will also destroy this popup)
             Runner.Unregister(Window1Handle, Window2Handle);
             Close();
+        }
+
+        private void PlacementSelector_PlacementSelected(object? sender, WindowPlacement placement)
+        {
+            // Update the placement for the main attachment
+            var managerService = AppState.ManagerService;
+            managerService.UpdatePlacement(Window1Handle, Window2Handle, placement);
+            
+            // Close the popup
+            PlacementButton.IsChecked = false;
+        }
+        
+        private void SettingsSelector_SettingsChanged(bool restrictToSameScreen, bool autoAdjustToScreen)
+        {
+            // Update the settings for the main attachment
+            var managerService = AppState.ManagerService;
+            managerService.UpdateSettings(Window1Handle, Window2Handle, restrictToSameScreen, autoAdjustToScreen);
         }
     }
 }

@@ -40,10 +40,11 @@ namespace WindowAttach.Services
         /// <param name="offsetX">Horizontal offset</param>
         /// <param name="offsetY">Vertical offset</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1</param>
+        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible</param>
         /// <param name="attachType">Type of attachment (Main or Popup)</param>
         /// <returns>True if registered successfully, false if already registered</returns>
         public bool Register(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, AttachType attachType = AttachType.Main)
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main)
         {
             // Blacklist check: only apply to Main attachments
             // Popup attachments should not be blocked by blacklist (popup can be attached as window2)
@@ -57,14 +58,22 @@ namespace WindowAttach.Services
             }
             // For Popup attachments, skip blacklist check (allow popup to be attached)
 
+            // Handle Nearest placement: calculate the best placement based on current window positions
+            WindowPlacement actualPlacement = placement;
+            if (placement == WindowPlacement.Nearest)
+            {
+                actualPlacement = PlacementCalculator.FindNearestPlacement(window1Handle, window2Handle, offsetX, offsetY);
+            }
+
             var pair = new WindowAttachPair
             {
                 Window1Handle = window1Handle,
                 Window2Handle = window2Handle,
-                Placement = placement,
+                Placement = actualPlacement, // Store the actual placement, not Nearest
                 OffsetX = offsetX,
                 OffsetY = offsetY,
                 RestrictToSameScreen = restrictToSameScreen,
+                AutoAdjustToScreen = autoAdjustToScreen,
                 AttachType = attachType
             };
 
@@ -78,7 +87,7 @@ namespace WindowAttach.Services
 
             // Create and register new attachment service
             var service = new WindowAttachService();
-            service.Attach(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, attachType);
+            service.Attach(window1Handle, window2Handle, actualPlacement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, attachType);
             
             // Subscribe to window destruction event for auto-unregister
             service.WindowDestroyed += (w1, w2) =>
@@ -104,7 +113,7 @@ namespace WindowAttach.Services
             // If this is a main attachment, create popup attachment immediately
             if (attachType == AttachType.Main)
             {
-                CreatePopupAttachment(window1Handle, window2Handle, placement);
+                CreatePopupAttachment(window1Handle, window2Handle, actualPlacement, service);
             }
 
             return true;
@@ -113,13 +122,43 @@ namespace WindowAttach.Services
         /// <summary>
         /// Create popup attachment for a main attachment
         /// </summary>
-        private void CreatePopupAttachment(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement mainPlacement)
+        private void CreatePopupAttachment(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement mainPlacement, WindowAttachService mainService)
         {
             // Calculate popup placement based on main placement
             var popupPlacement = PlacementHelper.GetPopupPlacement(mainPlacement);
 
             // Create popup window
             var popupWindow = new DetachPopupWindow(window1Handle, window2Handle);
+            
+            // Store popup window reference temporarily (will be updated after SourceInitialized)
+            string? popupKey = null;
+            
+            // Subscribe to main service's WindowDestroyed event to close popup when window2 is destroyed
+            mainService.WindowDestroyed += (w1, w2) =>
+            {
+                // When window2 is destroyed, close the popup window
+                Application.Current.Dispatcher.BeginInvoke(
+                    new Action(() =>
+                    {
+                        // Find and close popup window for this main attachment
+                        if (popupKey != null && _popupWindows.TryGetValue(popupKey, out var popup))
+                        {
+                            popup.Close();
+                        }
+                        else
+                        {
+                            // Fallback: find popup by mapping
+                            var keyToRemove = _popupToMainMapping
+                                .FirstOrDefault(kvp => kvp.Value.mainWindow1Handle == w1 && kvp.Value.mainWindow2Handle == w2)
+                                .Key;
+                            if (keyToRemove != null && _popupWindows.TryGetValue(keyToRemove, out var popupWindowToClose))
+                            {
+                                popupWindowToClose.Close();
+                            }
+                        }
+                    }),
+                    System.Windows.Threading.DispatcherPriority.Normal);
+            };
             
             // Handle popup window initialization and registration
             // Set up event handler BEFORE showing the window
@@ -129,6 +168,7 @@ namespace WindowAttach.Services
                 if (hwnd != IntPtr.Zero)
                 {
                     // Set WS_EX_NOACTIVATE extended style to prevent popup from getting focus
+                    // This MUST be set before window is shown
                     WindowHelper.SetWindowExStyle(hwnd, Windows.Win32.UI.WindowsAndMessaging.WINDOW_EX_STYLE.WS_EX_NOACTIVATE, true);
                     
                     // Set popup z-order to be the same as window2 (not topmost)
@@ -144,7 +184,7 @@ namespace WindowAttach.Services
                     _blacklist.Add(hwnd);
                     
                     // Store popup window reference
-                    var popupKey = GetKey(window2Handle, hwnd, AttachType.Popup);
+                    popupKey = GetKey(window2Handle, hwnd, AttachType.Popup);
                     _popupWindows[popupKey] = popupWindow;
                     
                     // Store mapping from popup to main attachment (window1Handle, window2Handle)
@@ -164,13 +204,17 @@ namespace WindowAttach.Services
                     {
                         // Remove from blacklist when popup is closed
                         _blacklist.Remove(hwnd);
-                        _popupWindows.Remove(popupKey);
-                        _popupToMainMapping.Remove(popupKey);
+                        if (popupKey != null)
+                        {
+                            _popupWindows.Remove(popupKey);
+                            _popupToMainMapping.Remove(popupKey);
+                        }
                     };
                 }
             };
             
-            // Show popup window after setting up event handlers
+            // Show popup window AFTER setting up SourceInitialized handler
+            // SourceInitialized fires when window handle is created, before window is shown
             popupWindow.Show();
         }
 
@@ -179,7 +223,8 @@ namespace WindowAttach.Services
         /// </summary>
         private void RegisterPopupAttachment(IntPtr window2Handle, IntPtr popupHandle, WindowPlacement popupPlacement)
         {
-            Register(window2Handle, popupHandle, popupPlacement, 0, 0, false, AttachType.Popup);
+            // Popup window should always be restricted to screen bounds
+            Register(window2Handle, popupHandle, popupPlacement, 0, 0, restrictToSameScreen: true, autoAdjustToScreen: true, AttachType.Popup);
         }
 
         /// <summary>
@@ -348,9 +393,10 @@ namespace WindowAttach.Services
         /// <param name="offsetX">Horizontal offset (used when registering)</param>
         /// <param name="offsetY">Vertical offset (used when registering)</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (used when registering)</param>
+        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (used when registering)</param>
         /// <returns>True if registered, false if unregistered</returns>
         public bool Toggle(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false)
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false)
         {
             if (IsRegistered(window1Handle, window2Handle, AttachType.Main))
             {
@@ -359,7 +405,7 @@ namespace WindowAttach.Services
             }
             else
             {
-                Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, AttachType.Main);
+                Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, AttachType.Main);
                 return true;
             }
         }
@@ -396,6 +442,120 @@ namespace WindowAttach.Services
         public IEnumerable<(IntPtr window1Handle, IntPtr window2Handle)> GetRegisteredPairs()
         {
             return _pairsCache.Items.Select(pair => (pair.Window1Handle, pair.Window2Handle));
+        }
+
+        /// <summary>
+        /// Update placement for an existing attachment
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window</param>
+        /// <param name="window2Handle">Handle of the attached window</param>
+        /// <param name="newPlacement">New placement position</param>
+        /// <returns>True if updated successfully, false if not found</returns>
+        public bool UpdatePlacement(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement newPlacement)
+        {
+            var key = GetKey(window1Handle, window2Handle, AttachType.Main);
+            
+            if (!_attachments.TryGetValue(key, out var service))
+            {
+                return false;
+            }
+            
+            // Get current pair from cache
+            var pairLookup = _pairsCache.Lookup(key);
+            if (!pairLookup.HasValue)
+            {
+                return false;
+            }
+            
+            var pair = pairLookup.Value;
+            
+            // Update the service settings
+            service.UpdateSettings(newPlacement, pair.OffsetX, pair.OffsetY, pair.RestrictToSameScreen, pair.AutoAdjustToScreen);
+            
+            // Update the pair in cache
+            pair.Placement = newPlacement;
+            _pairsCache.AddOrUpdate(pair);
+            
+            // If this is a main attachment, update popup placement as well
+            var popupPlacement = PlacementHelper.GetPopupPlacement(newPlacement);
+            UpdatePopupPlacement(window2Handle, popupPlacement);
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// Get a window attachment pair by key
+        /// </summary>
+        /// <param name="key">Attachment key</param>
+        /// <returns>Window attachment pair if found, null otherwise</returns>
+        public WindowAttachPair? GetPair(string key)
+        {
+            var lookup = _pairsCache.Lookup(key);
+            return lookup.HasValue ? lookup.Value : null;
+        }
+        
+        /// <summary>
+        /// Update settings for an existing attachment
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window</param>
+        /// <param name="window2Handle">Handle of the attached window</param>
+        /// <param name="restrictToSameScreen">Whether to restrict to same screen</param>
+        /// <param name="autoAdjustToScreen">Whether to auto-adjust to screen</param>
+        /// <returns>True if updated successfully, false if not found</returns>
+        public bool UpdateSettings(IntPtr window1Handle, IntPtr window2Handle, bool restrictToSameScreen, bool autoAdjustToScreen)
+        {
+            var key = GetKey(window1Handle, window2Handle, AttachType.Main);
+            
+            if (!_attachments.TryGetValue(key, out var service))
+            {
+                return false;
+            }
+            
+            // Get current pair from cache
+            var pairLookup = _pairsCache.Lookup(key);
+            if (!pairLookup.HasValue)
+            {
+                return false;
+            }
+            
+            var pair = pairLookup.Value;
+            
+            // Update the service settings
+            service.UpdateSettings(pair.Placement, pair.OffsetX, pair.OffsetY, restrictToSameScreen, autoAdjustToScreen);
+            
+            // Update the pair in cache
+            pair.RestrictToSameScreen = restrictToSameScreen;
+            pair.AutoAdjustToScreen = autoAdjustToScreen;
+            _pairsCache.AddOrUpdate(pair);
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// Update popup placement for a main attachment
+        /// </summary>
+        private void UpdatePopupPlacement(IntPtr window2Handle, WindowPlacement popupPlacement)
+        {
+            // Find popup attachment for this window2
+            var popupPairs = _pairsCache.Items
+                .Where(p => p.Window1Handle == window2Handle && p.AttachType == AttachType.Popup)
+                .ToList();
+            
+            foreach (var popupPair in popupPairs)
+            {
+                var popupKey = GetKey(popupPair.Window1Handle, popupPair.Window2Handle, AttachType.Popup);
+                
+                if (_attachments.TryGetValue(popupKey, out var popupService))
+                {
+                    // Update popup service settings
+                    popupService.UpdateSettings(popupPlacement, popupPair.OffsetX, popupPair.OffsetY, 
+                        popupPair.RestrictToSameScreen, popupPair.AutoAdjustToScreen);
+                    
+                    // Update the pair in cache
+                    popupPair.Placement = popupPlacement;
+                    _pairsCache.AddOrUpdate(popupPair);
+                }
+            }
         }
 
         /// <summary>

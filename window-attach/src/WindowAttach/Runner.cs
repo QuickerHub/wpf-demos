@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Windows;
 using WindowAttach.Models;
 using WindowAttach.Services;
@@ -15,6 +16,33 @@ namespace WindowAttach
 
         /// <summary>
         /// Attach window2 to window1, or detach if already attached (toggle behavior)
+        /// This overload supports int handles and string placement for Quicker integration
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window (window to follow) as int</param>
+        /// <param name="window2Handle">Handle of the window to attach (window that follows) as int</param>
+        /// <param name="placement">Placement position as string (e.g., "RightTop", "LeftCenter", etc.)</param>
+        /// <param name="autoUnregister">If true, automatically unregister when windows are closed (default: true)</param>
+        /// <param name="offsetX">Horizontal offset (default: 0)</param>
+        /// <param name="offsetY">Vertical offset (default: 0)</param>
+        /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (default: false)</param>
+        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (default: false)</param>
+        /// <returns>True if attached, false if detached</returns>
+        public static bool AttachWindow(int window1Handle, int window2Handle, string placement = "RightTop",
+            bool autoUnregister = true, double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false)
+        {
+            // Convert int handles to IntPtr
+            IntPtr hwnd1 = new IntPtr(window1Handle);
+            IntPtr hwnd2 = new IntPtr(window2Handle);
+
+            // Parse placement string to enum
+            WindowPlacement placementEnum = ParsePlacement(placement);
+
+            // Call the main AttachWindow method
+            return AttachWindow(hwnd1, hwnd2, autoUnregister, placementEnum, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
+        }
+
+        /// <summary>
+        /// Attach window2 to window1, or detach if already attached (toggle behavior)
         /// </summary>
         /// <param name="window1Handle">Handle of the target window (window to follow)</param>
         /// <param name="window2Handle">Handle of the window to attach (window that follows)</param>
@@ -23,10 +51,11 @@ namespace WindowAttach
         /// <param name="offsetX">Horizontal offset (default: 0)</param>
         /// <param name="offsetY">Vertical offset (default: 0)</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (default: false)</param>
+        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (default: false)</param>
         /// <returns>True if attached, false if detached</returns>
         public static bool AttachWindow(IntPtr window1Handle, IntPtr window2Handle, bool autoUnregister = true,
             WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false)
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false)
         {
             if (window1Handle == IntPtr.Zero || window2Handle == IntPtr.Zero)
             {
@@ -39,13 +68,13 @@ namespace WindowAttach
                 bool result = false;
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    result = AttachWindow(window1Handle, window2Handle, autoUnregister, placement, offsetX, offsetY, restrictToSameScreen);
+                    result = AttachWindow(window1Handle, window2Handle, autoUnregister, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
                 });
                 return result;
             }
 
             // Toggle attachment
-            bool isAttached = _managerService.Toggle(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen);
+            bool isAttached = _managerService.Toggle(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
 
             // If auto-unregister is enabled and we just attached, set up monitoring for window closure
             if (autoUnregister && isAttached)
@@ -66,10 +95,11 @@ namespace WindowAttach
         /// <param name="offsetX">Horizontal offset (default: 0)</param>
         /// <param name="offsetY">Vertical offset (default: 0)</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (default: false)</param>
+        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (default: false)</param>
         /// <returns>True if registered successfully, false if already registered</returns>
         public static bool Register(IntPtr window1Handle, IntPtr window2Handle,
             WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false)
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false)
         {
             if (window1Handle == IntPtr.Zero || window2Handle == IntPtr.Zero)
             {
@@ -82,12 +112,12 @@ namespace WindowAttach
                 bool result = false;
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    result = Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen);
+                    result = Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
                 });
                 return result;
             }
 
-            return _managerService.Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen);
+            return _managerService.Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
         }
 
         /// <summary>
@@ -183,6 +213,28 @@ namespace WindowAttach
 
             var window = new WindowAttachListWindow();
             window.Show();
+        }
+
+        /// <summary>
+        /// Parse placement string to WindowPlacement enum
+        /// </summary>
+        /// <param name="placement">Placement string (case-insensitive)</param>
+        /// <returns>WindowPlacement enum value, defaults to RightTop if parsing fails</returns>
+        private static WindowPlacement ParsePlacement(string placement)
+        {
+            if (string.IsNullOrWhiteSpace(placement))
+            {
+                return WindowPlacement.RightTop;
+            }
+
+            // Try to parse the enum (case-insensitive)
+            if (Enum.TryParse<WindowPlacement>(placement, true, out WindowPlacement result))
+            {
+                return result;
+            }
+
+            // If parsing fails, return default
+            return WindowPlacement.RightTop;
         }
     }
 }

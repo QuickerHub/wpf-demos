@@ -63,7 +63,13 @@ namespace WindowAttach.Models
         /// <summary>
         /// Bottom right corner
         /// </summary>
-        BottomRight
+        BottomRight,
+        
+        /// <summary>
+        /// Automatically select the nearest placement based on current window positions
+        /// This option is only used during attachment creation
+        /// </summary>
+        Nearest
     }
 }
 

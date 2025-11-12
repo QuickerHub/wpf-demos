@@ -49,7 +49,7 @@ namespace WindowAttach
                 // Add some content to the test window
                 var textBlock = new System.Windows.Controls.TextBlock
                 {
-                    Text = "这是吸附窗口\n吸附到主窗口的右侧顶部",
+                    Text = "这是吸附窗口\n吸附到主窗口的右侧顶部\n已启用自动调整位置功能",
                     FontSize = 14,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -71,13 +71,15 @@ namespace WindowAttach
                     }
 
                     // Register window attachment using Runner (so it appears in management window)
+                    // Enable autoAdjustToScreen to test automatic position adjustment
                     Runner.Register(
                         window1Handle: mainWindowHandle,
                         window2Handle: testWindowHandle,
                         placement: WindowPlacement.RightTop,
                         offsetX: 10,  // 10 pixels offset from the right edge
                         offsetY: 0,   // 0 pixels offset from the top
-                        restrictToSameScreen: false
+                        restrictToSameScreen: false,
+                        autoAdjustToScreen: true  // Enable automatic position adjustment to maximize visible area
                     );
                 };
 

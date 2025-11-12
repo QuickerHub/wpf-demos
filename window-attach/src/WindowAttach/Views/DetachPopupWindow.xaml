@@ -1,11 +1,13 @@
 <Window x:Class="WindowAttach.Views.DetachPopupWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:WindowAttach.Controls"
         Title="DetachPopup"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="False"
+        ShowActivated="False"
         ResizeMode="NoResize"
         SizeToContent="WidthAndHeight">
     <Border Background="#80000000" 
@@ -13,16 +15,15 @@
             Padding="8,4"
             BorderThickness="1"
             BorderBrush="#40FFFFFF">
-        <Button Content="取消吸附" 
-                Click="DetachButton_Click"
-                Background="Transparent"
-                Foreground="White"
-                BorderThickness="0"
-                Padding="8,4"
-                Cursor="Hand"
-                FontSize="12">
-            <Button.Style>
-                <Style TargetType="Button">
+        <StackPanel Orientation="Horizontal">
+            <StackPanel.Resources>
+                <Style x:Key="ButtonBaseStyle" TargetType="Button">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="8,4"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="FontSize" Value="12"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="Button">
@@ -41,8 +42,58 @@
                         </Trigger>
                     </Style.Triggers>
                 </Style>
-            </Button.Style>
-        </Button>
+                
+                <Style x:Key="ToggleButtonBaseStyle" TargetType="ToggleButton">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="8,4"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border Background="{TemplateBinding Background}" 
+                                        CornerRadius="2"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#40FFFFFF"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Resources>
+            
+            <Button Content="取消吸附" 
+                    Click="DetachButton_Click"
+                    Style="{StaticResource ButtonBaseStyle}"/>
+            
+            <controls:PopupButtonControl x:Name="PlacementButton"
+                                        Header="位置"
+                                        Margin="8,0,0,0">
+                <controls:PopupButtonControl.ToggleButtonStyle>
+                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonBaseStyle}"/>
+                </controls:PopupButtonControl.ToggleButtonStyle>
+                <controls:PlacementSelectorControl PlacementSelected="PlacementSelector_PlacementSelected"/>
+            </controls:PopupButtonControl>
+            
+            <controls:PopupButtonControl x:Name="SettingsButton"
+                                        Header="设置"
+                                        Margin="8,0,0,0">
+                <controls:PopupButtonControl.ToggleButtonStyle>
+                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ToggleButtonBaseStyle}"/>
+                </controls:PopupButtonControl.ToggleButtonStyle>
+                <controls:SettingsSelectorControl x:Name="SettingsSelector"
+                                                 SettingsChanged="SettingsSelector_SettingsChanged"/>
+            </controls:PopupButtonControl>
+        </StackPanel>
     </Border>
 </Window>
 

@@ -23,6 +23,7 @@ namespace WindowAttach.Services
         private double _offsetX;
         private double _offsetY;
         private bool _restrictToSameScreen;
+        private bool _autoAdjustToScreen;
         private bool _isAttached;
         private WindowEventHook? _window1EventHook;
         private WindowEventHook? _window2EventHook;
@@ -48,9 +49,10 @@ namespace WindowAttach.Services
         /// <param name="offsetX">Horizontal offset</param>
         /// <param name="offsetY">Vertical offset</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1</param>
+        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible</param>
         /// <param name="attachType">Type of attachment (Main or Popup)</param>
         public void Attach(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement, 
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, AttachType attachType = AttachType.Main)
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main)
         {
             var hwnd1 = new HWND(window1Handle);
             var hwnd2 = new HWND(window2Handle);
@@ -66,6 +68,7 @@ namespace WindowAttach.Services
             _offsetX = offsetX;
             _offsetY = offsetY;
             _restrictToSameScreen = restrictToSameScreen;
+            _autoAdjustToScreen = autoAdjustToScreen;
             _attachType = attachType;
             _isAttached = true;
 
@@ -90,12 +93,13 @@ namespace WindowAttach.Services
         /// <summary>
         /// Update placement settings
         /// </summary>
-        public void UpdateSettings(WindowPlacement placement, double offsetX, double offsetY, bool restrictToSameScreen)
+        public void UpdateSettings(WindowPlacement placement, double offsetX, double offsetY, bool restrictToSameScreen, bool autoAdjustToScreen)
         {
             _placement = placement;
             _offsetX = offsetX;
             _offsetY = offsetY;
             _restrictToSameScreen = restrictToSameScreen;
+            _autoAdjustToScreen = autoAdjustToScreen;
             
             if (_isAttached)
             {
@@ -379,9 +383,27 @@ namespace WindowAttach.Services
                         window2X = window1Left + window1Width - window2Width - offsetX;
                         window2Y = window1Top + window1Height + offsetY;
                         break;
+                    case WindowPlacement.Nearest:
+                        // Nearest should have been converted to actual placement during registration
+                        // If we reach here, default to RightTop
+                        window2X = window1Left + window1Width + offsetX;
+                        window2Y = window1Top + offsetY;
+                        break;
                 }
 
-                // Get screen bounds if restriction is enabled (all in physical pixels)
+                // Auto-adjust position to maximize visible area if enabled (excluding overlap with window1)
+                // Tries all placement positions and selects the one with maximum visible area
+                // Prioritizes opposite placement (e.g., LeftTop -> RightTop)
+                if (_autoAdjustToScreen)
+                {
+                    var (adjustedX, adjustedY) = ScreenAdjustHelper.AdjustPositionToScreen(
+                        window2X, window2Y, window2Width, window2Height, _window2Handle.Value, window1Rect.Value, _placement, _offsetX, _offsetY);
+                    window2X = adjustedX;
+                    window2Y = adjustedY;
+                }
+
+                // Get screen bounds if restriction is enabled (applied after autoAdjustToScreen if enabled)
+                // This ensures restrictToSameScreen works on the adjusted position
                 if (_restrictToSameScreen)
                 {
                     var workArea = WindowHelper.GetMonitorWorkArea(_window1Handle.Value);

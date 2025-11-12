@@ -13,6 +13,7 @@ namespace WindowAttach.Models
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public bool RestrictToSameScreen { get; set; }
+        public bool AutoAdjustToScreen { get; set; }
         public DateTime RegisteredTime { get; set; } = DateTime.Now;
         public AttachType AttachType { get; set; } = AttachType.Main;
 

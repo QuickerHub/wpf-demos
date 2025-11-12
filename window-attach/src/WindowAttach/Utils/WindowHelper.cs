@@ -153,10 +153,15 @@ namespace WindowAttach.Utils
             if (!IsWindow(hwnd))
                 return false;
 
+            // Get current extended style
             var currentExStyle = (WINDOW_EX_STYLE)Windows.Win32.PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            
+            // Set or clear the flag
             var newExStyle = value ? (currentExStyle | exStyle) : (currentExStyle & ~exStyle);
             
+            // Set the new extended style
             Windows.Win32.PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, (nint)newExStyle);
+            
             return true;
         }
 
