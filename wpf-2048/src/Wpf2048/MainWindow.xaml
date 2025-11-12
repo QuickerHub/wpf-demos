@@ -1,0 +1,142 @@
+<Window
+    x:Class="Wpf2048.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:Wpf2048"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="2048"
+    Width="500"
+    Height="600"
+    Background="#FAF8EF"
+    KeyDown="Window_KeyDown"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+    <Window.Resources>
+        <Style TargetType="Border">
+            <Setter Property="Background" Value="#BBADA0" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Margin" Value="5" />
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions> 
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+
+        <!--  Score Panel  -->
+        <Grid Grid.Row="0" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="5">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="14"
+                    Foreground="#776E65"
+                    Text="Score" />
+                <TextBlock
+                    x:Name="ScoreText"
+                    Margin="5"
+                    Padding="10,5"
+                    HorizontalAlignment="Center"
+                    Background="#BBADA0"
+                    FontSize="24"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    Text="0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="5">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="14"
+                    Foreground="#776E65"
+                    Text="Best" />
+                <TextBlock
+                    x:Name="BestScoreText"
+                    Margin="5"
+                    Padding="10,5"
+                    HorizontalAlignment="Center"
+                    Background="#BBADA0"
+                    FontSize="24"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    Text="0" />
+            </StackPanel>
+        </Grid>
+
+        <!--  Game Grid  -->
+        <Viewbox Grid.Row="1" 
+                 Stretch="Uniform" 
+                 StretchDirection="Both"
+                 Margin="20"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center">
+            <Border
+                Width="400"
+                Height="400"
+                Padding="5"
+                Background="#BBADA0"
+                CornerRadius="5">
+                <Canvas x:Name="GameGrid" 
+                        Background="#BBADA0"
+                        Width="390"
+                        Height="390">
+                    <!--  Tiles will be added programmatically  -->
+                </Canvas>
+            </Border>
+        </Viewbox>
+
+        <!--  Game Over Overlay  -->
+        <Grid
+            x:Name="GameOverOverlay"
+            Grid.Row="1"
+            Background="#00000080"
+            Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock
+                    x:Name="GameOverText"
+                    Margin="10"
+                    HorizontalAlignment="Center"
+                    FontSize="36"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    Text="Game Over!" />
+                <TextBlock
+                    x:Name="GameOverSubText"
+                    Margin="10"
+                    HorizontalAlignment="Center"
+                    FontSize="18"
+                    Foreground="White"
+                    Text="Press R to restart" />
+            </StackPanel>
+        </Grid>
+
+        <!--  Instructions  -->
+        <StackPanel Grid.Row="2" Margin="20,10">
+            <TextBlock
+                Margin="0,0,0,5"
+                FontSize="16"
+                FontWeight="Bold"
+                Foreground="#776E65"
+                Text="How to play:" />
+            <TextBlock
+                Margin="0,0,0,10"
+                FontSize="12"
+                Foreground="#776E65"
+                Text="Use arrow keys to move tiles. Tiles with the same number merge into one when they touch. Get to 2048!"
+                TextWrapping="Wrap" />
+            <Button
+                x:Name="NewGameButton"
+                Margin="0,5"
+                HorizontalAlignment="Left"
+                Click="NewGameButton_Click"
+                Content="New Game"
+                FontSize="14" />
+        </StackPanel>
+    </Grid>
+</Window>
+

@@ -1,0 +1,25 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Game grid background -->
+  <rect x="16" y="16" width="224" height="224" rx="12" fill="#BBADA0"/>
+  
+  <!-- Grid line (vertical) -->
+  <line x1="128" y1="16" x2="128" y2="240" stroke="#CDC1B4" stroke-width="2" opacity="0.8"/>
+  <!-- Grid line (horizontal) -->
+  <line x1="16" y1="128" x2="240" y2="128" stroke="#CDC1B4" stroke-width="2" opacity="0.8"/>
+  
+  <!-- Top-left: 2 -->
+  <rect x="21" y="21" width="102" height="102" rx="8" fill="#EEE4DA"/>
+  <text x="72" y="72" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="#776E65" text-anchor="middle" dominant-baseline="central">2</text>
+  
+  <!-- Top-right: 4 -->
+  <rect x="133" y="21" width="102" height="102" rx="8" fill="#EDE0C8"/>
+  <text x="184" y="72" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="#776E65" text-anchor="middle" dominant-baseline="central">4</text>
+  
+  <!-- Bottom-left: 4 -->
+  <rect x="21" y="133" width="102" height="102" rx="8" fill="#EDE0C8"/>
+  <text x="72" y="184" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="#776E65" text-anchor="middle" dominant-baseline="central">4</text>
+  
+  <!-- Bottom-right: 2 -->
+  <rect x="133" y="133" width="102" height="102" rx="8" fill="#EEE4DA"/>
+  <text x="184" y="184" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="#776E65" text-anchor="middle" dominant-baseline="central">2</text>
+</svg>

@@ -1,0 +1,31 @@
+<UserControl x:Class="Wpf2048.TileControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch">
+    <Border x:Name="TileBorder" 
+            CornerRadius="5" 
+            Background="{Binding BackgroundColor, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            BorderBrush="#BBADA0" 
+            BorderThickness="2"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Border.RenderTransform>
+            <TransformGroup>
+                <TranslateTransform x:Name="TranslateTransform"/>
+                <ScaleTransform x:Name="ScaleTransform"/>
+            </TransformGroup>
+        </Border.RenderTransform>
+        <TextBlock x:Name="TileText"
+                   Text="{Binding Value, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   FontSize="32"
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="{Binding TextColor, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+    </Border>
+</UserControl>
+
