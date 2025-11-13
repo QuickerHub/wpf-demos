@@ -105,36 +105,73 @@ namespace WindowAttach.Utils
         }
 
         /// <summary>
-        /// Get placements in priority order: opposite first, then others
+        /// Get placements in priority order based on original placement direction
+        /// For right**: prioritize left**, then top** and bottom**
+        /// For left**: prioritize right**, then top** and bottom**
+        /// For top**: prioritize bottom**, then left** and right**
+        /// For bottom**: prioritize top**, then left** and right**
         /// </summary>
         private static WindowPlacement[] GetPlacementsInPriorityOrder(WindowPlacement originalPlacement)
         {
-            var oppositePlacement = GetOppositePlacement(originalPlacement);
-            
-            // All possible placements (excluding Nearest)
-            var allPlacements = new[]
-            {
-                WindowPlacement.LeftTop,
-                WindowPlacement.LeftCenter,
-                WindowPlacement.LeftBottom,
-                WindowPlacement.TopLeft,
-                WindowPlacement.TopCenter,
-                WindowPlacement.TopRight,
-                WindowPlacement.RightTop,
-                WindowPlacement.RightCenter,
-                WindowPlacement.RightBottom,
-                WindowPlacement.BottomLeft,
-                WindowPlacement.BottomCenter,
-                WindowPlacement.BottomRight
-            };
+            // Group placements by direction
+            var leftPlacements = new[] { WindowPlacement.LeftTop, WindowPlacement.LeftCenter, WindowPlacement.LeftBottom };
+            var rightPlacements = new[] { WindowPlacement.RightTop, WindowPlacement.RightCenter, WindowPlacement.RightBottom };
+            var topPlacements = new[] { WindowPlacement.TopLeft, WindowPlacement.TopCenter, WindowPlacement.TopRight };
+            var bottomPlacements = new[] { WindowPlacement.BottomLeft, WindowPlacement.BottomCenter, WindowPlacement.BottomRight };
 
-            // Put opposite placement first, then others
-            var priorityList = new List<WindowPlacement> { oppositePlacement };
-            foreach (var placement in allPlacements)
+            var priorityList = new List<WindowPlacement>();
+
+            // Determine priority based on original placement direction
+            if (rightPlacements.Contains(originalPlacement))
             {
-                if (placement != oppositePlacement)
+                // For right**: prioritize left**, then top** and bottom**
+                priorityList.AddRange(leftPlacements);
+                priorityList.AddRange(topPlacements);
+                priorityList.AddRange(bottomPlacements);
+                priorityList.AddRange(rightPlacements.Where(p => p != originalPlacement));
+            }
+            else if (leftPlacements.Contains(originalPlacement))
+            {
+                // For left**: prioritize right**, then top** and bottom**
+                priorityList.AddRange(rightPlacements);
+                priorityList.AddRange(topPlacements);
+                priorityList.AddRange(bottomPlacements);
+                priorityList.AddRange(leftPlacements.Where(p => p != originalPlacement));
+            }
+            else if (topPlacements.Contains(originalPlacement))
+            {
+                // For top**: prioritize bottom**, then left** and right**
+                priorityList.AddRange(bottomPlacements);
+                priorityList.AddRange(leftPlacements);
+                priorityList.AddRange(rightPlacements);
+                priorityList.AddRange(topPlacements.Where(p => p != originalPlacement));
+            }
+            else if (bottomPlacements.Contains(originalPlacement))
+            {
+                // For bottom**: prioritize top**, then left** and right**
+                priorityList.AddRange(topPlacements);
+                priorityList.AddRange(leftPlacements);
+                priorityList.AddRange(rightPlacements);
+                priorityList.AddRange(bottomPlacements.Where(p => p != originalPlacement));
+            }
+            else
+            {
+                // Fallback: use opposite placement first, then all others
+                var oppositePlacement = GetOppositePlacement(originalPlacement);
+                priorityList.Add(oppositePlacement);
+                var allPlacements = new[]
                 {
-                    priorityList.Add(placement);
+                    WindowPlacement.LeftTop, WindowPlacement.LeftCenter, WindowPlacement.LeftBottom,
+                    WindowPlacement.TopLeft, WindowPlacement.TopCenter, WindowPlacement.TopRight,
+                    WindowPlacement.RightTop, WindowPlacement.RightCenter, WindowPlacement.RightBottom,
+                    WindowPlacement.BottomLeft, WindowPlacement.BottomCenter, WindowPlacement.BottomRight
+                };
+                foreach (var placement in allPlacements)
+                {
+                    if (placement != oppositePlacement && placement != originalPlacement)
+                    {
+                        priorityList.Add(placement);
+                    }
                 }
             }
 
@@ -161,19 +198,15 @@ namespace WindowAttach.Utils
             // Create ideal window rectangle
             var idealWindowRect = new WindowRect(idealX, idealY, idealX + window2Width, idealY + window2Height);
 
-            // Check if window is fully visible at ideal position (excluding overlap with window1)
-            // If window2 is fully within screen and doesn't overlap with window1, use ideal position
+            // Only adjust position if window2 is partially outside the screen
+            // If window2 is fully within screen bounds, use ideal position regardless of overlap with window1
             if (IsWindowFullyVisible(idealWindowRect, screenRect))
             {
-                // Check if there's overlap with window1
-                int overlapArea = CalculateIntersectionArea(idealWindowRect, window1Rect);
-                if (overlapArea == 0)
-                {
-                    // No overlap, use ideal position
-                    return (idealX, idealY);
-                }
+                // Window is fully visible on screen, use ideal position
+                return (idealX, idealY);
             }
 
+            // Window is partially outside screen, try to find better position
             // Calculate visible area at ideal position (excluding overlap with window1)
             int idealVisibleArea = CalculateVisibleArea(idealWindowRect, screenRect, window1Rect);
 

@@ -45,13 +45,34 @@ namespace WindowEdgeHide
         }
 
         /// <summary>
+        /// Enable edge hiding for a window (compatibility overload with useAnimation boolean)
+        /// This overload uses useAnimation boolean instead of animationType string for backward compatibility
+        /// </summary>
+        /// <param name="windowHandle">Window handle as int</param>
+        /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
+        /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
+        /// <param name="useAnimation">If true, use EaseInOut animation; if false, no animation. Default: false</param>
+        /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
+        /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
+        /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
+        /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
+        /// <returns>Result object with success status and message</returns>
+        public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
+            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "")
+        {
+            // Convert useAnimation boolean to animationType string
+            string animationType = useAnimation ? "EaseInOut" : "None";
+            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, autoTopmost, quicker_param);
+        }
+
+        /// <summary>
         /// Enable edge hiding for a window
         /// This overload supports int handle and string visibleArea for Quicker integration
         /// </summary>
         /// <param name="windowHandle">Window handle as int</param>
         /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
         /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
-        /// <param name="animationType">Animation type string (None, Linear). Default: "None"</param>
+        /// <param name="animationType">Animation type string (None, Linear, EaseInOut). Default: "None"</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
         /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
