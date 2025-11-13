@@ -10,7 +10,7 @@ subprogramName: TicTacToe
 projectDir: .
 
 # 发布相关配置
-uploadDir: TicTacToe
+uploadDir: cea.tic-tac-toe
 packageName: cea.tic-tac-toe
 instruction: TicTacToe game
 

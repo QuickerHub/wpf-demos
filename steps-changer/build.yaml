@@ -10,7 +10,7 @@ subprogramName: StepsChanger
 projectDir: .
 
 # 发布相关配置
-uploadDir: StepsChanger
+uploadDir: cea.steps-changer
 packageName: cea.steps-changer
 instruction: Steps Changer application
 

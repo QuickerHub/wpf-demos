@@ -10,7 +10,7 @@ subprogramName: Wpf2048
 projectDir: src/Wpf2048
 
 # 发布相关配置
-uploadDir: Wpf2048
+uploadDir: cea.wpf-2048
 packageName: cea.wpf-2048
 instruction: WPF 2048 游戏
 

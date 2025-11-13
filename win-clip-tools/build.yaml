@@ -10,7 +10,7 @@ subprogramName: WindowsClipTools
 projectDir: .
 
 # 发布相关配置
-uploadDir: WClipTools
+uploadDir: cea.win-clip-tools
 packageName: cea.win-clip-tools
 instruction: Windows clipboard tools
 

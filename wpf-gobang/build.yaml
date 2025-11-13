@@ -10,7 +10,7 @@ subprogramName: WpfGobang
 projectDir: src/WpfGobang
 
 # 发布相关配置
-uploadDir: WpfGobang
+uploadDir: cea.wpf-gobang
 packageName: cea.wpf-gobang
 instruction: WPF 五子棋游戏
 

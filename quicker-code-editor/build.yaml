@@ -10,7 +10,7 @@ subprogramName: QuickerCodeEditor
 projectDir: src/QuickerCodeEditor
 
 # 发布相关配置
-uploadDir: QuickerCodeEditor
+uploadDir: cea.quicker-code-editor
 packageName: cea.quicker-code-editor
 instruction: Quicker Code Editor
 

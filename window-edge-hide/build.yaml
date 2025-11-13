@@ -10,7 +10,7 @@ subprogramName: WindowEdgeHide
 projectDir: src/WindowEdgeHide
 
 # 发布相关配置
-uploadDir: WindowEdgeHide
+uploadDir: cea.window-edge-hide
 packageName: cea.window-edge-hide
 instruction: Window edge hiding tool for Quicker
 

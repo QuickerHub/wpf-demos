@@ -10,7 +10,7 @@ subprogramName: GreedySnake
 projectDir: .
 
 # 发布相关配置
-uploadDir: WPFGreedySnake
+uploadDir: cea.wpf-greedy-snake
 packageName: cea.wpf-greedy-snake
 instruction: WPF Greedy Snake game
 

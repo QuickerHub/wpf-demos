@@ -10,7 +10,7 @@ subprogramName: WindowAttach
 projectDir: src/WindowAttach
 
 # 发布相关配置
-uploadDir: WindowAttach
+uploadDir: cea.window-attach
 packageName: cea.window-attach
 instruction: Window attachment tool for Quicker
 

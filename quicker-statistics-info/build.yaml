@@ -10,7 +10,7 @@ subprogramName: QuickerStatisticsInfo
 projectDir: src/QuickerStatisticsInfo
 
 # 发布相关配置
-uploadDir: QuickerStatisticsInfo
+uploadDir: cea.quicker-statistics-info
 packageName: cea.quicker-statistics-info
 instruction: Quicker 统计信息工具
 
