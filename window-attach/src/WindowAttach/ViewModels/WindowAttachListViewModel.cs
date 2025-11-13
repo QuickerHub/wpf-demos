@@ -4,8 +4,6 @@ using System.Linq;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DynamicData;
-using DynamicData.Binding;
 using WindowAttach.Models;
 using WindowAttach.Services;
 using WindowAttach;
@@ -18,10 +16,9 @@ namespace WindowAttach.ViewModels
     public partial class WindowAttachListViewModel : ObservableObject
     {
         private readonly WindowAttachManagerService _managerService;
-        private ReadOnlyObservableCollection<WindowAttachItemViewModel>? _attachments;
+        private readonly ObservableCollection<WindowAttachItemViewModel> _attachmentsCollection = new ObservableCollection<WindowAttachItemViewModel>();
 
-        public ReadOnlyObservableCollection<WindowAttachItemViewModel> Attachments => 
-            _attachments ?? throw new InvalidOperationException("Attachments not initialized");
+        public ReadOnlyObservableCollection<WindowAttachItemViewModel> Attachments { get; }
 
         [ObservableProperty]
         public partial bool HasAttachments { get; set; }
@@ -31,34 +28,38 @@ namespace WindowAttach.ViewModels
             // Get the manager service from AppState
             _managerService = AppState.ManagerService;
             
-            // Connect to the cache with filtering (only show Main attachments, exclude Popup)
-            // and sorting by registered time (newest first)
-            _managerService.PairsCache.Connect()
-                .Filter(pair => pair.AttachType == AttachType.Main) // Filter out popup attachments
-                .Transform(pair => 
-                {
-                    var item = new WindowAttachItemViewModel(pair.Window1Handle, pair.Window2Handle, pair.RegisteredTime);
-                    item.Detached += OnItemDetached;
-                    return item;
-                })
-                .SortAndBind(
-                    out var attachments,
-                    SortExpressionComparer<WindowAttachItemViewModel>.Descending(x => x.RegisteredTime)) // Sort by registered time, newest first
-                .Subscribe(_ => 
-                {
-                    // Update HasAttachments when collection changes
-                    HasAttachments = attachments.Count > 0;
-                });
-
-            _attachments = attachments;
-            HasAttachments = attachments.Count > 0;
+            // Initialize read-only collection
+            Attachments = new ReadOnlyObservableCollection<WindowAttachItemViewModel>(_attachmentsCollection);
+            
+            // Load initial data
+            Refresh();
         }
 
         [RelayCommand]
         private void Refresh()
         {
-            // Refresh is handled automatically by the cache connection
-            // This command can be used to force a refresh if needed
+            // Clear existing items
+            foreach (var item in _attachmentsCollection)
+            {
+                item.Detached -= OnItemDetached;
+            }
+            _attachmentsCollection.Clear();
+            
+            // Get all Main attachments, sorted by registered time (newest first)
+            var mainPairs = _managerService.GetMainPairs()
+                .OrderByDescending(pair => pair.RegisteredTime)
+                .ToList();
+            
+            // Create view models for each pair
+            foreach (var pair in mainPairs)
+            {
+                var item = new WindowAttachItemViewModel(pair.Window1Handle, pair.Window2Handle, pair.RegisteredTime);
+                item.Detached += OnItemDetached;
+                _attachmentsCollection.Add(item);
+            }
+            
+            // Update HasAttachments
+            HasAttachments = _attachmentsCollection.Count > 0;
         }
 
         [RelayCommand]

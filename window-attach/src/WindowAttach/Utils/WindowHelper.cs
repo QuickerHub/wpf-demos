@@ -204,6 +204,28 @@ namespace WindowAttach.Utils
             return Windows.Win32.PInvoke.SetWindowPos(hwnd, hwndAfter, 0, 0, 0, 0, 
                 SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | flags);
         }
+
+        /// <summary>
+        /// Set window owner (GWLP_HWNDPARENT) to make it follow the owner window's virtual desktop
+        /// This is different from SetParent - it sets the window owner without making it a child window
+        /// </summary>
+        /// <param name="hWnd">Window handle (popup window)</param>
+        /// <param name="hWndOwner">Owner window handle (window2)</param>
+        /// <returns>True if successful</returns>
+        internal static bool SetWindowOwner(IntPtr hWnd, IntPtr hWndOwner)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return false;
+
+            // Set GWLP_HWNDPARENT to make the window follow the owner's virtual desktop
+            // This is safer than SetParent for WPF windows as it doesn't create a parent-child relationship
+            var previousOwner = Windows.Win32.PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, hWndOwner);
+            return previousOwner != IntPtr.Zero || hWndOwner == IntPtr.Zero;
+        }
     }
 }
 

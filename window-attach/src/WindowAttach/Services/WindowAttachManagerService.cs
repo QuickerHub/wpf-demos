@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using DynamicData;
 using Windows.Win32.UI.WindowsAndMessaging;
 using WindowAttach.Models;
 using WindowAttach.Utils;
@@ -11,25 +10,23 @@ using WindowAttach.Views;
 namespace WindowAttach.Services
 {
     /// <summary>
-    /// Service for managing multiple window attachments using DynamicData SourceCache
+    /// Service for managing multiple window attachments
     /// </summary>
     public class WindowAttachManagerService : IDisposable
     {
-        private readonly SourceCache<WindowAttachPair, string> _pairsCache;
+        private readonly Dictionary<string, WindowAttachPair> _pairsCache = new Dictionary<string, WindowAttachPair>();
         private readonly Dictionary<string, WindowAttachService> _attachments = new Dictionary<string, WindowAttachService>();
         private readonly Dictionary<string, DetachPopupWindow> _popupWindows = new Dictionary<string, DetachPopupWindow>();
         private readonly Dictionary<string, (IntPtr mainWindow1Handle, IntPtr mainWindow2Handle)> _popupToMainMapping = new Dictionary<string, (IntPtr, IntPtr)>(); // Map popup key to main attachment
         private readonly HashSet<IntPtr> _blacklist = new HashSet<IntPtr>(); // Blacklist for window handles that should not be attached
 
-        public WindowAttachManagerService()
-        {
-            _pairsCache = new SourceCache<WindowAttachPair, string>(pair => pair.GetKey());
-        }
-
         /// <summary>
-        /// Get the observable cache for window pairs
+        /// Get all window pairs (Main attachments only)
         /// </summary>
-        public IObservableCache<WindowAttachPair, string> PairsCache => _pairsCache;
+        public IEnumerable<WindowAttachPair> GetMainPairs()
+        {
+            return _pairsCache.Values.Where(pair => pair.AttachType == AttachType.Main).ToList();
+        }
 
         /// <summary>
         /// Register a window attachment
@@ -108,7 +105,7 @@ namespace WindowAttach.Services
             _attachments[key] = service;
 
             // Add to cache
-            _pairsCache.AddOrUpdate(pair);
+            _pairsCache[key] = pair;
 
             // If this is a main attachment, create popup attachment immediately
             if (attachType == AttachType.Main)
@@ -170,6 +167,11 @@ namespace WindowAttach.Services
                     // Set WS_EX_NOACTIVATE extended style to prevent popup from getting focus
                     // This MUST be set before window is shown
                     WindowHelper.SetWindowExStyle(hwnd, Windows.Win32.UI.WindowsAndMessaging.WINDOW_EX_STYLE.WS_EX_NOACTIVATE, true);
+                    
+                    // Set popup owner to window2 to make it follow window2's virtual desktop
+                    // Using GWLP_HWNDPARENT instead of SetParent to avoid WPF rendering issues
+                    // This ensures popup only shows on the same virtual desktop as window2
+                    WindowHelper.SetWindowOwner(hwnd, window2Handle);
                     
                     // Set popup z-order to be the same as window2 (not topmost)
                     // This prevents popup from always showing on top when window1 goes to background
@@ -235,7 +237,7 @@ namespace WindowAttach.Services
         private void SyncPopupVisibility(IntPtr window2Handle, bool isVisible)
         {
             // Find popup attachment for this window2
-            var popupPairs = _pairsCache.Items
+            var popupPairs = _pairsCache.Values
                 .Where(p => p.Window1Handle == window2Handle && p.AttachType == AttachType.Popup)
                 .ToList();
 
@@ -348,9 +350,8 @@ namespace WindowAttach.Services
             if (popupKeyToRemove != null)
             {
                 // Get popup pair from cache
-                if (_pairsCache.Lookup(popupKeyToRemove).HasValue)
+                if (_pairsCache.TryGetValue(popupKeyToRemove, out var popupPair))
                 {
-                    var popupPair = _pairsCache.Lookup(popupKeyToRemove).Value;
                     
                     // Remove popup handle from blacklist
                     _blacklist.Remove(popupPair.Window2Handle);
@@ -441,7 +442,7 @@ namespace WindowAttach.Services
         /// <returns>List of window pairs (window1Handle, window2Handle)</returns>
         public IEnumerable<(IntPtr window1Handle, IntPtr window2Handle)> GetRegisteredPairs()
         {
-            return _pairsCache.Items.Select(pair => (pair.Window1Handle, pair.Window2Handle));
+            return _pairsCache.Values.Select(pair => (pair.Window1Handle, pair.Window2Handle));
         }
 
         /// <summary>
@@ -461,20 +462,17 @@ namespace WindowAttach.Services
             }
             
             // Get current pair from cache
-            var pairLookup = _pairsCache.Lookup(key);
-            if (!pairLookup.HasValue)
+            if (!_pairsCache.TryGetValue(key, out var pair))
             {
                 return false;
             }
-            
-            var pair = pairLookup.Value;
             
             // Update the service settings
             service.UpdateSettings(newPlacement, pair.OffsetX, pair.OffsetY, pair.RestrictToSameScreen, pair.AutoAdjustToScreen);
             
             // Update the pair in cache
             pair.Placement = newPlacement;
-            _pairsCache.AddOrUpdate(pair);
+            _pairsCache[key] = pair;
             
             // If this is a main attachment, update popup placement as well
             var popupPlacement = PlacementHelper.GetPopupPlacement(newPlacement);
@@ -490,8 +488,7 @@ namespace WindowAttach.Services
         /// <returns>Window attachment pair if found, null otherwise</returns>
         public WindowAttachPair? GetPair(string key)
         {
-            var lookup = _pairsCache.Lookup(key);
-            return lookup.HasValue ? lookup.Value : null;
+            return _pairsCache.TryGetValue(key, out var pair) ? pair : null;
         }
         
         /// <summary>
@@ -512,13 +509,10 @@ namespace WindowAttach.Services
             }
             
             // Get current pair from cache
-            var pairLookup = _pairsCache.Lookup(key);
-            if (!pairLookup.HasValue)
+            if (!_pairsCache.TryGetValue(key, out var pair))
             {
                 return false;
             }
-            
-            var pair = pairLookup.Value;
             
             // Update the service settings
             service.UpdateSettings(pair.Placement, pair.OffsetX, pair.OffsetY, restrictToSameScreen, autoAdjustToScreen);
@@ -526,7 +520,7 @@ namespace WindowAttach.Services
             // Update the pair in cache
             pair.RestrictToSameScreen = restrictToSameScreen;
             pair.AutoAdjustToScreen = autoAdjustToScreen;
-            _pairsCache.AddOrUpdate(pair);
+            _pairsCache[key] = pair;
             
             return true;
         }
@@ -537,7 +531,7 @@ namespace WindowAttach.Services
         private void UpdatePopupPlacement(IntPtr window2Handle, WindowPlacement popupPlacement)
         {
             // Find popup attachment for this window2
-            var popupPairs = _pairsCache.Items
+            var popupPairs = _pairsCache.Values
                 .Where(p => p.Window1Handle == window2Handle && p.AttachType == AttachType.Popup)
                 .ToList();
             
@@ -553,7 +547,7 @@ namespace WindowAttach.Services
                     
                     // Update the pair in cache
                     popupPair.Placement = popupPlacement;
-                    _pairsCache.AddOrUpdate(popupPair);
+                    _pairsCache[popupKey] = popupPair;
                 }
             }
         }
@@ -571,7 +565,6 @@ namespace WindowAttach.Services
         public void Dispose()
         {
             UnregisterAll();
-            _pairsCache?.Dispose();
         }
     }
 }
