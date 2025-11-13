@@ -23,4 +23,4 @@ SetWinEventHook
 UnhookWinEvent
 GetClassName
 GetDesktopWindow
-
+GetWindowText

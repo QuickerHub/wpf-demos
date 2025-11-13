@@ -21,9 +21,9 @@ namespace WindowEdgeHide.Services
         {
             InitializeComponent();
             WindowStartupLocation = WindowStartupLocation.Manual;
-            // Set initial size to avoid SizeToContent issues
-            Width = 100;
-            Height = 100;
+            // Set initial size to 0 to avoid window flashing
+            Width = 0;
+            Height = 0;
         }
 
         /// <summary>

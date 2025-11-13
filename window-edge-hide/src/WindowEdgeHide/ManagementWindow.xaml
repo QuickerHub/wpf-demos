@@ -1,0 +1,40 @@
+<Window x:Class="WindowEdgeHide.ManagementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="贴边隐藏管理" Height="450" Width="800"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" Text="已注册贴边隐藏的窗口:" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+        
+        <DataGrid x:Name="WindowsDataGrid" Grid.Row="1" AutoGenerateColumns="False" 
+                  IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="All"
+                  HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="窗口句柄" Binding="{Binding Handle}" Width="120"/>
+                <DataGridTextColumn Header="窗口标题" Binding="{Binding Title}" Width="*"/>
+                <DataGridTextColumn Header="类名" Binding="{Binding ClassName}" Width="150"/>
+                <DataGridTemplateColumn Header="操作" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="取消贴边" Click="UnregisterButton_Click" 
+                                    Tag="{Binding Handle}" Padding="5,2"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="刷新" Click="RefreshButton_Click" Padding="10,5" Margin="0,0,10,0"/>
+            <Button Content="取消所有" Click="UnregisterAllButton_Click" Padding="10,5" Margin="0,0,10,0"/>
+            <Button Content="关闭" Click="CloseButton_Click" Padding="10,5"/>
+        </StackPanel>
+    </Grid>
+</Window>
+

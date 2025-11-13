@@ -544,6 +544,42 @@ namespace WindowEdgeHide.Utils
         }
 
         /// <summary>
+        /// Get window title text
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <returns>Window title, or empty string if failed</returns>
+        internal static string GetWindowTitle(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return string.Empty;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return string.Empty;
+
+            try
+            {
+                unsafe
+                {
+                    char[] buffer = new char[512];
+                    fixed (char* pBuffer = buffer)
+                    {
+                        int length = Windows.Win32.PInvoke.GetWindowText(hwnd, new PWSTR(pBuffer), 512);
+                        if (length > 0)
+                        {
+                            return new string(pBuffer, 0, length);
+                        }
+                    }
+                }
+                return string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
         /// Get window class name
         /// </summary>
         /// <param name="hWnd">Window handle</param>

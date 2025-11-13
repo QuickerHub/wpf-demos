@@ -15,7 +15,7 @@ namespace WindowEdgeHide
             InitializeComponent();
             
             // Set default values
-            UseAnimationCheckBox.IsChecked = true; // Default to use animation
+            AnimationTypeComboBox.SelectedIndex = 2; // Default to EaseInOut
             VisibleAreaTextBox.Text = "-5"; // Default visible area to -5
             
             UpdateStatus();
@@ -45,17 +45,31 @@ namespace WindowEdgeHide
                     visibleArea = new IntThickness(5); // Default to 5 if parsing fails
                 }
 
-                // Get animation setting
-                bool useAnimation = UseAnimationCheckBox.IsChecked == true;
+                // Get animation type from ComboBox
+                AnimationType animationType = AnimationType.None;
+                if (AnimationTypeComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem animationItem)
+                {
+                    string? animationValue = animationItem.Content?.ToString();
+                    if (!string.IsNullOrEmpty(animationValue))
+                    {
+                        animationType = animationValue switch
+                        {
+                            "None" => AnimationType.None,
+                            "Linear" => AnimationType.Linear,
+                            "EaseInOut" => AnimationType.EaseInOut,
+                            _ => AnimationType.None
+                        };
+                    }
+                }
 
                 // Get edge direction (default to Nearest)
                 EdgeDirection edgeDirection = EdgeDirection.Nearest;
-                if (EdgeComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem)
+                if (EdgeComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem edgeItem)
                 {
-                    string? selectedValue = selectedItem.Content?.ToString();
-                    if (!string.IsNullOrEmpty(selectedValue))
+                    string? edgeValue = edgeItem.Content?.ToString();
+                    if (!string.IsNullOrEmpty(edgeValue))
                     {
-                        edgeDirection = selectedValue switch
+                        edgeDirection = edgeValue switch
                         {
                             "Left" => EdgeDirection.Left,
                             "Top" => EdgeDirection.Top,
@@ -68,7 +82,7 @@ namespace WindowEdgeHide
                 }
 
                 // Enable edge hide
-                var result = Runner.EnableEdgeHide(hwnd, edgeDirection, visibleArea, useAnimation);
+                var result = Runner.EnableEdgeHide(hwnd, edgeDirection, visibleArea, animationType);
                 
                 if (result.Success)
                 {
@@ -102,6 +116,41 @@ namespace WindowEdgeHide
                 
                 UpdateStatus();
                 StatusTextBlock.Text = success ? "Status: 贴边隐藏已取消" : "Status: 取消贴边隐藏失败（未启用）";
+            }
+            catch (Exception ex)
+            {
+                StatusTextBlock.Text = $"Status: Error - {ex.Message}";
+            }
+        }
+
+        private void ManageButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var window = new ManagementWindow();
+                window.Show();
+            }
+            catch (Exception ex)
+            {
+                StatusTextBlock.Text = $"Status: Error - {ex.Message}";
+            }
+        }
+
+        private void StopAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var result = MessageBox.Show("确定要取消所有窗口的贴边隐藏吗？", "确认", 
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+                
+                if (result == MessageBoxResult.Yes)
+                {
+                    int count = Runner.UnregisterAll();
+                    UpdateStatus();
+                    StatusTextBlock.Text = $"Status: 已取消 {count} 个窗口的贴边隐藏";
+                    MessageBox.Show($"已取消 {count} 个窗口的贴边隐藏", "成功", 
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
             catch (Exception ex)
             {
