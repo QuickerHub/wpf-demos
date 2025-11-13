@@ -21,4 +21,6 @@ TRACKMOUSEEVENT
 WINDOW_EX_STYLE
 SetWinEventHook
 UnhookWinEvent
+GetClassName
+GetDesktopWindow
 

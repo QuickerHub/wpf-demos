@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -541,6 +542,127 @@ namespace WindowEdgeHide.Utils
 
             return true;
         }
+
+        /// <summary>
+        /// Get window class name
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <returns>Window class name, or empty string if failed</returns>
+        internal static string GetWindowClassName(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return string.Empty;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return string.Empty;
+
+            try
+            {
+                unsafe
+                {
+                    char[] buffer = new char[256];
+                    fixed (char* pBuffer = buffer)
+                    {
+                        int length = Windows.Win32.PInvoke.GetClassName(hwnd, new PWSTR(pBuffer), 256);
+                        if (length > 0)
+                        {
+                            return new string(pBuffer, 0, length);
+                        }
+                    }
+                }
+                return string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Check if window is a special system window (desktop, taskbar, etc.)
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <returns>True if window is a special system window</returns>
+        internal static bool IsSpecialSystemWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            string className = GetWindowClassName(hWnd);
+            if (string.IsNullOrEmpty(className))
+                return false;
+
+            // Desktop windows
+            if (className == "Progman" || className == "WorkerW")
+                return true;
+
+            // Taskbar
+            if (className == "Shell_TrayWnd")
+                return true;
+
+            // Check if it's the desktop window handle
+            try
+            {
+                var desktopHwnd = Windows.Win32.PInvoke.GetDesktopWindow();
+                if (hWnd == desktopHwnd.Value)
+                    return true;
+            }
+            catch
+            {
+                // Ignore errors
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Get window thread and process ID without using unsafe code
+        /// Uses custom P/Invoke declaration with IntPtr instead of pointer
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <param name="threadId">Output thread ID</param>
+        /// <param name="processId">Output process ID</param>
+        internal static void GetWindowThreadProcessId(IntPtr hWnd, out uint threadId, out uint processId)
+        {
+            if (hWnd == IntPtr.Zero)
+            {
+                threadId = 0;
+                processId = 0;
+                return;
+            }
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+            {
+                threadId = 0;
+                processId = 0;
+                return;
+            }
+
+            // Allocate unmanaged memory for process ID (4 bytes for uint)
+            IntPtr processIdPtr = Marshal.AllocHGlobal(4);
+            try
+            {
+                // Initialize to zero
+                Marshal.WriteInt32(processIdPtr, 0);
+                
+                // Call GetWindowThreadProcessId using custom P/Invoke that accepts IntPtr
+                threadId = GetWindowThreadProcessIdSafe(hwnd.Value, processIdPtr);
+                
+                // Read process ID from unmanaged memory
+                processId = (uint)Marshal.ReadInt32(processIdPtr);
+            }
+            finally
+            {
+                // Free unmanaged memory
+                Marshal.FreeHGlobal(processIdPtr);
+            }
+        }
+
+        // Custom P/Invoke declaration that uses IntPtr instead of pointer (no unsafe needed)
+        [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId", SetLastError = false, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
+        private static extern uint GetWindowThreadProcessIdSafe(IntPtr hWnd, IntPtr lpdwProcessId);
     }
 }
 

@@ -68,17 +68,16 @@ namespace WindowEdgeHide
                 }
 
                 // Enable edge hide
-                bool success = Runner.EnableEdgeHide(hwnd, edgeDirection, visibleArea, useAnimation);
+                var result = Runner.EnableEdgeHide(hwnd, edgeDirection, visibleArea, useAnimation);
                 
-                if (success)
+                if (result.Success)
                 {
                     UpdateStatus();
-                    string animationText = useAnimation ? "with animation" : "without animation";
-                    StatusTextBlock.Text = $"Status: Enabled - Visible Area: {visibleArea} ({animationText})";
+                    StatusTextBlock.Text = $"Status: {result.Message} - Visible Area: {visibleArea}";
                 }
                 else
                 {
-                    StatusTextBlock.Text = "Status: Failed to enable edge hide";
+                    StatusTextBlock.Text = $"Status: {result.Message}";
                 }
             }
             catch (Exception ex)
@@ -98,17 +97,11 @@ namespace WindowEdgeHide
                     return;
                 }
 
-                bool success = Runner.DisableEdgeHide(hwnd);
+                // Unregister edge hiding
+                bool success = Runner.UnregisterEdgeHide(hwnd);
                 
-                if (success)
-                {
-                    UpdateStatus();
-                    StatusTextBlock.Text = "Status: Disabled";
-                }
-                else
-                {
-                    StatusTextBlock.Text = "Status: Not enabled (nothing to disable)";
-                }
+                UpdateStatus();
+                StatusTextBlock.Text = success ? "Status: 贴边隐藏已取消" : "Status: 取消贴边隐藏失败（未启用）";
             }
             catch (Exception ex)
             {

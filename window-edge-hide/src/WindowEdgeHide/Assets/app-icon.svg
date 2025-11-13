@@ -1,0 +1,57 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="screenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="windowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Screen/Background -->
+  <rect width="256" height="256" rx="20" fill="url(#screenGradient)"/>
+  
+  <!-- Screen edge indicator (left side) -->
+  <rect x="0" y="0" width="4" height="256" fill="#475569" opacity="0.3"/>
+  
+  <!-- Window (mostly hidden, only small part visible) -->
+  <!-- Visible part of window at edge -->
+  <rect x="4" y="20" width="120" height="216" rx="4" fill="url(#windowGradient)" stroke="#1e293b" stroke-width="3" opacity="0.95"/>
+  
+  <!-- Window title bar -->
+  <rect x="4" y="20" width="120" height="28" rx="4" fill="#ffffff" opacity="0.4"/>
+  
+  <!-- Window content lines (simplified for small icon) -->
+  <line x1="12" y1="60" x2="118" y2="60" stroke="#1e293b" stroke-width="2.5" opacity="0.3"/>
+  <line x1="12" y1="90" x2="110" y2="90" stroke="#1e293b" stroke-width="2.5" opacity="0.3"/>
+  <line x1="12" y1="120" x2="115" y2="120" stroke="#1e293b" stroke-width="2.5" opacity="0.3"/>
+  
+  <!-- Hidden part of window (dashed outline) -->
+  <rect x="-160" y="20" width="160" height="216" rx="4" fill="none" stroke="#64748b" stroke-width="3" stroke-dasharray="6,6" opacity="0.5"/>
+  
+  <!-- Arrow indicating hide direction (pointing left) - EXTRA LARGE -->
+  <path d="M 70 128 L 4 128 L 20 100 M 4 128 L 20 156" 
+        stroke="url(#arrowGradient)" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"/>
+  
+  <!-- Arrow indicating show direction (pointing right) - EXTRA LARGER -->
+  <path d="M 118 150 L 160 150 L 145 125 M 160 150 L 145 175" 
+        stroke="url(#arrowGradient)" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none" 
+        opacity="0.85"/>
+  
+  <!-- Decorative corner highlight -->
+  <circle cx="18" cy="34" r="5" fill="#f59e0b" opacity="0.9"/>
+</svg>

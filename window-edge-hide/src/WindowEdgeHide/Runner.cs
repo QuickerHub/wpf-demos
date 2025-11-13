@@ -10,6 +10,15 @@ using WindowEdgeHide.Utils;
 namespace WindowEdgeHide
 {
     /// <summary>
+    /// Result of EnableEdgeHide operation
+    /// </summary>
+    public class EnableEdgeHideResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// Runner for Quicker integration
     /// </summary>
     public static class Runner
@@ -25,21 +34,77 @@ namespace WindowEdgeHide
         /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
         /// <param name="useAnimation">Whether to use animation for window movement (default: false)</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
-        /// <returns>True if enabled successfully</returns>
-        public static bool EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false)
+        /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
+        /// <returns>Result object with success status and message</returns>
+        public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
+            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true)
         {
-            IntPtr hwnd = new IntPtr(windowHandle);
-            EdgeDirection direction = ParseEdgeDirection(edgeDirection);
-            IntThickness thickness = ParseVisibleArea(visibleArea);
-            
-            // Ensure execution on UI thread
-            bool result = false;
-            Application.Current.Dispatcher.Invoke(() =>
+            // Ensure entire method executes on UI thread
+            EnableEdgeHideResult? result = null;
+            try
             {
-                result = EnableEdgeHide(hwnd, direction, thickness, useAnimation, showOnScreenEdge);
-            });
-            return result;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    IntPtr hwnd = new IntPtr(windowHandle);
+                    
+                    // Check if window handle is valid
+                    if (hwnd == IntPtr.Zero)
+                    {
+                        result = new EnableEdgeHideResult
+                        {
+                            Success = false,
+                            Message = "窗口句柄无效"
+                        };
+                        return;
+                    }
+
+                    // Check if it's a special system window (desktop, taskbar, etc.)
+                    if (WindowHelper.IsSpecialSystemWindow(hwnd))
+                    {
+                        string className = WindowHelper.GetWindowClassName(hwnd);
+                        string windowType = className switch
+                        {
+                            "Progman" or "WorkerW" => "桌面",
+                            "Shell_TrayWnd" => "任务栏",
+                            _ => "系统窗口"
+                        };
+                        result = new EnableEdgeHideResult
+                        {
+                            Success = false,
+                            Message = $"不支持对{windowType}窗口启用贴边隐藏"
+                        };
+                        return;
+                    }
+                    
+                    // Check if already enabled and autoUnregister is true
+                    if (autoUnregister && IsEnabled(hwnd))
+                    {
+                        // Unregister edge hiding
+                        bool unregistered = UnregisterEdgeHide(hwnd);
+                        result = new EnableEdgeHideResult
+                        {
+                            Success = unregistered,
+                            Message = unregistered ? "贴边隐藏已取消" : "取消贴边隐藏失败"
+                        };
+                        return;
+                    }
+                    
+                    EdgeDirection direction = ParseEdgeDirection(edgeDirection);
+                    IntThickness thickness = ParseVisibleArea(visibleArea);
+                    
+                    result = EnableEdgeHide(hwnd, direction, thickness, useAnimation, showOnScreenEdge);
+                });
+            }
+            catch (Exception ex)
+            {
+                return new EnableEdgeHideResult
+                {
+                    Success = false,
+                    Message = $"执行失败: {ex.Message}"
+                };
+            }
+            
+            return result ?? new EnableEdgeHideResult { Success = false, Message = "执行失败" };
         }
 
         /// <summary>
@@ -50,17 +115,21 @@ namespace WindowEdgeHide
         /// <param name="visibleArea">Visible area thickness when hidden (default: all sides 5)</param>
         /// <param name="useAnimation">Whether to use animation for window movement (default: false)</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
-        /// <returns>True if enabled successfully</returns>
-        public static bool EnableEdgeHide(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest,
+        /// <returns>Result object with success status and message</returns>
+        public static EnableEdgeHideResult EnableEdgeHide(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest,
             IntThickness visibleArea = default, bool useAnimation = false, bool showOnScreenEdge = false)
         {
             if (windowHandle == IntPtr.Zero)
             {
-                throw new ArgumentException("Window handle cannot be zero");
+                return new EnableEdgeHideResult
+                {
+                    Success = false,
+                    Message = "窗口句柄无效"
+                };
             }
 
-            // Disable existing service if any
-            DisableEdgeHide(windowHandle);
+            // Unregister existing service if any
+            bool wasEnabled = UnregisterEdgeHide(windowHandle);
 
             // Create window mover based on animation setting
             // Use single mover for both hide and show to prevent animation conflicts
@@ -71,8 +140,8 @@ namespace WindowEdgeHide
                 mover = new Implementations.AnimatedWindowMover();
             }
 
-            // Create and enable new service
-            var service = new WindowEdgeHideService();
+            // Create new service (constructor initializes everything)
+            var service = new WindowEdgeHideService(windowHandle, edgeDirection, visibleArea, mover, showOnScreenEdge);
             service.WindowDestroyed += (hwnd) =>
             {
                 _services.Remove(hwnd);
@@ -80,14 +149,28 @@ namespace WindowEdgeHide
 
             try
             {
-                service.Enable(windowHandle, edgeDirection, visibleArea, mover, showOnScreenEdge);
                 _services[windowHandle] = service;
-                return true;
+                
+                string directionText = edgeDirection == EdgeDirection.Nearest ? "最近边缘" : edgeDirection.ToString();
+                string animationText = useAnimation ? "已启用动画" : "未启用动画";
+                string message = wasEnabled 
+                    ? $"贴边隐藏已重新启用 - 方向: {directionText}, {animationText}"
+                    : $"贴边隐藏已启用 - 方向: {directionText}, {animationText}";
+                
+                return new EnableEdgeHideResult
+                {
+                    Success = true,
+                    Message = message
+                };
             }
-            catch
+            catch (Exception ex)
             {
                 service.Dispose();
-                return false;
+                return new EnableEdgeHideResult
+                {
+                    Success = false,
+                    Message = $"启用贴边隐藏失败: {ex.Message}"
+                };
             }
         }
 
@@ -129,11 +212,11 @@ namespace WindowEdgeHide
         }
 
         /// <summary>
-        /// Disable edge hiding for a window
+        /// Unregister edge hiding for a window
         /// </summary>
         /// <param name="windowHandle">Window handle</param>
-        /// <returns>True if disabled successfully</returns>
-        public static bool DisableEdgeHide(IntPtr windowHandle)
+        /// <returns>True if unregistered successfully</returns>
+        public static bool UnregisterEdgeHide(IntPtr windowHandle)
         {
             if (_services.TryGetValue(windowHandle, out var service))
             {
@@ -145,13 +228,13 @@ namespace WindowEdgeHide
         }
 
         /// <summary>
-        /// Disable edge hiding for a window (int handle overload)
+        /// Unregister edge hiding for a window (int handle overload)
         /// </summary>
         /// <param name="windowHandle">Window handle as int</param>
-        /// <returns>True if disabled successfully</returns>
-        public static bool DisableEdgeHide(int windowHandle)
+        /// <returns>True if unregistered successfully</returns>
+        public static bool UnregisterEdgeHide(int windowHandle)
         {
-            return DisableEdgeHide(new IntPtr(windowHandle));
+            return UnregisterEdgeHide(new IntPtr(windowHandle));
         }
 
         /// <summary>
@@ -175,9 +258,9 @@ namespace WindowEdgeHide
         }
 
         /// <summary>
-        /// Disable edge hiding for all windows
+        /// Unregister edge hiding for all windows
         /// </summary>
-        public static void DisableAll()
+        public static void UnregisterAll()
         {
             foreach (var service in _services.Values)
             {

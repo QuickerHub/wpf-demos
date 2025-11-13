@@ -18,16 +18,16 @@ namespace WindowEdgeHide.Services
     /// </summary>
     public class WindowEdgeHideService : IDisposable
     {
-        private HWND _windowHandle;
-        private IntThickness _visibleArea;
+        private readonly HWND _windowHandle;
+        private readonly IntThickness _visibleArea;
         private bool _isEnabled;
         private bool _isHidden = false;
         private EdgeDirection _currentHideDirection = EdgeDirection.Nearest; // Current hide direction
         private WindowRect? _originalPosition; // Store original position before hiding
-        private bool? _originalTopmost; // Store original topmost state before enabling
-        private IWindowMover _mover = new Implementations.DirectWindowMover(); // Single mover for both hiding and showing (prevents animation conflicts)
-        private WindowMouseHook? _mouseHook; // Mouse hook for monitoring mouse enter/leave
-        private ManagedWindow? _managedWindow; // Managed window for state monitoring
+        private readonly bool? _originalTopmost; // Store original topmost state before enabling
+        private IWindowMover _mover; // Single mover for both hiding and showing (prevents animation conflicts)
+        private readonly WindowMouseHook _mouseHook; // Mouse hook for monitoring mouse enter/leave
+        private readonly ManagedWindow _managedWindow; // Managed window for state monitoring
 
         /// <summary>
         /// Event raised when window is destroyed
@@ -42,15 +42,13 @@ namespace WindowEdgeHide.Services
         /// <param name="visibleArea">Visible area thickness when hidden (default: all sides 5)</param>
         /// <param name="mover">Window mover for animation (default: DirectWindowMover). Use same mover for hide/show to prevent conflicts.</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
-        public void Enable(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest, 
+        public WindowEdgeHideService(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest, 
             IntThickness visibleArea = default, 
             IWindowMover? mover = null, bool showOnScreenEdge = false)
         {
             var hwnd = new HWND(windowHandle);
             if (!IsWindow(hwnd))
                 throw new ArgumentException("Invalid window handle");
-
-            Disable();
 
             _windowHandle = hwnd;
             // Use default thickness if not specified
@@ -93,8 +91,6 @@ namespace WindowEdgeHide.Services
             _managedWindow = new ManagedWindow(windowHandle);
             _managedWindow.IsActiveChanged += ManagedWindow_IsActiveChanged;
             _managedWindow.WindowStateChanged += ManagedWindow_WindowStateChanged;
-
-            // Set window to topmost
             _managedWindow.Topmost = true;
 
             // Create and start mouse hook
@@ -127,32 +123,14 @@ namespace WindowEdgeHide.Services
         }
 
         /// <summary>
-        /// Disable window edge hiding
+        /// Unregister window edge hiding
         /// </summary>
-        public void Disable()
+        public void Unregister()
         {
+            // Set disabled flag first to prevent new operations
             _isEnabled = false;
             
-            // Stop mouse hook
-            if (_mouseHook != null)
-            {
-                _mouseHook.MouseLeave -= MouseHook_MouseLeave;
-                _mouseHook.MouseEnter -= MouseHook_MouseEnter;
-                _mouseHook.Stop();
-                _mouseHook.Dispose();
-                _mouseHook = null;
-            }
-
-            // Stop managed window
-            if (_managedWindow != null)
-            {
-                _managedWindow.IsActiveChanged -= ManagedWindow_IsActiveChanged;
-                _managedWindow.WindowStateChanged -= ManagedWindow_WindowStateChanged;
-                _managedWindow.Dispose();
-                _managedWindow = null;
-            }
-
-            // Restore window to original position if hidden
+            // Restore window to original position if hidden (do this before disposing hooks)
             if (_isHidden && _originalPosition != null && _windowHandle.Value != IntPtr.Zero)
             {
                 var pos = _originalPosition.Value;
@@ -165,10 +143,15 @@ namespace WindowEdgeHide.Services
                 WindowHelper.SetWindowTopmost(_windowHandle.Value, _originalTopmost.Value);
             }
 
-            _windowHandle = HWND.Null;
+            // Stop and dispose hooks (they will clean up their own event subscriptions)
+            _mouseHook.Stop();
+            _mouseHook.Dispose();
+
+            // Dispose managed window (it will clean up its own event subscriptions and unhook WinEvent hooks)
+            _managedWindow.Dispose();
+
+            // Reset state
             _isHidden = false;
-            _originalPosition = null;
-            _originalTopmost = null;
         }
 
         /// <summary>
@@ -177,35 +160,24 @@ namespace WindowEdgeHide.Services
         /// </summary>
         private void RestorePosition()
         {
-            if (_windowHandle.Value == IntPtr.Zero || _managedWindow == null)
+            if (_windowHandle.Value == IntPtr.Zero || !_isEnabled)
                 return;
 
             // Skip if window is minimized
             if (_managedWindow.IsMinimized())
                 return;
 
-            // If we have a stored original position, use it
-            if (_originalPosition != null)
-            {
-                var pos = _originalPosition.Value;
-                _mover.MoveWindow(_windowHandle.Value, pos.Left, pos.Top, pos.Width, pos.Height);
-                _isHidden = false;
-                return;
-            }
-
-            // Otherwise, calculate edge position based on current window position
-            var currentRect = WindowHelper.GetWindowRect(_windowHandle.Value);
-            if (currentRect == null)
-                return;
-
-            // Determine edge direction based on current position
+            // Always restore to edge position (ensure window is at edge after restore)
+            // This is critical for MouseLeave to work correctly
             EdgeDirection edgeDirection = EdgeCalculator.FindNearestEdge(_windowHandle.Value);
-            
-            // Calculate edge position to restore to
             var edgePos = EdgeCalculator.CalculateEdgePosition(_windowHandle.Value, edgeDirection, _visibleArea);
             
             // Restore to edge position
             _mover.MoveWindow(_windowHandle.Value, edgePos.x, edgePos.y, edgePos.width, edgePos.height);
+            
+            // Update _originalPosition to the restored edge position
+            _originalPosition = new WindowRect(edgePos.x, edgePos.y, edgePos.x + edgePos.width, edgePos.y + edgePos.height);
+            
             _isHidden = false;
         }
 
@@ -215,7 +187,7 @@ namespace WindowEdgeHide.Services
         /// </summary>
         private void HideWindow()
         {
-            if (_windowHandle.Value == IntPtr.Zero)
+            if (_windowHandle.Value == IntPtr.Zero || !_isEnabled)
                 return;
 
             // Skip if window is minimized
@@ -267,19 +239,17 @@ namespace WindowEdgeHide.Services
             if (!IsWindow(_windowHandle))
             {
                 WindowDestroyed?.Invoke(_windowHandle.Value);
-                Disable();
+                Unregister();
                 return;
             }
 
-            // Mouse left the window, hide if window is at screen edge AND window is not activated
-            // Skip if window is minimized
-            if (!_isHidden && !_managedWindow.IsMinimized())
+            // Mouse left the window, hide if window is at screen edge
+            // Skip if window is minimized or activated (user is interacting with it)
+            if (!_isHidden && !_managedWindow.IsMinimized() && !_managedWindow.IsActive)
             {
                 // Check if window is at screen edge
                 bool shouldHide = EdgeCalculator.IsWindowAtEdge(_windowHandle.Value);
-                
-                // Also check if window is not activated (not foreground)
-                if (shouldHide && !_managedWindow.IsActive)
+                if (shouldHide)
                 {
                     HideWindow();
                 }
@@ -307,7 +277,7 @@ namespace WindowEdgeHide.Services
         /// </summary>
         private void ManagedWindow_IsActiveChanged(object? sender, bool isActive)
         {
-            if (!_isEnabled || _managedWindow == null)
+            if (!_isEnabled)
                 return;
 
             if (isActive)
@@ -360,7 +330,7 @@ namespace WindowEdgeHide.Services
 
         public void Dispose()
         {
-            Disable();
+            Unregister();
         }
     }
 }
