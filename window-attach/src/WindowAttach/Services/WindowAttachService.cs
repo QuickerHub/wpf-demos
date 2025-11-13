@@ -72,6 +72,14 @@ namespace WindowAttach.Services
             _attachType = attachType;
             _isAttached = true;
 
+            // Set window2 owner to window1 to make it follow window1's virtual desktop
+            // This ensures window2 only shows on the same virtual desktop as window1
+            // Only apply to Main attachments (popup attachments already handle this separately)
+            if (attachType == AttachType.Main)
+            {
+                WindowHelper.SetWindowOwner(window2Handle, window1Handle);
+            }
+
             // Start unified event hooks for both windows
             StartEventHooks();
 
@@ -84,6 +92,17 @@ namespace WindowAttach.Services
         /// </summary>
         public void Detach()
         {
+            if (_isAttached)
+            {
+                // Clear window2 owner to restore its independence
+                // This removes the virtual desktop following relationship
+                // Only apply to Main attachments (popup attachments handle this separately)
+                if (_attachType == AttachType.Main && _window2Handle.Value != IntPtr.Zero)
+                {
+                    WindowHelper.SetWindowOwner(_window2Handle.Value, IntPtr.Zero);
+                }
+            }
+
             _isAttached = false;
             StopEventHooks();
             _window1Handle = HWND.Null;

@@ -34,6 +34,12 @@ namespace WindowAttach
             IntPtr hwnd1 = new IntPtr(window1Handle);
             IntPtr hwnd2 = new IntPtr(window2Handle);
 
+            // Check if window1 and window2 are the same
+            if (hwnd1 == hwnd2)
+            {
+                throw new ArgumentException("Window1 and Window2 cannot be the same window");
+            }
+
             // Parse placement string to enum
             WindowPlacement placementEnum = ParsePlacement(placement);
 
@@ -60,6 +66,11 @@ namespace WindowAttach
             if (window1Handle == IntPtr.Zero || window2Handle == IntPtr.Zero)
             {
                 throw new ArgumentException("Window handles cannot be zero");
+            }
+
+            if (window1Handle == window2Handle)
+            {
+                throw new ArgumentException("Window1 and Window2 cannot be the same window");
             }
 
             // Ensure we're on the UI thread
@@ -104,6 +115,11 @@ namespace WindowAttach
             if (window1Handle == IntPtr.Zero || window2Handle == IntPtr.Zero)
             {
                 throw new ArgumentException("Window handles cannot be zero");
+            }
+
+            if (window1Handle == window2Handle)
+            {
+                throw new ArgumentException("Window1 and Window2 cannot be the same window");
             }
 
             // Ensure we're on the UI thread

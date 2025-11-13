@@ -43,6 +43,12 @@ namespace WindowAttach.Services
         public bool Register(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
             double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main)
         {
+            // Check if window1 and window2 are the same
+            if (window1Handle == window2Handle)
+            {
+                throw new ArgumentException("Window1 and Window2 cannot be the same window");
+            }
+
             // Blacklist check: only apply to Main attachments
             // Popup attachments should not be blocked by blacklist (popup can be attached as window2)
             if (attachType == AttachType.Main)
