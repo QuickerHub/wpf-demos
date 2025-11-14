@@ -1,0 +1,24 @@
+<Application
+    x:Class="QuickerActionManage.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:converters="clr-namespace:QuickerActionManage.View.Converters"
+    xmlns:qk="https://getquicker.net"
+    StartupUri="View/ActionManageWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
+                <ResourceDictionary Source="Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            
+            <!-- Converters -->
+            <converters:DateTimeShortConverter x:Key="DateTimeShortConverter" />
+            <converters:Object2VisibilityConverter x:Key="Object2VisibilityConverter" />
+            <converters:Object2VisibilityReConverter x:Key="Object2VisibilityReConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
+
