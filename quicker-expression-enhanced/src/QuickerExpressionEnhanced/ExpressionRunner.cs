@@ -44,6 +44,42 @@ namespace QuickerExpressionEnhanced
         }
 
         /// <summary>
+        /// Run expression with support for variable substitution and optional UI thread execution
+        /// Overload that accepts object? context which will be converted to IActionContext if possible
+        /// </summary>
+        /// <param name="context">Context object (will be cast to IActionContext if possible)</param>
+        /// <param name="eval">Eval context for expression evaluation</param>
+        /// <param name="code">Expression code to execute</param>
+        /// <param name="onUiThread">Whether to execute on UI thread</param>
+        /// <param name="useArgs">Whether to parse and use arguments (default: false)</param>
+        /// <param name="toAction">Whether to return an Action instead of executing immediately (default: false)</param>
+        /// <returns>Expression execution result, or Action if toAction is true</returns>
+        /// <exception cref="ArgumentException">Thrown when context is not null and cannot be cast to IActionContext</exception>
+        public static object? RunExpression(object? context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, bool toAction = false)
+        {
+            // Convert object? context to IActionContext
+            IActionContext? actionContext = null;
+            if (context != null)
+            {
+                if (context is IActionContext ac)
+                {
+                    actionContext = ac;
+                }
+                else
+                {
+                    throw new ArgumentException($"Context must be of type IActionContext, but got {context.GetType().Name}", nameof(context));
+                }
+            }
+            else
+            {
+                throw new ArgumentNullException(nameof(context), "Context cannot be null");
+            }
+
+            // Call the main RunExpression method
+            return RunExpression(actionContext, eval, code, onUiThread, useArgs, toAction);
+        }
+
+        /// <summary>
         /// Internal method to run expression with support for variable substitution and optional UI thread execution
         /// </summary>
         /// <param name="context">Action context</param>
