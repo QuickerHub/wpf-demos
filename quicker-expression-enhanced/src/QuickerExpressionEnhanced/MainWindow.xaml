@@ -1,0 +1,17 @@
+<Window x:Class="QuickerExpressionEnhanced.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Quicker Expression Enhanced" 
+        Width="800" 
+        Height="600"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="20">
+        <TextBlock 
+            FontSize="18" 
+            FontWeight="Bold" 
+            Text="Quicker Expression Enhanced" 
+            VerticalAlignment="Center" 
+            HorizontalAlignment="Center" />
+    </Grid>
+</Window>
+
