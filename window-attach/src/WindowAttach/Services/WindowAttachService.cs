@@ -27,8 +27,10 @@ namespace WindowAttach.Services
         private bool _isAttached;
         private WindowEventHook? _window1EventHook;
         private WindowEventHook? _window2EventHook;
+        private NoActivateWindowHook? _noActivateHook;
         private bool _isUpdatingPosition;
         private AttachType _attachType = AttachType.Main;
+        private bool? _originalToolWindowState; // Track original WS_EX_TOOLWINDOW state
 
         /// <summary>
         /// Event raised when either window is destroyed
@@ -77,7 +79,32 @@ namespace WindowAttach.Services
             // Only apply to Main attachments (popup attachments already handle this separately)
             if (attachType == AttachType.Main)
             {
+                // Record original tool window state before modifying
+                _originalToolWindowState = WindowHelper.IsToolWindow(window2Handle);
+                
+                // Set window2 to not show in taskbar (WS_EX_TOOLWINDOW)
+                // This makes window2 behave like a tool window that follows window1
+                if (!_originalToolWindowState.Value)
+                {
+                    WindowHelper.SetWindowExStyle(window2Handle, WINDOW_EX_STYLE.WS_EX_TOOLWINDOW, true);
+                }
+                
                 WindowHelper.SetWindowOwner(window2Handle, window1Handle);
+                
+                // Install window hook to prevent window2 from getting focus when clicked
+                // Only install hook if window2 is already a no-activate window
+                if (WindowHelper.IsNoActivateWindow(window2Handle))
+                {
+                    try
+                    {
+                        _noActivateHook = new NoActivateWindowHook(window2Handle);
+                    }
+                    catch
+                    {
+                        // If hook installation fails, continue without it
+                        _noActivateHook = null;
+                    }
+                }
             }
 
             // Start unified event hooks for both windows
@@ -99,12 +126,26 @@ namespace WindowAttach.Services
                 // Only apply to Main attachments (popup attachments handle this separately)
                 if (_attachType == AttachType.Main && _window2Handle.Value != IntPtr.Zero)
                 {
+                    // Dispose the no-activate hook first
+                    _noActivateHook?.Dispose();
+                    _noActivateHook = null;
+                    
+                    // Restore original tool window state
+                    if (_originalToolWindowState.HasValue && _window2Handle.Value != IntPtr.Zero)
+                    {
+                        WindowHelper.SetWindowExStyle(_window2Handle.Value, WINDOW_EX_STYLE.WS_EX_TOOLWINDOW, _originalToolWindowState.Value);
+                    }
+                    
                     WindowHelper.SetWindowOwner(_window2Handle.Value, IntPtr.Zero);
                 }
             }
 
             _isAttached = false;
             StopEventHooks();
+            
+            // Reset original tool window state tracking
+            _originalToolWindowState = null;
+            
             _window1Handle = HWND.Null;
             _window2Handle = HWND.Null;
         }
@@ -187,10 +228,92 @@ namespace WindowAttach.Services
 
         private void OnWindow1VisibilityChanged(IntPtr hwnd, bool isVisible)
         {
-            // Use Dispatcher to ensure UpdatePosition runs on UI thread
+            // Sync window2 visibility with window1
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(() => SyncWindow2Visibility(isVisible)),
+                DispatcherPriority.Normal);
+            
+            // Also update position (which handles some edge cases)
             Application.Current.Dispatcher.BeginInvoke(
                 new Action(UpdatePosition),
                 DispatcherPriority.Normal);
+        }
+
+        /// <summary>
+        /// Sync window2 visibility with window1 visibility state
+        /// </summary>
+        private void SyncWindow2Visibility(bool window1IsVisible)
+        {
+            if (!_isAttached)
+                return;
+
+            // Check if windows still exist
+            if (!IsWindow(_window1Handle) || !IsWindow(_window2Handle))
+                return;
+
+            // Check if window2 is a tool window (not shown in taskbar) or a popup attachment
+            bool isWindow2ToolWindow = WindowHelper.IsToolWindow(_window2Handle.Value);
+            bool isPopupAttachment = _attachType == AttachType.Popup;
+
+            bool window2WasVisible = IsWindowVisible(_window2Handle) && !IsIconic(_window2Handle);
+            bool window2VisibilityChanged = false;
+            bool window2WillBeVisible = window2WasVisible;
+
+            if (!window1IsVisible)
+            {
+                // Window1 is hidden, hide window2
+                if (isPopupAttachment || isWindow2ToolWindow)
+                {
+                    // Hide window2 if it's a popup attachment or tool window (not shown in taskbar)
+                    if (IsWindowVisible(_window2Handle))
+                    {
+                        ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_HIDE);
+                        window2WillBeVisible = false;
+                        window2VisibilityChanged = true;
+                    }
+                }
+                else
+                {
+                    // Minimize window2 if window1 is hidden (normal window)
+                    if (!IsIconic(_window2Handle))
+                    {
+                        ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_MINIMIZE);
+                        window2WillBeVisible = false;
+                        window2VisibilityChanged = true;
+                    }
+                }
+            }
+            else
+            {
+                // Window1 is visible, show window2
+                if (isPopupAttachment || isWindow2ToolWindow)
+                {
+                    // Show window2 without activating if it's a popup attachment or tool window
+                    if (!IsWindowVisible(_window2Handle))
+                    {
+                        ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_SHOWNA);
+                        window2WillBeVisible = true;
+                        window2VisibilityChanged = true;
+                    }
+                }
+                else
+                {
+                    // Restore window2 if window1 is restored (normal window)
+                    if (IsIconic(_window2Handle))
+                    {
+                        ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_RESTORE);
+                        window2WillBeVisible = true;
+                        window2VisibilityChanged = true;
+                    }
+                }
+            }
+
+            // Notify visibility change for syncing popup button (only for Main attachments)
+            // This ensures popup is hidden/shown immediately when window2 visibility changes
+            if (_attachType == AttachType.Main && window2VisibilityChanged)
+            {
+                Window2VisibilityChanged?.Invoke(_window2Handle.Value, window2WillBeVisible);
+            }
         }
 
         private void OnWindow1Activated(IntPtr hwnd)
@@ -289,6 +412,10 @@ namespace WindowAttach.Services
                 // Check if window1 is minimized or hidden (both count as hidden)
                 bool isWindow1Hidden = IsIconic(_window1Handle) || !IsWindowVisible(_window1Handle);
 
+                bool window2WasVisible = IsWindowVisible(_window2Handle) && !IsIconic(_window2Handle);
+                bool window2VisibilityChanged = false;
+                bool window2WillBeVisible = window2WasVisible;
+
                 if (isWindow1Hidden)
                 {
                     if (isPopupAttachment || isWindow2ToolWindow)
@@ -297,6 +424,8 @@ namespace WindowAttach.Services
                         if (IsWindowVisible(_window2Handle))
                         {
                             ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_HIDE);
+                            window2WillBeVisible = false;
+                            window2VisibilityChanged = true;
                         }
                     }
                     else
@@ -305,8 +434,17 @@ namespace WindowAttach.Services
                         if (!IsIconic(_window2Handle))
                         {
                             ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_MINIMIZE);
+                            window2WillBeVisible = false;
+                            window2VisibilityChanged = true;
                         }
                     }
+                    
+                    // Notify visibility change for syncing popup button (only for Main attachments)
+                    if (_attachType == AttachType.Main && window2VisibilityChanged)
+                    {
+                        Window2VisibilityChanged?.Invoke(_window2Handle.Value, window2WillBeVisible);
+                    }
+                    
                     return;
                 }
                 else
@@ -317,6 +455,8 @@ namespace WindowAttach.Services
                         if (!IsWindowVisible(_window2Handle))
                         {
                             ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_SHOWNA);
+                            window2WillBeVisible = true;
+                            window2VisibilityChanged = true;
                         }
                     }
                     else
@@ -325,7 +465,15 @@ namespace WindowAttach.Services
                         if (IsIconic(_window2Handle))
                         {
                             ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_RESTORE);
+                            window2WillBeVisible = true;
+                            window2VisibilityChanged = true;
                         }
+                    }
+                    
+                    // Notify visibility change for syncing popup button (only for Main attachments)
+                    if (_attachType == AttachType.Main && window2VisibilityChanged)
+                    {
+                        Window2VisibilityChanged?.Invoke(_window2Handle.Value, window2WillBeVisible);
                     }
                 }
 
@@ -471,6 +619,10 @@ namespace WindowAttach.Services
 
         public void Dispose()
         {
+            // Dispose no-activate hook
+            _noActivateHook?.Dispose();
+            _noActivateHook = null;
+            
             Detach();
         }
     }

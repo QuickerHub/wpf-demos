@@ -130,6 +130,19 @@ namespace WindowEdgeHide
                         return;
                     }
 
+                    // Get top-level window handle to prevent operations on child windows
+                    // Operations on child windows are likely to fail
+                    hwnd = WindowHelper.GetTopWindow(hwnd);
+                    if (hwnd == IntPtr.Zero)
+                    {
+                        result = new EnableEdgeHideResult
+                        {
+                            Success = false,
+                            Message = "无法获取顶层窗口句柄"
+                        };
+                        return;
+                    }
+
                     // Check if it's a special system window (desktop, taskbar, etc.)
                     if (WindowHelper.IsSpecialSystemWindow(hwnd))
                     {
@@ -228,6 +241,7 @@ namespace WindowEdgeHide
                 };
             }
 
+            // Note: GetTopWindow should already be called by the calling method
             // Unregister existing service if any
             bool wasEnabled = UnregisterEdgeHide(config.WindowHandle);
 
@@ -301,6 +315,18 @@ namespace WindowEdgeHide
         public static EnableEdgeHideResult EnableEdgeHide(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest,
             IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true)
         {
+            // Get top-level window handle to prevent operations on child windows
+            // Operations on child windows are likely to fail
+            windowHandle = WindowHelper.GetTopWindow(windowHandle);
+            if (windowHandle == IntPtr.Zero)
+            {
+                return new EnableEdgeHideResult
+                {
+                    Success = false,
+                    Message = "无法获取顶层窗口句柄"
+                };
+            }
+
             var config = new EdgeHideConfig
             {
                 WindowHandle = windowHandle,

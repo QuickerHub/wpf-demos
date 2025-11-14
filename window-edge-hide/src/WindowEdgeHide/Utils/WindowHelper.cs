@@ -699,6 +699,62 @@ namespace WindowEdgeHide.Utils
         // Custom P/Invoke declaration that uses IntPtr instead of pointer (no unsafe needed)
         [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId", SetLastError = false, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
         private static extern uint GetWindowThreadProcessIdSafe(IntPtr hWnd, IntPtr lpdwProcessId);
+
+        // GetAncestor flags
+        private enum GET_ANCESTOR_FLAGS
+        {
+            GA_PARENT = 1,
+            GA_ROOT = 2,
+            GA_ROOTOWNER = 3
+        }
+
+        // P/Invoke declarations for window hierarchy functions
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr GetAncestor(IntPtr hWnd, GET_ANCESTOR_FLAGS gaFlags);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDesktopWindow();
+
+        /// <summary>
+        /// Get top-level window handle for a given window handle
+        /// If the input handle is a child window, returns the root window handle
+        /// This is necessary because operations on child windows are likely to fail
+        /// </summary>
+        /// <param name="hWnd">Window handle (can be a child window)</param>
+        /// <returns>Top-level window handle, or IntPtr.Zero if failed</returns>
+        internal static IntPtr GetTopWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return IntPtr.Zero;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return IntPtr.Zero;
+
+            try
+            {
+                // Use GetAncestor with GA_ROOT to get the root window
+                // GA_ROOT returns the root window in the parent chain
+                IntPtr rootHwnd = GetAncestor(hWnd, GET_ANCESTOR_FLAGS.GA_ROOT);
+                
+                // If GetAncestor returns null or desktop window, return the original handle
+                // (it's already a top-level window)
+                if (rootHwnd == IntPtr.Zero)
+                    return hWnd;
+
+                // Check if it's the desktop window
+                IntPtr desktopHwnd = GetDesktopWindow();
+                if (rootHwnd == desktopHwnd)
+                    return hWnd;
+
+                return rootHwnd;
+            }
+            catch
+            {
+                // If GetAncestor fails, return the original handle
+                return hWnd;
+            }
+        }
     }
 }
 

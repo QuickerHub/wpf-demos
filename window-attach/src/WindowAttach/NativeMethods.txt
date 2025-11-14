@@ -18,4 +18,9 @@ WINDOW_LONG_PTR_INDEX
 SetForegroundWindow
 GetForegroundWindow
 SetParent
+DefWindowProc
+SendMessage
+WM_MOUSEACTIVATE
+MA_NOACTIVATE
+CallWindowProc
 

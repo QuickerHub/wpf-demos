@@ -138,6 +138,24 @@ namespace WindowAttach.Utils
         }
 
         /// <summary>
+        /// Check if window has WS_EX_NOACTIVATE extended style (does not activate when clicked)
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <returns>True if window has WS_EX_NOACTIVATE style</returns>
+        internal static bool IsNoActivateWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return false;
+
+            var exStyle = (WINDOW_EX_STYLE)Windows.Win32.PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            return exStyle.HasFlag(WINDOW_EX_STYLE.WS_EX_NOACTIVATE);
+        }
+
+        /// <summary>
         /// Set window extended style (e.g., WS_EX_NOACTIVATE)
         /// </summary>
         /// <param name="hWnd">Window handle</param>
@@ -208,11 +226,13 @@ namespace WindowAttach.Utils
         /// <summary>
         /// Set window owner (GWLP_HWNDPARENT) to make it follow the owner window's virtual desktop
         /// This is different from SetParent - it sets the window owner without making it a child window
+        /// Also sets WS_EX_NOACTIVATE to prevent the window from getting focus when clicked
         /// </summary>
         /// <param name="hWnd">Window handle (popup window)</param>
         /// <param name="hWndOwner">Owner window handle (window2)</param>
+        /// <param name="preventActivation">If true, prevent window from getting focus when clicked (default: true)</param>
         /// <returns>True if successful</returns>
-        internal static bool SetWindowOwner(IntPtr hWnd, IntPtr hWndOwner)
+        internal static bool SetWindowOwner(IntPtr hWnd, IntPtr hWndOwner, bool preventActivation = true)
         {
             if (hWnd == IntPtr.Zero)
                 return false;
@@ -224,6 +244,18 @@ namespace WindowAttach.Utils
             // Set GWLP_HWNDPARENT to make the window follow the owner's virtual desktop
             // This is safer than SetParent for WPF windows as it doesn't create a parent-child relationship
             var previousOwner = Windows.Win32.PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, hWndOwner);
+            
+            // If setting owner (not clearing), also set WS_EX_NOACTIVATE to prevent focus stealing
+            if (preventActivation && hWndOwner != IntPtr.Zero)
+            {
+                SetWindowExStyle(hWnd, WINDOW_EX_STYLE.WS_EX_NOACTIVATE, true);
+            }
+            else if (hWndOwner == IntPtr.Zero)
+            {
+                // When clearing owner, also clear WS_EX_NOACTIVATE to restore normal behavior
+                SetWindowExStyle(hWnd, WINDOW_EX_STYLE.WS_EX_NOACTIVATE, false);
+            }
+            
             return previousOwner != IntPtr.Zero || hWndOwner == IntPtr.Zero;
         }
     }
