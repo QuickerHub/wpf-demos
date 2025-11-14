@@ -1,7 +1,7 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
@@ -259,23 +259,15 @@ namespace WindowAttach.Services
 
         private void OnWindow1LocationChanged(IntPtr hwnd)
         {
-            // Use Dispatcher to ensure UpdatePosition runs on UI thread
-            Application.Current.Dispatcher.BeginInvoke(
-                new Action(UpdatePosition),
-                DispatcherPriority.Normal);
+            // Win32 API calls don't require UI thread
+            UpdatePosition();
         }
 
         private void OnWindow1VisibilityChanged(IntPtr hwnd, bool isVisible)
         {
-            // Sync window2 visibility with window1
-            Application.Current.Dispatcher.BeginInvoke(
-                new Action(() => SyncWindow2Visibility(isVisible)),
-                DispatcherPriority.Normal);
-            
-            // Also update position (which handles some edge cases)
-            Application.Current.Dispatcher.BeginInvoke(
-                new Action(UpdatePosition),
-                DispatcherPriority.Normal);
+            // Win32 API calls don't require UI thread
+            SyncWindow2Visibility(isVisible);
+            UpdatePosition();
         }
 
         /// <summary>
@@ -357,10 +349,8 @@ namespace WindowAttach.Services
 
         private void OnWindow1Activated(IntPtr hwnd)
         {
-            // When window1 is activated, adjust window2's z-order to be visible but not activated
-            Application.Current.Dispatcher.BeginInvoke(
-                new Action(AdjustWindow2ZOrder),
-                DispatcherPriority.Normal);
+            // Win32 API calls don't require UI thread
+            AdjustWindow2ZOrder();
         }
 
         /// <summary>
@@ -394,50 +384,78 @@ namespace WindowAttach.Services
             // Notify visibility change for syncing popup button (only for Main attachments)
             if (_attachType == AttachType.Main)
             {
-                Application.Current.Dispatcher.BeginInvoke(
-                    new Action(() => Window2VisibilityChanged?.Invoke(hwnd, isVisible)),
-                    DispatcherPriority.Normal);
+                Window2VisibilityChanged?.Invoke(hwnd, isVisible);
             }
         }
 
         private void OnWindow1Destroyed(IntPtr hwnd)
         {
-            // Use Dispatcher to ensure callback runs on UI thread
-            Application.Current.Dispatcher.BeginInvoke(
-                new Action(() =>
+            // Store window2 handle before detaching (for delayed restore)
+            IntPtr window2Handle = _window2Handle.Value;
+            bool isWindow2ToolWindow = _isAttached && IsWindow(_window2Handle) 
+                ? WindowHelper.IsToolWindow(_window2Handle.Value) 
+                : false;
+            bool isPopupAttachment = _attachType == AttachType.Popup;
+
+            // Execute callback action if provided (before detaching)
+            if (_callbackAction != null)
+            {
+                try
                 {
-                    // Execute callback action if provided (before detaching)
-                    if (_callbackAction != null)
+                    _log.Info($"Executing callback action for window1 (handle: {_window1Handle.Value})");
+                    _callbackAction.Invoke();
+                    _log.Info("Callback action executed successfully");
+                }
+                catch (Exception ex)
+                {
+                    // Log error when callback action fails
+                    _log.Error($"Failed to execute callback action when window1 (handle: {_window1Handle.Value}) was destroyed", ex);
+                }
+            }
+            
+            // Notify that window1 was destroyed
+            WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
+            Detach();
+
+            // Delay 1 second then check and restore window2 state
+            // This handles the race condition where VisibilityChanged (hidden) and Destroyed events fire simultaneously
+            Task.Delay(1000).ContinueWith(_ =>
+            {
+                try
+                {
+                    // Check if window2 still exists and is hidden/minimized
+                    if (window2Handle != IntPtr.Zero && IsWindow(new HWND(window2Handle)))
                     {
-                        try
+                        var hwnd2 = new HWND(window2Handle);
+                        if (!IsWindowVisible(hwnd2) || IsIconic(hwnd2))
                         {
-                            _callbackAction.Invoke();
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log error when callback action fails
-                            _log.Error($"Failed to execute callback action when window1 (handle: {_window1Handle.Value}) was destroyed", ex);
+                            if (isPopupAttachment || isWindow2ToolWindow)
+                            {
+                                // Show window2 without activating if it's a popup attachment or tool window
+                                ShowWindow(hwnd2, SHOW_WINDOW_CMD.SW_SHOWNA);
+                                _log.Info($"Restored window2 (handle: {window2Handle}) to visible state after window1 destruction");
+                            }
+                            else
+                            {
+                                // Restore window2 if it's a normal window
+                                ShowWindow(hwnd2, SHOW_WINDOW_CMD.SW_RESTORE);
+                                _log.Info($"Restored window2 (handle: {window2Handle}) from minimized state after window1 destruction");
+                            }
                         }
                     }
-                    
-                    // Notify that window1 was destroyed
-                    WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
-                    Detach();
-                }),
-                DispatcherPriority.Normal);
+                }
+                catch (Exception ex)
+                {
+                    _log.Error($"Error restoring window2 state after window1 destruction", ex);
+                }
+            });
         }
 
         private void OnWindow2Destroyed(IntPtr hwnd)
         {
-            // Use Dispatcher to ensure callback runs on UI thread
-            Application.Current.Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    // Notify that window2 was destroyed
-                    WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
-                    Detach();
-                }),
-                DispatcherPriority.Normal);
+            // Notify that window2 was destroyed
+            WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
+            Detach();
         }
 
         private void UpdatePosition()
