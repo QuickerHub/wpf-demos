@@ -5,7 +5,15 @@
     xmlns:sys="clr-namespace:System;assembly=mscorlib"
     xmlns:view="clr-namespace:QuickerActionManage.View"
     xmlns:behaviors="clr-namespace:QuickerActionManage.View.Behaviors"
-    xmlns:editor="clr-namespace:QuickerActionManage.View.Editor">
+    xmlns:editor="clr-namespace:QuickerActionManage.View.Editor"
+    xmlns:converters="clr-namespace:QuickerActionManage.View.Converters">
+    <!-- Converters -->
+    <converters:DateTimeShortConverter x:Key="DateTimeShortConverter" />
+    <converters:Object2VisibilityConverter x:Key="Object2VisibilityConverter" />
+    <converters:Object2VisibilityReConverter x:Key="Object2VisibilityReConverter" />
+    <converters:ObjectToBoolConverter x:Key="ObjectToBoolConverter" />
+    <converters:EqualityToVisibilityConverter x:Key="EqualityToVisibilityConverter" />
+    
     <!-- Enum Converters -->
     <editor:EnumValueToDisplayDescriptionConverter x:Key="EnumValueToDisplayDescriptionConverter" />
     <editor:EnumValueToDisplayNameConverter x:Key="EnumValueToDisplayNameConverter" />

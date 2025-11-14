@@ -29,18 +29,19 @@ namespace QuickerActionManage.View.Editor
 
         public string ItemsSourceName { get; set; }
 
-        public IEnumerable? GetItemsSource()
+        public IEnumerable GetItemsSource()
         {
             var mem = SourceType
                 .GetMember(ItemsSourceName, BindingFlags.Public | BindingFlags.Static)
                 .FirstOrDefault();
+            Console.WriteLine(mem.GetType());
             if (mem is PropertyInfo prop)
             {
-                return (IEnumerable)prop.GetValue(null);
+                return prop.GetValue(null) as IEnumerable;
             }
             else if (mem is FieldInfo field)
             {
-                return (IEnumerable)field.GetValue(null);
+                return field.GetValue(null) as IEnumerable;
             }
             return null;
         }
@@ -56,4 +57,3 @@ namespace QuickerActionManage.View.Editor
         }
     }
 }
-

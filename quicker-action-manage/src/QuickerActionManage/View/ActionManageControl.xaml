@@ -24,14 +24,16 @@
     </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="27*" />
-            <ColumnDefinition Width="73*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="300" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="50" />
             <RowDefinition />
             <RowDefinition Height="auto" />
         </Grid.RowDefinitions>
+        
+        <!-- 顶部工具栏 -->
         <DockPanel
             Grid.ColumnSpan="2"
             Margin="20,0,20,0"
@@ -42,12 +44,6 @@
                 ToolTip="当添加了新动作或者修改了动作过后点击这里刷新">
                 刷新
             </Button>
-            <local:PopupButtonControl DockPanel.Dock="Left" Header="筛选">
-                <editor:PropertyGridPlus SelectedObject="{Binding FilterItem}" />
-            </local:PopupButtonControl>
-            <local:PopupButtonControl DockPanel.Dock="Left" Header="排序">
-                <editor:PropertyGridPlus SelectedObject="{Binding Sorter}" />
-            </local:PopupButtonControl>
             <local:PopupButtonControl
                 x:Name="RefButton"
                 DockPanel.Dock="Left"
@@ -87,69 +83,15 @@
                     </ListBox>
                 </Grid>
             </local:PopupButtonControl>
-            <local:PopupButtonControl
-                x:Name="TheRulePop"
-                DockPanel.Dock="Right"
-                Header="规则">
-                <StackPanel MinWidth="200">
-                    <StackPanel.Resources>
-                        <Style BasedOn="{StaticResource ButtonDefault}" TargetType="{x:Type Button}">
-                            <Setter Property="HorizontalAlignment" Value="Stretch" />
-                            <Setter Property="Margin" Value="0,5" />
-                        </Style>
-                    </StackPanel.Resources>
-                    <Button Margin="0,3" Click="ResetRule_Click">使用默认规则</Button>
-                    <ListBox
-                        x:Name="TheRuleListBox"
-                        MinHeight="20"
-                        ItemsSource="{Binding RuleItems}"
-                        PreviewMouseLeftButtonUp="TheRuleListBox_PreviewMouseLeftButtonUp"
-                        SelectedItem="{Binding SelectedRule}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <TextBlock Text="{Binding Title}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                <Setter Property="Padding" Value="5" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
-                    <Button
-                        Margin="0,3"
-                        Click="SaveRule_Click"
-                        ToolTip="保存当前规则"
-                        Visibility="{Binding SelectedRule, Converter={StaticResource Object2VisibilityReConverter}}">
-                        保存当前规则
-                    </Button>
-                    <Button
-                        Click="DeleteRule_Click"
-                        Foreground="Red"
-                        Opacity="0.5"
-                        ToolTip="删除当前规则"
-                        Visibility="{Binding SelectedRule, Converter={StaticResource Object2VisibilityConverter}}">
-                        删除当前规则
-                    </Button>
-                </StackPanel>
-            </local:PopupButtonControl>
-            <TextBox
-                x:Name="RuleNameBox"
-                MinWidth="30"
-                DockPanel.Dock="Right"
-                Text="{Binding SelectedRule.Title}"
-                Visibility="{Binding SelectedRule, Converter={StaticResource Object2VisibilityConverter}}" />
             <TextBox Text="{Binding FilterItem.SearchText, UpdateSourceTrigger=PropertyChanged}" />
         </DockPanel>
 
+        <!-- 左侧：动作列表 -->
         <ListView
             Name="TheListView"
             Grid.Row="1"
             Grid.RowSpan="2"
-            Grid.ColumnSpan="2"
+            Grid.Column="0"
             Margin="0,0,0,22"
             d:ItemsSource="{StaticResource testlist}"
             dd:DragDrop.IsDragSource="False"
@@ -239,7 +181,6 @@
                                         <editor:PropertyGridPlus
                                             Grid.Row="1"
                                             MaxWidth="500"
-                                            NullValueIgnore="True"
                                             SelectedObject="{Binding}" />
                                     </Grid>
                                 </local:PopupButtonControl>
@@ -271,9 +212,195 @@
                 </GridView>
             </ListView.View>
         </ListView>
+        
+        <!-- 右侧：规则和筛选区域 -->
+        <Border
+            Grid.Row="1"
+            Grid.Column="1"
+            Margin="5,0,0,0"
+            BorderBrush="LightGray"
+            BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                
+                <!-- 规则区域 -->
+                <GroupBox Grid.Row="0" Header="规则" Margin="5">
+                    <StackPanel>
+                        <!-- 按钮区域 -->
+                        <WrapPanel Margin="0,0,0,8">
+                            <WrapPanel.Resources>
+                                <Style BasedOn="{StaticResource ButtonDefault}" TargetType="{x:Type Button}">
+                                    <Setter Property="Margin" Value="3,0" />
+                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    <Setter Property="Padding" Value="12,6" />
+                                    <Setter Property="MinWidth" Value="60" />
+                                </Style>
+                            </WrapPanel.Resources>
+                            <Button Click="AddRule_Click">添加</Button>
+                            <Button
+                                Click="DeleteRule_Click"
+                                Foreground="Red"
+                                Opacity="0.7"
+                                ToolTip="删除当前规则"
+                                IsEnabled="{Binding SelectedRule, Converter={StaticResource ObjectToBoolConverter}}">
+                                删除
+                            </Button>
+                        </WrapPanel>
+                        <!-- 规则列表 -->
+                        <Border
+                            BorderBrush="#E0E0E0"
+                            BorderThickness="1"
+                            Background="White"
+                            CornerRadius="3"
+                            Padding="5">
+                            <ListBox
+                                x:Name="TheRuleListBox"
+                                MinHeight="30"
+                                MaxHeight="150"
+                                BorderThickness="0"
+                                Background="Transparent"
+                                ItemsSource="{Binding RuleItems}"
+                                PreviewMouseLeftButtonUp="TheRuleListBox_PreviewMouseLeftButtonUp"
+                                SelectionChanged="TheRuleListBox_SelectionChanged"
+                                SelectedItem="{Binding SelectedRule, Mode=TwoWay}"
+                                SelectionMode="Single">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <TextBlock
+                                                x:Name="RuleNameTextBlock"
+                                                Text="{Binding Title}"
+                                                FontSize="13">
+                                                <TextBlock.Visibility>
+                                                    <MultiBinding Converter="{StaticResource EqualityToVisibilityConverter}" ConverterParameter="Inverse">
+                                                        <Binding Path="ViewModel.EditingRule" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                        <Binding />
+                                                    </MultiBinding>
+                                                </TextBlock.Visibility>
+                                            </TextBlock>
+                                            <TextBox
+                                                x:Name="RuleNameTextBox"
+                                                Padding="4,2"
+                                                BorderBrush="#4A90E2"
+                                                BorderThickness="1"
+                                                FontSize="13"
+                                                FontWeight="SemiBold"
+                                                Foreground="#333333"
+                                                Background="White"
+                                                IsVisibleChanged="RuleNameTextBox_IsVisibleChanged"
+                                                KeyDown="RuleNameTextBox_KeyDown"
+                                                Loaded="RuleNameTextBox_Loaded"
+                                                LostFocus="RuleNameTextBox_LostFocus"
+                                                Text="{Binding ViewModel.EditingName, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged}">
+                                                <TextBox.Visibility>
+                                                    <MultiBinding Converter="{StaticResource EqualityToVisibilityConverter}">
+                                                        <Binding Path="ViewModel.EditingRule" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                        <Binding />
+                                                    </MultiBinding>
+                                                </TextBox.Visibility>
+                                            </TextBox>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        <Setter Property="Padding" Value="10,7" />
+                                        <Setter Property="Margin" Value="4,3" />
+                                        <Setter Property="Background" Value="{DynamicResource RegionBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border
+                                                        x:Name="Bd"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6"
+                                                        Padding="{TemplateBinding Padding}"
+                                                        SnapsToDevicePixels="True">
+                                                        <ContentPresenter
+                                                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SecondaryRegionBrush}" />
+                                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                                        </Trigger>
+                                                        <MultiTrigger>
+                                                            <MultiTrigger.Conditions>
+                                                                <Condition Property="IsSelected" Value="True" />
+                                                                <Condition Property="IsFocused" Value="True" />
+                                                            </MultiTrigger.Conditions>
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                                            <Setter TargetName="Bd" Property="BorderThickness" Value="1.5" />
+                                                            <Setter Property="Foreground" Value="White" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </MultiTrigger>
+                                                        <MultiTrigger>
+                                                            <MultiTrigger.Conditions>
+                                                                <Condition Property="IsSelected" Value="True" />
+                                                                <Condition Property="IsFocused" Value="False" />
+                                                            </MultiTrigger.Conditions>
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                                            <Setter TargetName="Bd" Property="BorderThickness" Value="1.5" />
+                                                            <Setter Property="Foreground" Value="White" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                            <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                                                        </MultiTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <EventSetter Event="MouseDoubleClick" Handler="RuleListBoxItem_MouseDoubleClick" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="重命名" Click="RenameRuleMenuItem_Click" />
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
+                            </ListBox>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+                
+                <!-- 排序区域 -->
+                <GroupBox Grid.Row="1" Header="排序" Margin="5,5,5,5">
+                    <editor:PropertyGridPlus
+                        Margin="0"
+                        SelectedObject="{Binding CurrentRule.Sorter}" />
+                </GroupBox>
+                
+                <!-- 筛选区域 -->
+                <GroupBox Grid.Row="2" Header="筛选" Margin="5,5,5,5">
+                    <editor:PropertyGridPlus
+                        Margin="0"
+                        SelectedObject="{Binding CurrentRule.FilterItem}" />
+                </GroupBox>
+            </Grid>
+        </Border>
+        
         <Border
             Grid.Row="2"
-            Grid.ColumnSpan="2"
+            Grid.Column="0"
             Margin="0,15,0,0"
             BorderBrush="Black"
             BorderThickness="0,0.5,0,0">

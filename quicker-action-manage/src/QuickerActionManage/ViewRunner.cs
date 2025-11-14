@@ -1,8 +1,12 @@
 using System;
+using System.Drawing;
+using System.Linq;
 using System.Reflection;
 using System.Windows;
 using QuickerActionManage.View;
 using QuickerActionManage.Utils;
+using QuickerActionManage.State;
+using Point = System.Drawing.Point;
 
 namespace QuickerActionManage
 {
@@ -11,6 +15,8 @@ namespace QuickerActionManage
     /// </summary>
     public static class ViewRunner
     {
+        private static readonly GlobalStateWriter _stateWriter = new(typeof(ViewRunner).FullName);
+
         static ViewRunner()
         {
             Loader.LoadThemeXamls(Assembly.GetExecutingAssembly(), "Theme.xaml");
@@ -33,28 +39,35 @@ namespace QuickerActionManage
         /// </summary>
         private static void ShowWindow(Window win, WindowOptions options)
         {
+            string windowTag = win.GetType().FullName ?? "ActionManageWindow";
+
             win.SourceInitialized += (s, e) =>
             {
-                if (options.CanUseQuicker)
+                var handle = WindowHelper.GetHandle(win);
+                if (handle != IntPtr.Zero)
                 {
-                    var handle = new System.Windows.Interop.WindowInteropHelper(win).Handle;
-                    if (handle != IntPtr.Zero)
+                    if (options.CanUseQuicker)
                     {
                         try
                         {
-                            // Try to set CanUseQuicker using QWindowHelper if available
-                            // This requires QWindowHelper from Quicker utilities
                             var qWindowHelperType = Type.GetType("Quicker.Utilities.QWindowHelper, Quicker.Utilities");
                             if (qWindowHelperType != null)
                             {
                                 var setCanUseQuickerMethod = qWindowHelperType.GetMethod("SetCanUseQuicker", 
-                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                                    BindingFlags.Public | BindingFlags.Static);
                                 setCanUseQuickerMethod?.Invoke(null, new object[] { handle, true });
                             }
                         }
-                        catch
+                        catch { }
+                    }
+
+                    if (options.LastSize)
+                    {
+                        var sizeStr = _stateWriter.Read($"{windowTag}.Size", "") as string;
+                        var size = String2Point(sizeStr);
+                        if (size != null)
                         {
-                            // Ignore if QWindowHelper is not available
+                            WindowHelper.SetWindowSize(handle, size.Value.X, size.Value.Y);
                         }
                     }
                 }
@@ -62,13 +75,49 @@ namespace QuickerActionManage
 
             if (options.LastSize)
             {
-                // Load last window size from state if needed
-                // This can be implemented using GlobalStateWriter or similar
+                var posStr = _stateWriter.Read($"{windowTag}.Position", "") as string;
+                var pos = String2Point(posStr);
+                if (pos != null)
+                {
+                    win.WindowStartupLocation = WindowStartupLocation.Manual;
+                    win.Left = 0;
+                    win.Top = -4000;
+                    win.ContentRendered += (s, e) => WindowHelper.MoveWindowInToScreen(WindowHelper.GetHandle(win), pos.Value.X, pos.Value.Y);
+                }
             }
 
-            win.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            win.Closing += (s, e) =>
+            {
+                if (options.LastSize)
+                {
+                    var handle = WindowHelper.GetHandle(win);
+                    if (handle != IntPtr.Zero)
+                    {
+                        var rect = WinProperty.Get(handle).Rect;
+                        _stateWriter.Write($"{windowTag}.Position", Point2String(new Point((int)rect.Left, (int)rect.Top)));
+                        _stateWriter.Write($"{windowTag}.Size", Point2String(new Point((int)rect.Width, (int)rect.Height)));
+                    }
+                }
+            };
+
             win.Show();
             win.Activate();
+        }
+
+        private static string Point2String(Point? p)
+        {
+            return p == null ? "" : $"{p?.X},{p?.Y}";
+        }
+
+        private static Point? String2Point(string? postr)
+        {
+            if (string.IsNullOrEmpty(postr)) return null;
+            var pos = postr.Split(',').Select(x =>
+            {
+                int.TryParse(x, out var val);
+                return val;
+            }).ToArray();
+            return pos.Length >= 2 ? (Point?)new Point(pos[0], pos[1]) : null;
         }
 
         /// <summary>

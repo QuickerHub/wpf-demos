@@ -4,47 +4,71 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using Quicker.Common;
 using Quicker.Domain;
 using Quicker.Domain.Actions;
 using Quicker.Domain.Actions.X;
 using Quicker.Domain.Actions.X.Storage;
+using Quicker.Domain.Actions.Runtime;
+using Quicker.Domain.Services;
 using Quicker.Public.Actions;
 using Quicker.Utilities;
+using Quicker.Utilities._3rd;
 
 namespace QuickerActionManage.Utils
 {
-    /// <summary>
-    /// Quicker utility wrapper class
-    /// </summary>
     public static class QuickerUtil
     {
         private static readonly log4net.ILog _log = log4net.LogManager.GetLogger(typeof(QuickerUtil));
 
-        public static bool IsInQuicker { get; }
+        public static ActionEditMgr ActionEditMgr
+        {
+            get
+            {
+                if (!IsInQuicker) return null;
+                try
+                {
+                    var result = (ActionEditMgr)typeof(AppState).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+                                                           .First(x => x.ReturnType == typeof(ActionEditMgr))
+                                                           .Invoke(null, null);
+                    if (result != null) return result;
+                }
+                catch { }
+                return null;
+            }
+        }
 
+        public static RecentActionMgr RecentActionMgr
+        {
+            get
+            {
+                if (!IsInQuicker) return null;
+                try
+                {
+                    var result = (RecentActionMgr)typeof(AppState).GetFields(BindingFlags.NonPublic | BindingFlags.Static)
+                                                             .First(x => x.FieldType == typeof(RecentActionMgr))
+                                                             .GetValue(AppState.AppServer);
+                    if (result != null) return result;
+                }
+                catch { }
+                return null;
+            }
+        }
+
+        public static bool IsInQuicker { get; }
         static QuickerUtil()
         {
             IsInQuicker = Assembly.GetEntryAssembly()?.GetName().Name == "Quicker";
         }
 
-        public static bool CheckIsInQuicker() => IsInQuicker;
+        public static bool CheckIsInQuicker() => Assembly.GetEntryAssembly()?.GetName().Name == "Quicker";
 
-        /// <summary>
-        /// Get action profile by ID
-        /// </summary>
         public static ActionProfile GetActioinProfileById(string actionId)
         {
             if (CheckIsInQuicker())
             {
-                try
-                {
-                    return AppState.DataService.GetActionById(actionId).profile;
-                }
-                catch
-                {
-                    return new ActionProfile();
-                }
+                return AppState.DataService.GetActionById(actionId).profile;
             }
             else
             {
@@ -52,89 +76,6 @@ namespace QuickerActionManage.Utils
             }
         }
 
-        /// <summary>
-        /// Get all action items
-        /// </summary>
-        public static IEnumerable<ActionItem> GetAllActionItems()
-        {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    return AppState.DataService.GetAllActionItems();
-                }
-                catch
-                {
-                    return Enumerable.Empty<ActionItem>();
-                }
-            }
-            return Enumerable.Empty<ActionItem>();
-        }
-
-        /// <summary>
-        /// Get global subprograms
-        /// </summary>
-        public static Quicker.Utilities._3rd.SmartCollection<SubProgram> GetGlobalSubprograms()
-        {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    return AppState.DataService.GlobalSubPrograms;
-                }
-                catch
-                {
-                    return new Quicker.Utilities._3rd.SmartCollection<SubProgram>();
-                }
-            }
-            return new Quicker.Utilities._3rd.SmartCollection<SubProgram>();
-        }
-
-        /// <summary>
-        /// Get ActionEditMgr using reflection
-        /// </summary>
-        public static object? ActionEditMgr
-        {
-            get
-            {
-                if (!IsInQuicker) return null;
-                try
-                {
-                    var method = typeof(AppState).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
-                                                           .FirstOrDefault(x => x.ReturnType.Name == "ActionEditMgr");
-                    return method?.Invoke(null, null);
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get ActionRunMgr using reflection
-        /// </summary>
-        public static object? ActionRunMgr
-        {
-            get
-            {
-                if (!IsInQuicker) return null;
-                try
-                {
-                    var method = typeof(AppState).GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
-                                                           .FirstOrDefault(x => x.ReturnType.Name == "ActionRunMgr");
-                    return method?.Invoke(null, null);
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get action by ID
-        /// </summary>
         public static ActionItem? GetActionById(string? actionId)
         {
             if (IsInQuicker)
@@ -151,195 +92,97 @@ namespace QuickerActionManage.Utils
             return null;
         }
 
-        /// <summary>
-        /// Edit action
-        /// </summary>
-        public static void EditAction(string actionId)
+        public static IEnumerable<ActionItem> GetAllActionItems()
         {
             if (CheckIsInQuicker())
             {
-                try
+                return AppState.DataService.GetAllActionItems();
+            }
+            else
+            {
+                return new List<ActionItem>()
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ActionEditMgr?.GetType().GetMethod("EditAction", new[] { typeof(string) })?.Invoke(ActionEditMgr, new object[] { actionId });
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to edit action: {actionId}", ex);
-                }
+                    new(){Title = "aaaaaaaa",LastEditTimeUtc=DateTime.UtcNow,ShareTimeUtc=DateTime.UtcNow},
+                    new(){Title = "bbbbbbbb",LastEditTimeUtc = DateTime.UtcNow},
+                    new() {Title ="cccccccc"},
+                };
             }
         }
 
-        /// <summary>
-        /// Run action and record
-        /// </summary>
-        public static void RunActionAndRecord(string actionId, string param = "")
+        public static SmartCollection<SubProgram> GetGlobalSubprograms()
         {
             if (CheckIsInQuicker())
             {
-                try
+                return AppState.DataService.GlobalSubPrograms;
+            }
+            else
+            {
+                return new SmartCollection<SubProgram>()
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ActionRunMgr?.GetType().GetMethod("RunAction", new[] { typeof(string), typeof(string) })?.Invoke(ActionRunMgr, new object[] { actionId, param });
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to run action: {actionId}", ex);
-                }
+                    new(){Name="aaa",LastEditTimeUtc=DateTime.UtcNow,ShareTimeUtc=DateTime.UtcNow,Id ="11111" },
+                    new(){Name="ccc",Id = "222222"},
+                    new(){Name="bbb", LastEditTimeUtc=DateTime.Now,Id = "3333333"},
+                };
             }
         }
 
-        /// <summary>
-        /// Debug action
-        /// </summary>
-        public static void DebugAction(string actionId, string param = "", bool breakOnStart = false)
+        public static void EditAction(string id)
         {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ActionEditMgr?.GetType().GetMethod("DebugAction", new[] { typeof(string), typeof(string), typeof(bool) })?.Invoke(ActionEditMgr, new object[] { actionId, param, breakOnStart });
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to debug action: {actionId}", ex);
-                }
-            }
+            AppState.AppServer.EditActionById(id);
         }
 
-        /// <summary>
-        /// Create or edit global subprogram
-        /// </summary>
-        public static void CreateOrEditGlobalSubprogram(SubProgram subprogram)
+        public static void RunActionAndRecord(string id, string cmds)
         {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ActionEditMgr?.GetType().GetMethod("CreateOrEditGlobalSubProgram", new[] { typeof(SubProgram) })?.Invoke(ActionEditMgr, new object[] { subprogram });
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to edit global subprogram: {subprogram.Id}", ex);
-                }
-            }
+            AppState.AppServer.ExecuteActionByIdOrName(id, null, enableDebugging: false, false, true, cmds, ActionTrigger.FloatButton);
+            RecordAction(id, cmds);
         }
 
-        /// <summary>
-        /// Share subprogram
-        /// </summary>
-        public static void ShareSubprogram(SubProgram subprogram, Window? owner = null, bool showDialog = true)
+        public static void RecordAction(string id, string param)
         {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ActionEditMgr?.GetType().GetMethod("ShareSubProgram", new[] { typeof(SubProgram), typeof(Window), typeof(bool) })?.Invoke(ActionEditMgr, new object[] { subprogram, owner, showDialog });
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to share subprogram: {subprogram.Id}", ex);
-                }
-            }
+            RecentActionMgr.RecordLastAction(id, param);
         }
 
-        /// <summary>
-        /// Create action menus
-        /// </summary>
-        public static void CreateActionMenus(System.Windows.Controls.ContextMenu menu, string actionId, Window owner, bool showDelete = false)
+        public static void RunAction(string id, string cmds, bool wait)
         {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        var (action, profile) = AppState.DataService.GetActionById(actionId);
-                        var actionTriggerType = typeof(AppState).Assembly.GetType("Quicker.Domain.Actions.Runtime.ActionTrigger");
-                        var naValue = Enum.Parse(actionTriggerType, "NA");
-                        ActionEditMgr?.GetType().GetMethod("BuildMenuForActionButton", new[] { typeof(System.Windows.Controls.ContextMenu), typeof(ActionItem), typeof(ActionProfile), typeof(int), typeof(int), typeof(Window), actionTriggerType, typeof(bool) })
-                            ?.Invoke(ActionEditMgr, new object[] { menu, action, profile, 0, 0, owner, naValue, showDelete });
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to create action menus: {actionId}", ex);
-                }
-            }
+            AppState.AppServer.ExecuteActionByIdOrName(id, null, enableDebugging: false, wait, true, cmds, ActionTrigger.FloatButton);
         }
 
-        /// <summary>
-        /// Delete action
-        /// </summary>
-        public static async System.Threading.Tasks.Task<bool> DeleteAction(string id)
+        public static void DebugAction(string id, string cmds, bool wait)
         {
-            if (CheckIsInQuicker())
-            {
-                try
-                {
-                    var task = Application.Current.Dispatcher.Invoke<System.Threading.Tasks.Task<bool>>(() =>
-                    {
-                        var (action, profile) = AppState.DataService.GetActionById(id);
-                        var deleteMethod = ActionEditMgr?.GetType().GetMethod("DeleteAction", new[] { typeof(ActionProfile), typeof(ActionItem), typeof(bool), typeof(bool) });
-                        if (deleteMethod != null)
-                        {
-                            return (System.Threading.Tasks.Task<bool>)deleteMethod.Invoke(ActionEditMgr, new object[] { profile, action, true, false });
-                        }
-                        return System.Threading.Tasks.Task.FromResult(false);
-                    });
-                    return await task;
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to delete action: {id}", ex);
-                    return false;
-                }
-            }
-            return false;
+            AppState.AppServer.ExecuteActionByIdOrName(id, null, enableDebugging: true, wait, true, cmds, ActionTrigger.FloatButton);
         }
 
-        /// <summary>
-        /// Delete multiple actions
-        /// </summary>
-        public static async System.Threading.Tasks.Task<bool> DeleteAction(IEnumerable<string> ids)
+        public static void CreateOrEditGlobalSubprogram(SubProgram sub)
         {
-            if (CheckIsInQuicker())
+            ActionEditMgr.CreateOrEditGlobalSubProgram(sub);
+        }
+
+        public static void ShareSubprogram(SubProgram sub, Window owner, bool isGlobal)
+        {
+            ActionEditMgr.ShareSubProgram(sub, owner, isGlobal);
+        }
+
+        public static void CreateActionMenus(ContextMenu menu, string actionId, Window owner, bool showDelete = false)
+        {
+            (ActionItem action, ActionProfile profile) = AppState.DataService.GetActionById(actionId);
+            ActionEditMgr.BuildMenuForActionButton(menu, action, profile, 0, 0, owner, ActionTrigger.NA, showDelete);
+        }
+
+        public static async Task<bool> DeleteAction(string id)
+        {
+            (ActionItem action, ActionProfile profile) = AppState.DataService.GetActionById(id);
+            return await ActionEditMgr.DeleteAction(profile, action, true, false);
+        }
+
+        public static async Task<bool> DeleteAction(IEnumerable<string> ids)
+        {
+            bool success = false;
+            foreach (string id in ids)
             {
-                try
-                {
-                    bool success = false;
-                    var deleteMethod = ActionEditMgr?.GetType().GetMethod("DeleteAction", new[] { typeof(ActionProfile), typeof(ActionItem), typeof(bool), typeof(bool) });
-                    if (deleteMethod != null)
-                    {
-                        foreach (string id in ids)
-                        {
-                            var (action, profile) = AppState.DataService.GetActionById(id);
-                            var task = (System.Threading.Tasks.Task<bool>)deleteMethod.Invoke(ActionEditMgr, new object[] { profile, action, false, false });
-                            success = await task;
-                        }
-                    }
-                    return success;
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Failed to delete actions", ex);
-                    return false;
-                }
+                (ActionItem action, ActionProfile profile) = AppState.DataService.GetActionById(id);
+                success = await ActionEditMgr.DeleteAction(profile, action, false, false);
             }
-            return false;
+            return success;
         }
     }
 }

@@ -6,12 +6,14 @@ namespace QuickerActionManage.View.Editor
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
     public sealed class PropertyGridAttribute : Attribute
     {
+        //  http://go.microsoft.com/fwlink/?LinkId=85236
         public PropertyGridAttribute()
         {
+
         }
-        public static PropertyGridAttribute Default = new PropertyGridAttribute() { Title = "属性" };
+        public static PropertyGridAttribute Default = new() { Title = "属性" };
         public string Title { get; set; } = string.Empty;
-        public string? Description { get; set; }
+        public string Description { get; set; }
         public bool Grouping { get; set; }
         public bool EnableSearch { get; set; }
         public void SetGrid(PropertyGridPlus grid)
@@ -21,4 +23,3 @@ namespace QuickerActionManage.View.Editor
         }
     }
 }
-

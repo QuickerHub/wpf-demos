@@ -1,28 +1,34 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Drawing.Design;
 using Newtonsoft.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuickerActionManage.Utils;
 using QuickerActionManage.Utils.Extension;
 using QuickerActionManage.View.Editor;
 
 namespace QuickerActionManage.ViewModel
 {
-    public class ActionItemFilter : NObject
+    public partial class ActionItemFilter : NObject
     {
         [DisplayName("动作类型")]
-        public ActionType1 ActionType { get; set; }
+        [ObservableProperty]
+        public partial ActionType1 ActionType { get; set; }
 
         [Browsable(false)]
-        public string? SearchText { get; set; }
+        [ObservableProperty]
+        public partial string? SearchText { get; set; }
 
         [DisplayName("最小(kb)")]
         [NumEditorProperty(0, double.MaxValue, 10)]
-        public double MinSize { get; set; } = 0;
+        [ObservableProperty]
+        public partial double MinSize { get; set; } = 0;
 
         [DisplayName("最大(kb)")]
         [NumEditorProperty(0, double.MaxValue, 10)]
-        public double MaxSize { get; set; } = 10000;
+        [ObservableProperty]
+        public partial double MaxSize { get; set; } = 10000;
 
         public enum ActionFroms
         {
@@ -35,32 +41,47 @@ namespace QuickerActionManage.ViewModel
         }
 
         [Browsable(false)]
-        public ActionFroms ActionFrom { get; set; }
+        [ObservableProperty]
+        public partial ActionFroms ActionFrom { get; set; }
 
         [DisplayName("仅自己写的")]
-        public bool SelfAction { get => ActionFrom == ActionFroms.Self; set => ActionFrom = value ? ActionFroms.Self : ActionFroms.All; }
+        public bool SelfAction 
+        { 
+            get => ActionFrom == ActionFroms.Self; 
+            set => ActionFrom = value ? ActionFroms.Self : ActionFroms.All; 
+        }
 
         [DisplayName("已分享")]
-        public bool Shared { get; set; }
+        [ObservableProperty]
+        public partial bool Shared { get; set; }
 
         [DisplayName("网址动作")]
-        public bool IsAssUrl { get; set; }
+        [ObservableProperty]
+        public partial bool IsAssUrl { get; set; }
 
         [DisplayName("仅安装的")]
-        public bool OtherAction { get => ActionFrom == ActionFroms.Others; set => ActionFrom = value ? ActionFroms.Others : ActionFroms.All; }
+        public bool OtherAction 
+        { 
+            get => ActionFrom == ActionFroms.Others; 
+            set => ActionFrom = value ? ActionFroms.Others : ActionFroms.All; 
+        }
 
         [DisplayName("仅自动更新")]
-        public bool AutoUpdateAction { get; set; }
+        [ObservableProperty]
+        public partial bool AutoUpdateAction { get; set; }
 
         [DisplayName("使用次数 > 0")]
-        public bool Used { get; set; }
+        [ObservableProperty]
+        public partial bool Used { get; set; }
 
         [Browsable(false)]
         public static IList<string> ExeNameList { get; set; } = new List<string>();
 
         [DisplayName("进程")]
-        [PropertyBinding(typeof(ActionItemFilter), ItemsSourceName = nameof(ExeNameList))]
-        public string? SelectedExeName { get; set; }
+        [PropertyBindingAttribute(typeof(ActionItemFilter), ItemsSourceName = nameof(ExeNameList))]
+        [Editor(typeof(ComboBoxPropertyEditor), typeof(UITypeEditor))]
+        [ObservableProperty]
+        public partial string? SelectedExeName { get; set; }
 
         public bool Filter(ActionItemModel item)
         {

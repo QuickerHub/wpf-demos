@@ -1,14 +1,18 @@
-using System.Windows;
-using HandyControl.Data;
-using HandyControl.Interactivity;
-using HandyControl.Tools.Extension;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using HandyControl.Controls;
+using HandyControl.Data;
+using HandyControl.Interactivity;
+using HandyControl.Tools.Extension;
 using QuickerActionManage.Utils;
 
 namespace QuickerActionManage.View.Editor
@@ -51,7 +55,7 @@ namespace QuickerActionManage.View.Editor
 
         private static void GroupingChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (!(d is PropertyGridPlus gridPlus)) return;
+            if (d is not PropertyGridPlus gridPlus) return;
             gridPlus.DoGrouping((bool)e.NewValue);
         }
 
@@ -71,22 +75,24 @@ namespace QuickerActionManage.View.Editor
         private const string ElementSearchBar = "PART_SearchBar";
         private ItemsControl _itemsControl;
         private ICollectionView _dataView;
-        private HandyControl.Controls.SearchBar _searchBar;
+        private SearchBar _searchBar;
         private string _searchKey;
 
         public override void OnApplyTemplate()
         {
+            //base.OnApplyTemplate();
+
             if (_searchBar != null)
             {
                 _searchBar.SearchStarted -= SearchBar_SearchStarted;
             }
-            _searchBar = (HandyControl.Controls.SearchBar)GetTemplateChild(ElementSearchBar);
+            _searchBar = GetTemplateChild(ElementSearchBar) as SearchBar;
             if (_searchBar != null)
             {
                 _searchBar.SearchStarted += SearchBar_SearchStarted;
             }
 
-            _itemsControl = (ItemsControl)GetTemplateChild(ElementItemsControl);
+            _itemsControl = GetTemplateChild(ElementItemsControl) as ItemsControl;
 
             if (IsScrollable == false)
             {
@@ -100,8 +106,7 @@ namespace QuickerActionManage.View.Editor
             UpdateItems(SelectedObject);
 
             var filterBar = UIHelper.FindVisualParent<DockPanel>(_searchBar);
-            if (filterBar != null)
-                filterBar.Children[0].Visibility = Visibility.Collapsed;
+            filterBar.Children[0].Visibility = Visibility.Collapsed;
             BindingOperations.SetBinding(filterBar, VisibilityProperty, new Binding(nameof(FilterBarVisibility))
             {
                 Source = this,
@@ -110,7 +115,7 @@ namespace QuickerActionManage.View.Editor
 
         internal void UpdateProperty(object obj)
         {
-            PropertyGridAttribute? prop = null;
+            PropertyGridAttribute prop = null;
             if (obj != null)
             {
                 prop = obj.GetType().GetCustomAttributes(typeof(PropertyGridAttribute), false).FirstOrDefault() as PropertyGridAttribute;
@@ -131,8 +136,7 @@ namespace QuickerActionManage.View.Editor
             if (obj == null || _itemsControl == null) return;
 
             _dataView = CollectionViewSource.GetDefaultView(TypeDescriptor.GetProperties(obj.GetType()).OfType<PropertyDescriptor>()
-                .Where(PropertyResolver.ResolveIsBrowsable)
-                .Where(p => !NullValueIgnore || $"{p.GetValue(obj)}" != "")
+                .Where(item => PropertyResolver.ResolveIsBrowsable(item))
                 .Select(CreatePropertyItem)
                 .Do(item => item.InitElement()));
 
@@ -149,6 +153,8 @@ namespace QuickerActionManage.View.Editor
             {
                 _dataView.GroupDescriptions.Clear();
                 _dataView.SortDescriptions.Clear();
+                //_dataView.SortDescriptions.Add(new SortDescription(PropertyItem.CategoryProperty.Name, ListSortDirection.Ascending));
+                //_dataView.SortDescriptions.Add(new SortDescription(PropertyItem.DisplayNameProperty.Name, ListSortDirection.Ascending));
                 _dataView.GroupDescriptions.Add(new PropertyGroupDescription(PropertyItem.CategoryProperty.Name));
             }
         }
@@ -161,6 +167,7 @@ namespace QuickerActionManage.View.Editor
             {
                 _dataView.GroupDescriptions.Clear();
                 _dataView.SortDescriptions.Clear();
+                //_dataView.SortDescriptions.Add(new SortDescription(PropertyItem.PropertyNameProperty.Name, ListSortDirection.Ascending));
             }
         }
 
@@ -180,7 +187,7 @@ namespace QuickerActionManage.View.Editor
             {
                 foreach (PropertyItem item in _dataView)
                 {
-                    item.Show(TextUtil.Search(_searchKey, item.Name, item.DisplayName));
+                    item.Show(Utils.PinyinHelper.Search(_searchKey, item.Name, item.DisplayName));
                 }
             }
         }
@@ -195,18 +202,9 @@ namespace QuickerActionManage.View.Editor
             return item;
         }
 
-        public bool NullValueIgnore
-        {
-            get { return (bool)GetValue(NullValueIgnoreProperty); }
-            set { SetValue(NullValueIgnoreProperty, value); }
-        }
-
-        public static readonly DependencyProperty NullValueIgnoreProperty = DependencyProperty.Register("NullValueIgnore", typeof(bool), typeof(PropertyGridPlus), new PropertyMetadata(false));
-
         private void SetEnableBinding(PropertyItem item)
         {
             item.GetAttribute<PropertyBindingAttribute>()?.SetIsEnableBinding(item, SelectedObject);
         }
     }
 }
-

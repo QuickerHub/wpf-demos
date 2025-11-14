@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Data;
 using log4net;
 using Newtonsoft.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Quicker.Common;
 using Quicker.Public.Extensions;
 using Quicker.View;
@@ -16,7 +17,7 @@ using QuickerActionManage.Utils;
 
 namespace QuickerActionManage.ViewModel
 {
-    public class ActionListViewModel : ListModel, IDisposable
+    public partial class ActionListViewModel : ListModel, IDisposable
     {
         private readonly ILog _logger = LogManager.GetLogger(typeof(ActionListViewModel));
         private readonly ActionStaticInfo? _actionStaticInfo;
@@ -57,9 +58,9 @@ namespace QuickerActionManage.ViewModel
                        && AdvanceFilter(item);
             };
 
-            ActivateRule();
+            // Subscribe to initial rule's events
+            SubscribeRuleEvents(CurrentRule);
 
-            PropertyChanged += ActionListViewModel_PropertyChanged;
             GSModel.PropertyChanged += GSModel_PropertyChanged;
         }
         
@@ -121,33 +122,21 @@ namespace QuickerActionManage.ViewModel
             }
         }
 
-        private ActionRuleModel? _lastSelectedRule = null;
-        private ActionRuleModel LastRule => _lastSelectedRule ?? DefaultRule;
-
-        private void ActionListViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            switch (e.PropertyName)
-            {
-                case nameof(CurrentRule):
-                    ActivateRule();
-                    _lastSelectedRule = CurrentRule;
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        private void ActivateRule()
-        {
-            LastRule.Sorter.PropertyChanged -= Sorter_PropertyChanged;
-            LastRule.FilterItem.PropertyChanged -= FilterItem_PropertyChanged;
-            Sorter.PropertyChanged += Sorter_PropertyChanged;
-            FilterItem.PropertyChanged += FilterItem_PropertyChanged;
-            ReSort();
-        }
 
         private void FilterItem_PropertyChanged(object sender, PropertyChangedEventArgs e) => Refresh();
         private void Sorter_PropertyChanged(object sender, PropertyChangedEventArgs e) => ReSort();
+        
+        private void SubscribeRuleEvents(ActionRuleModel rule)
+        {
+            rule.Sorter.PropertyChanged += Sorter_PropertyChanged;
+            rule.FilterItem.PropertyChanged += FilterItem_PropertyChanged;
+        }
+        
+        private void UnsubscribeRuleEvents(ActionRuleModel rule)
+        {
+            rule.Sorter.PropertyChanged -= Sorter_PropertyChanged;
+            rule.FilterItem.PropertyChanged -= FilterItem_PropertyChanged;
+        }
 
         [JsonIgnore]
         public SmartCollection<ActionItemModel> ActionItems { get; } = new();
@@ -165,7 +154,8 @@ namespace QuickerActionManage.ViewModel
             UpdateExeNameInfo();
         }
 
-        public ActionItemModel? SelectedItem { get; set; }
+        [ObservableProperty]
+        public partial ActionItemModel? SelectedItem { get; set; }
 
         static ActionListViewModel()
         {
@@ -188,33 +178,85 @@ namespace QuickerActionManage.ViewModel
 
         public QuickerActionManage.Utils.FullyObservableCollection<ActionRuleModel> RuleItems => Rules;
 
-        public ActionRuleModel? SelectedRule { get; set; }
-        public ActionRuleModel DefaultRule { get; set; } = ActionRuleModel.Create();
+        [ObservableProperty]
+        public partial ActionRuleModel? SelectedRule { get; set; }
+        
+        [ObservableProperty]
+        public partial ActionRuleModel DefaultRule { get; set; } = ActionRuleModel.Create();
+        
         public ActionRuleModel CurrentRule => SelectedRule ?? DefaultRule;
         public ActionItemFilter FilterItem => CurrentRule.FilterItem;
         public ActionItemSorter Sorter => CurrentRule.Sorter;
+        
+        /// <summary>
+        /// Currently editing ActionRuleModel (for rename)
+        /// </summary>
+        [ObservableProperty]
+        public partial ActionRuleModel? EditingRule { get; set; }
+        
+        /// <summary>
+        /// Temporary name for editing
+        /// </summary>
+        [ObservableProperty]
+        public partial string? EditingName { get; set; }
+        
+        partial void OnSelectedRuleChanged(ActionRuleModel? oldValue, ActionRuleModel? newValue)
+        {
+            UnsubscribeRuleEvents(oldValue ?? DefaultRule);
+            SubscribeRuleEvents(newValue ?? DefaultRule);
+            
+            OnPropertyChanged(nameof(CurrentRule));
+            OnPropertyChanged(nameof(FilterItem));
+            OnPropertyChanged(nameof(Sorter));
+            ReSort();
+        }
+        
+        partial void OnDefaultRuleChanged(ActionRuleModel oldValue, ActionRuleModel newValue)
+        {
+            if (SelectedRule == null)
+            {
+                UnsubscribeRuleEvents(oldValue);
+                SubscribeRuleEvents(newValue);
+                ReSort();
+            }
+        }
+        
+        /// <summary>
+        /// Start editing a rule's name
+        /// </summary>
+        public void StartEditingRule(ActionRuleModel rule)
+        {
+            EditingRule = rule;
+            EditingName = rule.Title;
+        }
+        
+        /// <summary>
+        /// Cancel editing rule name
+        /// </summary>
+        public void CancelEditingRule()
+        {
+            EditingRule = null;
+            EditingName = null;
+        }
+        
         public void SetDefaultRule()
         {
             SelectedRule = null;
             GSModel.SelectedItem = null;
             DefaultRule = ActionRuleModel.Create();
         }
-        public void SaveRule()
+        
+        public void AddRule()
         {
-            if (SelectedRule != null)
-            {
-                return;
-            }
-
-            var rule = new ActionRuleModel()
-            {
-                Title = "请输入名字",
-                FilterItem = FilterItem.Clone(),
-                Sorter = Sorter.Clone()
-            };
+            var rule = ActionRuleModel.Create();
+            rule.Title = $"规则{Rules.Count + 1}";
 
             Rules.Add(rule);
             SelectedRule = rule;
+            
+            // Automatically start editing the new rule's name
+            EditingRule = rule;
+            EditingName = rule.Title;
         }
 
         protected override CollectionView GetView() => _view;
@@ -227,8 +269,6 @@ namespace QuickerActionManage.ViewModel
         }
 
         public GlobalSubprogramListModel GSModel { get; } = new();
-
-        public IList<string> ExeNameList => ActionItemFilter.ExeNameList;
     }
 }
 

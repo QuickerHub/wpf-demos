@@ -1,12 +1,14 @@
 using System.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuickerActionManage.Utils;
 
 namespace QuickerActionManage.ViewModel
 {
-    public class SubprogramFilter : NObject
+    public partial class SubprogramFilter : NObject
     {
         [Browsable(false)]
-        public string? SearchText { get; set; }
+        [ObservableProperty]
+        public partial string? SearchText { get; set; }
 
         public override string Summary => "";
         public bool Filter(SubprogramModel item)

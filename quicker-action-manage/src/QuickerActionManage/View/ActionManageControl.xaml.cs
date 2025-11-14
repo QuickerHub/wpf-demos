@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Data;
 using QuickerActionManage.View.Menus;
 using QuickerActionManage.ViewModel;
 using QuickerActionManage.Utils;
@@ -214,10 +215,10 @@ namespace QuickerActionManage.View
             }
         }
 
-        private void ResetRule_Click(object sender, RoutedEventArgs e)
+        private void AddRule_Click(object sender, RoutedEventArgs e)
         {
-            ViewModel.SetDefaultRule();
-            TheRulePop.IsChecked = false;
+            ViewModel.AddRule();
+            // Focus will be handled by RuleNameTextBox_IsVisibleChanged or RuleNameTextBox_Loaded
         }
 
         private void DeleteRule_Click(object sender, RoutedEventArgs e)
@@ -228,19 +229,115 @@ namespace QuickerActionManage.View
             }
         }
 
-        private void SaveRule_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SaveRule();
-            RuleNameBox.Focus();
-            TheRulePop.IsChecked = false;
-        }
-
         private void TheRuleListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (UIHelper.FindVisualParent<ListBoxItem>((DependencyObject)e.OriginalSource) is not null)
+            // Rule selection is now always visible, no need to close popup
+        }
+        
+        private void TheRuleListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // If selection was cleared (removed but nothing added), and we have a SelectedRule in ViewModel,
+            // restore it to prevent accidental clearing when clicking on filter controls
+            if (e.RemovedItems.Count > 0 && e.AddedItems.Count == 0 && ViewModel.SelectedRule != null)
             {
-                TheRulePop.IsChecked = false;
+                // Only restore if the removed item was our SelectedRule
+                if (e.RemovedItems.Contains(ViewModel.SelectedRule))
+                {
+                    // Restore the selection
+                    if (sender is ListBox listBox)
+                    {
+                        listBox.SelectedItem = ViewModel.SelectedRule;
+                    }
+                }
             }
+        }
+
+        private void RuleListBoxItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            var listBoxItem = sender as System.Windows.Controls.ListBoxItem;
+            if (listBoxItem == null) return;
+
+            var rule = listBoxItem.DataContext as ActionRuleModel;
+            if (rule == null) return;
+
+            StartRuleEditing(rule);
+            e.Handled = true;
+        }
+
+        private void RenameRuleMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.SelectedRule != null)
+            {
+                StartRuleEditing(ViewModel.SelectedRule);
+            }
+        }
+
+        private void StartRuleEditing(ActionRuleModel rule)
+        {
+            ViewModel.StartEditingRule(rule);
+        }
+
+        private void RuleNameTextBox_Loaded(object sender, RoutedEventArgs e)
+        {
+            FocusRuleTextBox(sender as System.Windows.Controls.TextBox);
+        }
+
+        private void RuleNameTextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            var textBox = sender as System.Windows.Controls.TextBox;
+            if (textBox != null && textBox.Visibility == Visibility.Visible && (bool)e.NewValue)
+            {
+                // Delay focus to ensure TextBox is fully rendered
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+                {
+                    FocusRuleTextBox(textBox);
+                }));
+            }
+        }
+
+        private void FocusRuleTextBox(System.Windows.Controls.TextBox? textBox)
+        {
+            if (textBox != null && textBox.Visibility == Visibility.Visible)
+            {
+                textBox.Focus();
+                textBox.SelectAll();
+            }
+        }
+
+        private void RuleNameTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            var textBox = sender as System.Windows.Controls.TextBox;
+            if (textBox == null) return;
+
+            if (e.Key == Key.Enter)
+            {
+                SaveRuleEditing();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                CancelRuleEditing();
+                e.Handled = true;
+            }
+        }
+
+        private void RuleNameTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            SaveRuleEditing();
+        }
+
+        private void SaveRuleEditing()
+        {
+            if (ViewModel.EditingRule != null && !string.IsNullOrWhiteSpace(ViewModel.EditingName))
+            {
+                ViewModel.EditingRule.Title = ViewModel.EditingName.Trim();
+            }
+            CancelRuleEditing();
+        }
+
+        private void CancelRuleEditing()
+        {
+            ViewModel.CancelEditingRule();
         }
 
         private void RecycleButton_Click(object sender, RoutedEventArgs e)

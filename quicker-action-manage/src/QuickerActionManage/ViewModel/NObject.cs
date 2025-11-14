@@ -1,15 +1,13 @@
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using System.Text;
 using Newtonsoft.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace QuickerActionManage.ViewModel
 {
     [JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
-    public abstract class NObject : INotifyPropertyChanged
+    public abstract partial class NObject : ObservableObject
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
         [Browsable(false)]
         [JsonIgnore]
         public virtual string Summary => this.ToString();

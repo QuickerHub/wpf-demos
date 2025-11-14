@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Data;
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuickerActionManage.Utils;
 
 namespace QuickerActionManage.ViewModel
 {
-    public abstract class ListModel : INotifyPropertyChanged
+    public abstract partial class ListModel : ObservableObject
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
-
         protected readonly DebounceTimer _debounce = new();
         protected abstract CollectionView GetView();
         protected abstract IEnumerable<SortDescription> GetSortDescriptions();

@@ -2,7 +2,6 @@ using System;
 using System.Windows.Media;
 using System.Collections.Generic;
 using HandyControl.Controls;
-using System.Collections;
 
 namespace QuickerActionManage.View.Editor
 {
@@ -38,12 +37,9 @@ namespace QuickerActionManage.View.Editor
                     EditorTypeCode.Text => new TextPropertyEditor(),
                     EditorTypeCode.Number => new NumEditor(),
                     EditorTypeCode.Brush => new ColorEditor(),
+                    //case EditorTypeCode.FontFamily: result = new FontFamilySelector(); break;
                     _ => new ReadOnlyTextPropertyEditor(),
                 };
-            }
-            else if (typeof(IEnumerable).IsAssignableFrom(type))
-            {
-                result = new ListEditor();
             }
             else if (type.IsSubclassOf(typeof(Enum)))
             {
@@ -69,4 +65,3 @@ namespace QuickerActionManage.View.Editor
         }
     }
 }
-

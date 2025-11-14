@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuickerActionManage.State;
 using QuickerActionManage.Utils;
 using log4net;
@@ -14,7 +15,7 @@ using Quicker.Utilities._3rd;
 
 namespace QuickerActionManage.ViewModel
 {
-    public class GlobalSubprogramListModel : ListModel, IDisposable
+    public partial class GlobalSubprogramListModel : ListModel, IDisposable
     {
         protected override CollectionView GetView() => _view;
 
@@ -29,8 +30,6 @@ namespace QuickerActionManage.ViewModel
             Subprograms.Reset(Qsubs.Select(x => new SubprogramModel(x)));
 
             Qsubs.CollectionChanged += QSubprograms_CollectionChanged;
-
-            PropertyChanged += GlobalSubprogramListModel_PropertyChanged;
 
             _view.Filter = obj =>
             {
@@ -62,26 +61,19 @@ namespace QuickerActionManage.ViewModel
             });
         }
 
-        private void GlobalSubprogramListModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        partial void OnRefSubprogamIdChanged(string? value)
         {
-            switch (e.PropertyName)
+            if (!string.IsNullOrEmpty(value))
             {
-                case nameof(RefSubprogamId):
-                    if (!string.IsNullOrEmpty(RefSubprogamId))
-                    {
-                        _refIds = new(QuickerUtil.GetGlobalSubprograms()
-                                                 .Where(x => JsonConvert.SerializeObject(x).Contains(RefSubprogamId))
-                                                 .Select(x => x.Id));
-                    }
-                    else
-                    {
-                        _refIds = null;
-                    }
-                    Refresh();
-                    return;
-                default:
-                    break;
+                _refIds = new(QuickerUtil.GetGlobalSubprograms()
+                                         .Where(x => JsonConvert.SerializeObject(x).Contains(value))
+                                         .Select(x => x.Id));
             }
+            else
+            {
+                _refIds = null;
+            }
+            Refresh();
         }
 
         protected override IEnumerable<SortDescription> GetSortDescriptions() => Sorter.GetSortDescription();
@@ -100,13 +92,15 @@ namespace QuickerActionManage.ViewModel
             }
         }
 
-        public string? RefSubprogamId { get; set; }
+        [ObservableProperty]
+        public partial string? RefSubprogamId { get; set; }
 
         public SubprogramFilter FilterItem { get; set; } = new();
 
         public SubprogramSorter Sorter { get; set; } = new();
 
-        public SubprogramModel? SelectedItem { get; set; }
+        [ObservableProperty]
+        public partial SubprogramModel? SelectedItem { get; set; }
 
         public void SelectById(string? id)
         {

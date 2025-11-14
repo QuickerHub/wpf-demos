@@ -6,8 +6,8 @@
     xmlns:local="clr-namespace:QuickerActionManage.View"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="ActionManageWindow"
-    Width="960"
-    Height="550"
+    Width="1400"
+    Height="800"
     d:Height="300"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">

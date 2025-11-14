@@ -1,15 +1,14 @@
 using System;
 using System.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Quicker.Domain.Actions.X;
 using QuickerActionManage.Utils.Extension;
 
 namespace QuickerActionManage.ViewModel
 {
-    public class SubprogramModel : INotifyPropertyChanged
+    public partial class SubprogramModel : ObservableObject
     {
         private readonly SubProgram _sub;
-
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         [Browsable(false)]
         public SubProgram Sub => _sub;

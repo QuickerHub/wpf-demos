@@ -1,28 +1,33 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Windows.Data;
+using System.Drawing.Design;
 using Newtonsoft.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuickerActionManage.Utils.Extension;
+using QuickerActionManage.View.Editor;
 
 namespace QuickerActionManage.ViewModel
 {
-    public class ActionItemSorter : Sorter
+    public partial class ActionItemSorter : Sorter
     {
         [DisplayName("排序方式")]
-        public ActionSortType SortType { get; set; } = ActionSortType.LastEditTime;
+        [ObservableProperty]
+        public partial ActionSortType SortType { get; set; } = ActionSortType.LastEditTime;
+
+        [DisplayName("排序方向")]
+        [Editor(typeof(SortDirectionEditor), typeof(UITypeEditor))]
+        [ObservableProperty]
+        public partial ListSortDirection SortDirection { get; set; } = ListSortDirection.Descending;
 
         [Browsable(false)]
-        public ListSortDirection SortDirection { get; set; } = ListSortDirection.Descending;
-
-        [DisplayName("升序")]
         public bool Ascending
         {
             get => SortDirection == ListSortDirection.Ascending;
             set => SortDirection = value ? ListSortDirection.Ascending : ListSortDirection.Descending;
         }
 
-        [DisplayName("降序")]
+        [Browsable(false)]
         public bool Descending
         {
             get => SortDirection == ListSortDirection.Descending;
@@ -43,7 +48,7 @@ namespace QuickerActionManage.ViewModel
             {
                 case ActionSortType.LastEditTime:
                 case ActionSortType.ShareTime:
-                    yield return new SortDescription(SortType.ToString(), SortDirection);
+                    yield return new SortDescription(SortType.ToString(), (ListSortDirection)SortDirection);
                     yield return new SortDescription(nameof(ActionSortType.CreateTime), ListSortDirection.Descending);
                     break;
                 case ActionSortType.CreateTime:
@@ -52,7 +57,7 @@ namespace QuickerActionManage.ViewModel
                 case ActionSortType.UsageCount:
                 case ActionSortType.ExeName:
                 case ActionSortType.Description:
-                    yield return new SortDescription(SortType.ToString(), SortDirection);
+                    yield return new SortDescription(SortType.ToString(), (ListSortDirection)SortDirection);
                     break;
                 case ActionSortType.None:
                     yield break;
