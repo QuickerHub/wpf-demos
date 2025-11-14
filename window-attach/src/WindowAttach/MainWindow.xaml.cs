@@ -1,9 +1,10 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Interop;
 using WindowAttach.Models;
-using WindowAttach.Services;
-using WindowAttach;
+using WindowAttach.ViewModels;
 
 namespace WindowAttach
 {
@@ -12,11 +13,16 @@ namespace WindowAttach
     /// </summary>
     public partial class MainWindow : Window
     {
+        private WindowTestViewModel? _viewModel;
         private Window? _testWindow;
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out System.Drawing.Point lpPoint);
 
         public MainWindow()
         {
             InitializeComponent();
+            _viewModel = DataContext as WindowTestViewModel;
             
             // Setup window attachment after window handle is available
             this.SourceInitialized += MainWindow_SourceInitialized;
@@ -75,7 +81,7 @@ namespace WindowAttach
                     Runner.Register(
                         window1Handle: mainWindowHandle,
                         window2Handle: testWindowHandle,
-                        placement: WindowPlacement.RightTop,
+                        placement: WindowAttach.Models.WindowPlacement.RightTop,
                         offsetX: 10,  // 10 pixels offset from the right edge
                         offsetY: 0,   // 0 pixels offset from the top
                         restrictToSameScreen: false,
@@ -108,12 +114,34 @@ namespace WindowAttach
                 
                 _testWindow.Close();
             }
+            
+            _viewModel?.Dispose();
         }
 
-        private void OpenManagementWindow_Click(object sender, RoutedEventArgs e)
+        private void PickWindowButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Start drag operation
+            var data = new DataObject("WindowPicker", "pick");
+            DragDrop.DoDragDrop(PickWindowButton, data, DragDropEffects.None);
+            
+            // After drag ends, get current cursor position and pick window
+            if (GetCursorPos(out System.Drawing.Point screenPoint))
+            {
+                var screenPos = new Point(screenPoint.X, screenPoint.Y);
+                _viewModel?.PickWindowAtPoint(screenPos);
+            }
+        }
+
+        private void PickWindowButton_GiveFeedback(object sender, GiveFeedbackEventArgs e)
+        {
+            // Change cursor to crosshair during drag
+            Mouse.SetCursor(Cursors.Cross);
+            e.Handled = true;
+        }
+
+        private void TestWindowAttach_Click(object sender, RoutedEventArgs e)
         {
             Runner.ShowWindowList();
         }
     }
 }
-

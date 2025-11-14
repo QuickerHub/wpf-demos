@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Windows;
 using WindowAttach.Models;
 using WindowAttach.Services;
+using WindowAttach.Utils;
 using WindowAttach.Views;
 
 namespace WindowAttach
@@ -42,7 +43,7 @@ namespace WindowAttach
 
             // Parse placement string to enum
             WindowPlacement placementEnum = ParsePlacement(placement);
-
+             
             // Call the main AttachWindow method
             return AttachWindow(hwnd1, hwnd2, autoUnregister, placementEnum, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
         }
@@ -84,8 +85,12 @@ namespace WindowAttach
                 return result;
             }
 
+            // Get root windows before toggling
+            IntPtr rootWindow1 = WindowHelper.GetRootWindow(window1Handle);
+            IntPtr rootWindow2 = WindowHelper.GetRootWindow(window2Handle);
+
             // Toggle attachment
-            bool isAttached = _managerService.Toggle(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
+            bool isAttached = _managerService.Toggle(rootWindow1, rootWindow2, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
 
             // If auto-unregister is enabled and we just attached, set up monitoring for window closure
             if (autoUnregister && isAttached)
@@ -122,18 +127,22 @@ namespace WindowAttach
                 throw new ArgumentException("Window1 and Window2 cannot be the same window");
             }
 
+            // Get root windows before registering (Register may be called directly, not only from AttachWindow)
+            IntPtr rootWindow1 = WindowHelper.GetRootWindow(window1Handle);
+            IntPtr rootWindow2 = WindowHelper.GetRootWindow(window2Handle);
+
             // Ensure we're on the UI thread
             if (Application.Current?.Dispatcher.CheckAccess() == false)
             {
                 bool result = false;
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    result = Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
+                    result = Register(rootWindow1, rootWindow2, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
                 });
                 return result;
             }
 
-            return _managerService.Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
+            return _managerService.Register(rootWindow1, rootWindow2, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
         }
 
         /// <summary>
@@ -149,18 +158,22 @@ namespace WindowAttach
                 throw new ArgumentException("Window handles cannot be zero");
             }
 
+            // Get root windows before unregistering (Unregister may be called directly, not only from AttachWindow)
+            IntPtr rootWindow1 = WindowHelper.GetRootWindow(window1Handle);
+            IntPtr rootWindow2 = WindowHelper.GetRootWindow(window2Handle);
+
             // Ensure we're on the UI thread
             if (Application.Current?.Dispatcher.CheckAccess() == false)
             {
                 bool result = false;
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    result = Unregister(window1Handle, window2Handle);
+                    result = Unregister(rootWindow1, rootWindow2);
                 });
                 return result;
             }
 
-            return _managerService.Unregister(window1Handle, window2Handle);
+            return _managerService.Unregister(rootWindow1, rootWindow2);
         }
 
         /// <summary>

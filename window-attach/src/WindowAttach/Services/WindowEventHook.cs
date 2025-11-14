@@ -23,6 +23,8 @@ namespace WindowAttach.Services
         private const uint EVENT_SYSTEM_MINIMIZESTART = 0x0016;
         private const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
         private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint EVENT_OBJECT_HIDE = 0x8003; // Fired when window is hidden (e.g., Electron close button)
+        private const uint EVENT_OBJECT_SHOW = 0x8002; // Fired when window is shown
 
         // Array of events to monitor
         private static readonly uint[] EventsToMonitor = new[]
@@ -31,7 +33,9 @@ namespace WindowAttach.Services
             EVENT_OBJECT_DESTROY,
             EVENT_SYSTEM_MINIMIZESTART,
             EVENT_SYSTEM_MINIMIZEEND,
-            EVENT_SYSTEM_FOREGROUND
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_OBJECT_HIDE,
+            EVENT_OBJECT_SHOW
         };
 
         private bool _lastVisibilityState = true; // Track last visibility state
@@ -147,6 +151,24 @@ namespace WindowAttach.Services
                     if (hwnd == _targetWindowHandle)
                     {
                         Activated?.Invoke(_targetWindowHandle.Value);
+                    }
+                    break;
+
+                case EVENT_OBJECT_HIDE:
+                    // EVENT_OBJECT_HIDE fires when a window is hidden (e.g., Electron close button)
+                    // Only process events for the target window
+                    if (hwnd == _targetWindowHandle && idObject == 0 && idChild == 0)
+                    {
+                        CheckAndNotifyVisibility();
+                    }
+                    break;
+
+                case EVENT_OBJECT_SHOW:
+                    // EVENT_OBJECT_SHOW fires when a window is shown
+                    // Only process events for the target window
+                    if (hwnd == _targetWindowHandle && idObject == 0 && idChild == 0)
+                    {
+                        CheckAndNotifyVisibility();
                     }
                     break;
             }

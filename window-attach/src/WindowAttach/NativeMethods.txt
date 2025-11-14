@@ -2,6 +2,7 @@ GetWindowRect
 SetWindowPos
 IsWindow
 IsIconic
+IsZoomed
 IsWindowVisible
 ShowWindow
 MonitorFromWindow
@@ -10,17 +11,28 @@ SetWinEventHook
 UnhookWinEvent
 GetWindowText
 GetWindowTextLength
+SetWindowText
+SetLayeredWindowAttributes
+LAYERED_WINDOW_ATTRIBUTES_FLAGS
 GetWindowLongPtr
 GetWindowLong
 SetWindowLongPtr
 WINDOW_EX_STYLE
+WINDOW_STYLE
 WINDOW_LONG_PTR_INDEX
+SET_WINDOW_POS_FLAGS
 SetForegroundWindow
 GetForegroundWindow
+GetParent
+GetWindowThreadProcessId
 SetParent
 DefWindowProc
 SendMessage
 WM_MOUSEACTIVATE
 MA_NOACTIVATE
 CallWindowProc
+WindowFromPoint
+GetAncestor
+GetDesktopWindow
+GET_ANCESTOR_FLAGS
 
