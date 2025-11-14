@@ -24,8 +24,35 @@ namespace QuickerExpressionEnhanced
         /// <param name="code">Expression code to execute</param>
         /// <param name="onUiThread">Whether to execute on UI thread</param>
         /// <param name="useArgs">Whether to parse and use arguments (default: false)</param>
+        /// <param name="toAction">Whether to return an Action instead of executing immediately (default: false)</param>
+        /// <returns>Expression execution result, or Action if toAction is true</returns>
+        public static object? RunExpression(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, bool toAction = false)
+        {
+            if (toAction)
+            {
+                // Return an Action that will execute the expression when invoked
+                return new Action(() =>
+                {
+                    RunExpressionInternal(context, eval, code, onUiThread, useArgs);
+                });
+            }
+            else
+            {
+                // Execute immediately and return result
+                return RunExpressionInternal(context, eval, code, onUiThread, useArgs);
+            }
+        }
+
+        /// <summary>
+        /// Internal method to run expression with support for variable substitution and optional UI thread execution
+        /// </summary>
+        /// <param name="context">Action context</param>
+        /// <param name="eval">Eval context for expression evaluation</param>
+        /// <param name="code">Expression code to execute</param>
+        /// <param name="onUiThread">Whether to execute on UI thread</param>
+        /// <param name="useArgs">Whether to parse and use arguments</param>
         /// <returns>Expression execution result</returns>
-        public static object? RunExpression(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false)
+        private static object? RunExpressionInternal(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false)
         {
             if (useArgs)
             {
