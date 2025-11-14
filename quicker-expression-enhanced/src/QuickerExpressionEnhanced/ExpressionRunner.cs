@@ -6,6 +6,8 @@ using Quicker.Public.Interfaces;
 using Quicker.Domain.Actions.Runtime;
 using Z.Expressions;
 using Quicker.Domain.Actions;
+using log4net;
+using Quicker.Utilities;
 
 namespace QuickerExpressionEnhanced
 {
@@ -15,6 +17,7 @@ namespace QuickerExpressionEnhanced
     /// </summary>
     public static class ExpressionRunner
     {
+        private static readonly ILog _log = LogManager.GetLogger(typeof(ExpressionRunner));
         /// <summary>
         /// Run expression with support for variable substitution and optional UI thread execution
         /// Supports direct variable assignment in expressions
@@ -114,12 +117,12 @@ namespace QuickerExpressionEnhanced
             {
                 return Application.Current.Dispatcher.Invoke(() =>
                 {
-                    return RunExp(context, eval, code);
+                    return RunExpWithMessage(context, eval, code);
                 });
             }
             else
             {
-                return RunExp(context, eval, code);
+                return RunExpWithMessage(context, eval, code);
             }
         }
 
@@ -147,6 +150,29 @@ namespace QuickerExpressionEnhanced
         }
 
         /// <summary>
+        /// Execute expression with registered context variables and show error message on failure
+        /// This method catches exceptions and shows error message instead of throwing
+        /// </summary>
+        /// <param name="context">Action context</param>
+        /// <param name="eval">Eval context</param>
+        /// <param name="code">Code with variables already replaced</param>
+        /// <returns>Expression execution result, or null if execution fails</returns>
+        private static object? RunExpWithMessage(IActionContext context, EvalContext eval, string code)
+        {
+            try
+            {
+                return RunExp(context, eval, code);
+            }
+            catch (Exception ex)
+            {
+                // Log error when expression execution fails
+                _log.Error($"Failed to execute expression. Code: {code}", ex);
+                AppHelper.ShowWarning($"表达式执行失败: {ex.Message}\n代码: {code}");
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Execute expression with registered context variables
         /// </summary>
         /// <param name="context">Action context</param>
@@ -155,6 +181,16 @@ namespace QuickerExpressionEnhanced
         /// <returns>Expression execution result</returns>
         private static object RunExp(IActionContext context, EvalContext eval, string code)
         {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context), "Action context cannot be null");
+            }
+
+            if (eval == null)
+            {
+                throw new ArgumentNullException(nameof(eval), "Eval context cannot be null");
+            }
+
             var ac = (ActionExecuteContext)context;
             eval.RegisterLocalVariable("_context", context);
             eval.RegisterLocalVariable("_eval", eval);
