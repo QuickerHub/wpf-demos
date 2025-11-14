@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Interop;
+using log4net;
 using WindowAttach;
 using WindowAttach.Models;
 using WindowAttach.Services;
@@ -14,14 +15,18 @@ namespace WindowAttach.Views
     /// </summary>
     public partial class DetachPopupWindow : Window
     {
+        private static readonly ILog _log = LogManager.GetLogger(typeof(DetachPopupWindow));
+        
         public IntPtr Window1Handle { get; set; }
         public IntPtr Window2Handle { get; set; }
+        private Action? _callbackAction;
 
-        public DetachPopupWindow(IntPtr window1Handle, IntPtr window2Handle)
+        public DetachPopupWindow(IntPtr window1Handle, IntPtr window2Handle, Action? callbackAction = null)
         {
             InitializeComponent();
             Window1Handle = window1Handle;
             Window2Handle = window2Handle;
+            _callbackAction = callbackAction;
             
             // Set initial position - will be updated by attachment service
             WindowStartupLocation = WindowStartupLocation.Manual;
@@ -29,6 +34,12 @@ namespace WindowAttach.Views
             // Prevent window from getting focus
             ShowActivated = false;
             Focusable = false;
+            
+            // Hide callback button (for debugging purposes, can be enabled if needed)
+            if (CallbackButton != null)
+            {
+                CallbackButton.Visibility = Visibility.Collapsed;
+            }
             
             // Load current settings
             LoadCurrentSettings();
@@ -81,6 +92,29 @@ namespace WindowAttach.Views
             // Update the settings for the main attachment
             var managerService = AppState.ManagerService;
             managerService.UpdateSettings(Window1Handle, Window2Handle, restrictToSameScreen, autoAdjustToScreen);
+        }
+
+        private void CallbackButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Execute callback action if provided
+            if (_callbackAction != null)
+            {
+                try
+                {
+                    _log.Info("Executing callback action");
+                    _callbackAction.Invoke();
+                    _log.Info("Callback action executed successfully");
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't crash
+                    _log.Error("Error executing callback action", ex);
+                }
+            }
+            else
+            {
+                _log.Warn("Callback action is null, cannot execute");
+            }
         }
     }
 }

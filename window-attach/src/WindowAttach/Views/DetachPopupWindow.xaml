@@ -75,6 +75,13 @@
                     Click="DetachButton_Click"
                     Style="{StaticResource ButtonBaseStyle}"/>
             
+            <Button x:Name="CallbackButton"
+                    Content="执行回调" 
+                    Click="CallbackButton_Click"
+                    Style="{StaticResource ButtonBaseStyle}"
+                    Margin="8,0,0,0"
+                    Visibility="Collapsed"/>
+            
             <controls:PopupButtonControl x:Name="PlacementButton"
                                         Header="位置"
                                         Margin="8,0,0,0">

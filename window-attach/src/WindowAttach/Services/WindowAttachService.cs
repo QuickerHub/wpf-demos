@@ -9,6 +9,7 @@ using Windows.Win32.UI.WindowsAndMessaging;
 using static Windows.Win32.PInvoke;
 using WindowAttach.Models;
 using WindowAttach.Utils;
+using log4net;
 
 namespace WindowAttach.Services
 {
@@ -17,6 +18,8 @@ namespace WindowAttach.Services
     /// </summary>
     public class WindowAttachService : IDisposable
     {
+        private static readonly ILog _log = LogManager.GetLogger(typeof(WindowAttachService));
+        
         private HWND _window1Handle;
         private HWND _window2Handle;
         private WindowPlacement _placement;
@@ -31,6 +34,12 @@ namespace WindowAttach.Services
         private bool _isUpdatingPosition;
         private AttachType _attachType = AttachType.Main;
         private bool? _originalToolWindowState; // Track original WS_EX_TOOLWINDOW state
+        private Action? _callbackAction; // Callback action to execute when window1 is closed
+
+        /// <summary>
+        /// Get the callback action (for popup window to access)
+        /// </summary>
+        public Action? CallbackAction => _callbackAction;
 
         /// <summary>
         /// Event raised when either window is destroyed
@@ -53,8 +62,9 @@ namespace WindowAttach.Services
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1</param>
         /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible</param>
         /// <param name="attachType">Type of attachment (Main or Popup)</param>
+        /// <param name="callbackAction">Callback action to execute when window1 is closed (default: null)</param>
         public void Attach(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement, 
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main)
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main, Action? callbackAction = null)
         {
             var hwnd1 = new HWND(window1Handle);
             var hwnd2 = new HWND(window2Handle);
@@ -72,6 +82,7 @@ namespace WindowAttach.Services
             _restrictToSameScreen = restrictToSameScreen;
             _autoAdjustToScreen = autoAdjustToScreen;
             _attachType = attachType;
+            _callbackAction = callbackAction;
             _isAttached = true;
 
             // Set window2 owner to window1 to make it follow window1's virtual desktop
@@ -126,22 +137,50 @@ namespace WindowAttach.Services
                 // Only apply to Main attachments (popup attachments handle this separately)
                 if (_attachType == AttachType.Main && _window2Handle.Value != IntPtr.Zero)
                 {
-                    // Dispose the no-activate hook first
-                    _noActivateHook?.Dispose();
-                    _noActivateHook = null;
+                    // Check if window2 still exists before operating on it
+                    bool window2Exists = IsWindow(_window2Handle);
                     
-                    // Restore original tool window state
-                    if (_originalToolWindowState.HasValue && _window2Handle.Value != IntPtr.Zero)
+                    if (window2Exists)
                     {
-                        WindowHelper.SetWindowExStyle(_window2Handle.Value, WINDOW_EX_STYLE.WS_EX_TOOLWINDOW, _originalToolWindowState.Value);
+                        // Dispose the no-activate hook first
+                        _noActivateHook?.Dispose();
+                        _noActivateHook = null;
+                        
+                        // Restore original tool window state
+                        if (_originalToolWindowState.HasValue)
+                        {
+                            WindowHelper.SetWindowExStyle(_window2Handle.Value, WINDOW_EX_STYLE.WS_EX_TOOLWINDOW, _originalToolWindowState.Value);
+                        }
+                        
+                        // Clear window2 owner to restore its independence
+                        WindowHelper.SetWindowOwner(_window2Handle.Value, IntPtr.Zero);
+                        
+                        // When window1 is destroyed, Windows may automatically hide window2 (because it was owned by window1)
+                        // We need to explicitly show window2 if it was hidden due to owner destruction
+                        // Check if window2 is hidden (not visible) but not minimized
+                        bool isWindow2Hidden = !IsWindowVisible(_window2Handle);
+                        bool isWindow2Minimized = IsIconic(_window2Handle);
+                        
+                        if (isWindow2Hidden && !isWindow2Minimized)
+                        {
+                            // Window2 is hidden but not minimized - likely hidden due to owner destruction
+                            // Restore it to visible state
+                            ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_SHOWNA);
+                        }
+                        else if (isWindow2Minimized)
+                        {
+                            // Window2 is minimized - restore it
+                            ShowWindow(_window2Handle, SHOW_WINDOW_CMD.SW_RESTORE);
+                        }
                     }
-                    
-                    WindowHelper.SetWindowOwner(_window2Handle.Value, IntPtr.Zero);
                 }
             }
 
             _isAttached = false;
             StopEventHooks();
+            
+            // Release callback action
+            _callbackAction = null;
             
             // Reset original tool window state tracking
             _originalToolWindowState = null;
@@ -367,6 +406,20 @@ namespace WindowAttach.Services
             Application.Current.Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
+                    // Execute callback action if provided (before detaching)
+                    if (_callbackAction != null)
+                    {
+                        try
+                        {
+                            _callbackAction.Invoke();
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log error when callback action fails
+                            _log.Error($"Failed to execute callback action when window1 (handle: {_window1Handle.Value}) was destroyed", ex);
+                        }
+                    }
+                    
                     // Notify that window1 was destroyed
                     WindowDestroyed?.Invoke(_window1Handle.Value, _window2Handle.Value);
                     Detach();
