@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Windows;
 using QuickerActionManage.View;
 using QuickerActionManage.Utils;
@@ -19,7 +18,7 @@ namespace QuickerActionManage
 
         static ViewRunner()
         {
-            Loader.LoadThemeXamls(Assembly.GetExecutingAssembly(), "Theme.xaml");
+            Loader.LoadThemeXamls(typeof(ViewRunner).Assembly, "Theme.xaml");
         }
 
         /// <summary>
@@ -31,7 +30,7 @@ namespace QuickerActionManage
             {
                 Title = "动作&公共子程序管理窗口"
             };
-            ShowWindow(win, new WindowOptions { CanUseQuicker = true, LastSize = true });
+            ShowWindow(win, new WindowOptions { LastSize = true });
         }
 
         /// <summary>
@@ -44,47 +43,28 @@ namespace QuickerActionManage
             win.SourceInitialized += (s, e) =>
             {
                 var handle = WindowHelper.GetHandle(win);
-                if (handle != IntPtr.Zero)
-                {
-                    if (options.CanUseQuicker)
-                    {
-                        try
-                        {
-                            var qWindowHelperType = Type.GetType("Quicker.Utilities.QWindowHelper, Quicker.Utilities");
-                            if (qWindowHelperType != null)
-                            {
-                                var setCanUseQuickerMethod = qWindowHelperType.GetMethod("SetCanUseQuicker", 
-                                    BindingFlags.Public | BindingFlags.Static);
-                                setCanUseQuickerMethod?.Invoke(null, new object[] { handle, true });
-                            }
-                        }
-                        catch { }
-                    }
+                if (handle == IntPtr.Zero) return;
 
-                    if (options.LastSize)
+                if (options.LastSize)
+                {
+                    // 恢复窗口大小
+                    var sizeStr = _stateWriter.Read($"{windowTag}.Size", "") as string;
+                    var size = String2Point(sizeStr);
+                    if (size != null && size.Value.X > 0 && size.Value.Y > 0)
                     {
-                        var sizeStr = _stateWriter.Read($"{windowTag}.Size", "") as string;
-                        var size = String2Point(sizeStr);
-                        if (size != null)
-                        {
-                            WindowHelper.SetWindowSize(handle, size.Value.X, size.Value.Y);
-                        }
+                        WindowHelper.SetWindowSize(handle, size.Value.X, size.Value.Y);
                     }
                 }
             };
 
-            if (options.LastSize)
+            win.Loaded += (s, e) =>
             {
-                var posStr = _stateWriter.Read($"{windowTag}.Position", "") as string;
-                var pos = String2Point(posStr);
-                if (pos != null)
+                var handle = WindowHelper.GetHandle(win);
+                if (handle != IntPtr.Zero)
                 {
-                    win.WindowStartupLocation = WindowStartupLocation.Manual;
-                    win.Left = 0;
-                    win.Top = -4000;
-                    win.ContentRendered += (s, e) => WindowHelper.MoveWindowInToScreen(WindowHelper.GetHandle(win), pos.Value.X, pos.Value.Y);
+                    WindowHelper.CenterWindowInScreen(handle);
                 }
-            }
+            };
 
             win.Closing += (s, e) =>
             {
@@ -94,7 +74,6 @@ namespace QuickerActionManage
                     if (handle != IntPtr.Zero)
                     {
                         var rect = WinProperty.Get(handle).Rect;
-                        _stateWriter.Write($"{windowTag}.Position", Point2String(new Point((int)rect.Left, (int)rect.Top)));
                         _stateWriter.Write($"{windowTag}.Size", Point2String(new Point((int)rect.Width, (int)rect.Height)));
                     }
                 }
@@ -125,7 +104,6 @@ namespace QuickerActionManage
         /// </summary>
         private class WindowOptions
         {
-            public bool CanUseQuicker { get; set; }
             public bool LastSize { get; set; }
         }
     }

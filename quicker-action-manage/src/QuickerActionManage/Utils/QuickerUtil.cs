@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using Quicker.Common;
 using Quicker.Domain;
 using Quicker.Domain.Actions;
@@ -15,6 +16,7 @@ using Quicker.Domain.Services;
 using Quicker.Public.Actions;
 using Quicker.Utilities;
 using Quicker.Utilities._3rd;
+using Quicker.Utilities.UI.Behaviors;
 
 namespace QuickerActionManage.Utils
 {
@@ -183,6 +185,30 @@ namespace QuickerActionManage.Utils
                 success = await ActionEditMgr.DeleteAction(profile, action, false, false);
             }
             return success;
+        }
+
+        /// <summary>
+        /// Set window can use Quicker
+        /// </summary>
+        public static void SetCanUseQuicker(Window window)
+        {
+            if (window == null) return;
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle != IntPtr.Zero)
+            {
+                BlockQuickerHWndBehavior.HWnds.TryRemove(handle, out _);
+            }
+        }
+
+        /// <summary>
+        /// Set window can use Quicker by handle
+        /// </summary>
+        public static void SetCanUseQuicker(IntPtr handle)
+        {
+            if (handle != IntPtr.Zero)
+            {
+                BlockQuickerHWndBehavior.HWnds.TryRemove(handle, out _);
+            }
         }
     }
 }

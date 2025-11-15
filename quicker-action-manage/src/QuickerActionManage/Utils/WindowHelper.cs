@@ -19,6 +19,15 @@ namespace QuickerActionManage.Utils
             public int bottom;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
+
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
@@ -27,6 +36,14 @@ namespace QuickerActionManage.Utils
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+        private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
         private const uint SWP_NOSIZE = 0x0001;
         private const uint SWP_NOMOVE = 0x0002;
         private const uint SWP_NOZORDER = 0x0004;
@@ -54,35 +71,53 @@ namespace QuickerActionManage.Utils
         }
 
         /// <summary>
-        /// Move window to specified position and ensure it's in screen
+        /// Get monitor work area for a window
         /// </summary>
-        public static void MoveWindowInToScreen(IntPtr handle, int x, int y)
+        private static Rect? GetMonitorWorkArea(IntPtr handle)
         {
-            var point = new System.Drawing.Point(x, y);
-            var workArea = SystemParameters.WorkArea;
+            var monitor = MonitorFromWindow(handle, MONITOR_DEFAULTTONEAREST);
+            if (monitor == IntPtr.Zero)
+                return null;
+
+            var monitorInfo = new MONITORINFO
+            {
+                cbSize = Marshal.SizeOf<MONITORINFO>()
+            };
+            if (!GetMonitorInfo(monitor, ref monitorInfo))
+                return null;
+
+            var workArea = monitorInfo.rcWork;
+            return new Rect(workArea.left, workArea.top, workArea.right - workArea.left, workArea.bottom - workArea.top);
+        }
+
+        /// <summary>
+        /// Center window in screen and ensure it's within screen bounds
+        /// Gets the work area of the screen where the window is located
+        /// </summary>
+        public static void CenterWindowInScreen(IntPtr handle)
+        {
+            var workArea = GetMonitorWorkArea(handle);
+            if (workArea == null)
+            {
+                // Fallback to SystemParameters if we can't get monitor info
+                workArea = SystemParameters.WorkArea;
+            }
+
             var rect = GetWindowRectInternal(handle);
             
-            // Limit point to work area, accounting for window size
-            double minX = workArea.Left;
-            double minY = workArea.Top;
-            double maxX = workArea.Right - rect.Width;
-            double maxY = workArea.Bottom - rect.Height;
+            // Calculate center position
+            double centerX = workArea.Value.Left + (workArea.Value.Width - rect.Width) / 2;
+            double centerY = workArea.Value.Top + (workArea.Value.Height - rect.Height) / 2;
             
-            if (point.X < minX) point.X = (int)minX;
-            if (point.Y < minY) point.Y = (int)minY;
-            if (point.X > maxX) point.X = (int)maxX;
-            if (point.Y > maxY) point.Y = (int)maxY;
+            // Ensure window is within screen bounds
+            double minX = workArea.Value.Left;
+            double minY = workArea.Value.Top;
+            double maxX = workArea.Value.Right - rect.Width;
+            double maxY = workArea.Value.Bottom - rect.Height;
             
-            MoveWindow(handle, point);
-        }
-
-        private static void MoveWindow(IntPtr handle, System.Drawing.Point p)
-        {
-            MoveWindow(handle, p.X, p.Y);
-        }
-
-        private static void MoveWindow(IntPtr handle, int x, int y)
-        {
+            int x = (int)Math.Max(minX, Math.Min(maxX, centerX));
+            int y = (int)Math.Max(minY, Math.Min(maxY, centerY));
+            
             SetWindowPos(handle, IntPtr.Zero, x, y, 0, 0, SWP_DRAWFRAME | SWP_NOACTIVATE | SWP_NOSIZE);
         }
 

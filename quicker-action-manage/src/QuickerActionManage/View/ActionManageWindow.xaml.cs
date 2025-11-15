@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Windows;
+using QuickerActionManage.Utils;
 using QuickerActionManage.ViewModel;
 
 namespace QuickerActionManage.View
@@ -15,6 +16,12 @@ namespace QuickerActionManage.View
             InitializeComponent();
             GSModel.PropertyChanged += GSModel_PropertyChanged;
             SubModel.PropertyChanged += SubModel_PropertyChanged;
+            
+            // 设置窗口可以使用 Quicker
+            SourceInitialized += (s, e) =>
+            {
+                QuickerUtil.SetCanUseQuicker(this);
+            };
         }
 
         private GlobalSubprogramListModel SubModel => TheSubProgramControl.ViewModel;
