@@ -40,6 +40,22 @@ namespace QuickerExpressionEnhanced.Parser
     }
 
     /// <summary>
+    /// Result of parsing registration commands from expression
+    /// </summary>
+    public class ParseResult
+    {
+        /// <summary>
+        /// List of parsed registration commands
+        /// </summary>
+        public List<RegistrationCommand> Commands { get; set; } = new List<RegistrationCommand>();
+
+        /// <summary>
+        /// Remaining expression code after removing registration command lines
+        /// </summary>
+        public string RemainingCode { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// Parser for registration commands
     /// Supports:
     /// - load {assembly}
@@ -53,6 +69,25 @@ namespace QuickerExpressionEnhanced.Parser
         private static readonly Regex LoadPattern = new Regex(@"^\s*(//)?\s*load\s+(\{[^}]+\}|[^\s]+)\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex UsingPattern = new Regex(@"^\s*(//)?\s*using\s+(\{[^}]+\}|[^\s]+)\s+(\{[^}]+\}|[^\s]+)\s*$", RegexOptions.IgnoreCase);
         private static readonly Regex TypePattern = new Regex(@"^\s*(//)?\s*type\s+(\{[^}]+\}|[^\s]+)\s+(\{[^}]+\}|[^\s]+)\s*$", RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Parse registration commands from expression
+        /// Returns parsed commands and remaining code without registration command lines
+        /// Uses variable interpolation: {var} is replaced with actual variable value
+        /// Supports complex expressions like load {ass}.{version}
+        /// </summary>
+        /// <param name="expression">Expression code to parse</param>
+        /// <param name="context">Action context for variable substitution</param>
+        /// <returns>Parse result containing commands and remaining code</returns>
+        public static ParseResult Parse(string expression, IActionContext context)
+        {
+            var remainingCode = ParseCommands(expression, context, out var commands);
+            return new ParseResult
+            {
+                Commands = commands,
+                RemainingCode = remainingCode
+            };
+        }
 
         /// <summary>
         /// Parse registration commands from code

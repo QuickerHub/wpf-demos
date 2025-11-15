@@ -8,6 +8,7 @@ using Z.Expressions;
 using Quicker.Domain.Actions;
 using log4net;
 using Quicker.Utilities;
+using QuickerExpressionEnhanced.Parser;
 
 namespace QuickerExpressionEnhanced
 {
@@ -28,21 +29,22 @@ namespace QuickerExpressionEnhanced
         /// <param name="onUiThread">Whether to execute on UI thread</param>
         /// <param name="useArgs">Whether to parse and use arguments (default: false)</param>
         /// <param name="toAction">Whether to return an Action instead of executing immediately (default: false)</param>
+        /// <param name="registrationCommands">Registration commands string (load, using, type commands)</param>
         /// <returns>Expression execution result, or Action if toAction is true</returns>
-        public static object? RunExpression(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, bool toAction = false)
+        public static object? RunExpression(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, bool toAction = false, string? registrationCommands = null)
         {
             if (toAction)
             {
                 // Return an Action that will execute the expression when invoked
                 return new Action(() =>
                 {
-                    RunExpressionInternal(context, eval, code, onUiThread, useArgs);
+                    RunExpressionInternal(context, eval, code, onUiThread, useArgs, registrationCommands);
                 });
             }
             else
             {
                 // Execute immediately and return result
-                return RunExpressionInternal(context, eval, code, onUiThread, useArgs);
+                return RunExpressionInternal(context, eval, code, onUiThread, useArgs, registrationCommands);
             }
         }
 
@@ -56,9 +58,10 @@ namespace QuickerExpressionEnhanced
         /// <param name="onUiThread">Whether to execute on UI thread</param>
         /// <param name="useArgs">Whether to parse and use arguments (default: false)</param>
         /// <param name="toAction">Whether to return an Action instead of executing immediately (default: false)</param>
+        /// <param name="registrationCommands">Registration commands string (load, using, type commands)</param>
         /// <returns>Expression execution result, or Action if toAction is true</returns>
         /// <exception cref="ArgumentException">Thrown when context is not null and cannot be cast to IActionContext</exception>
-        public static object? RunExpression(object? context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, bool toAction = false)
+        public static object? RunExpression(object? context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, bool toAction = false, string? registrationCommands = null)
         {
             // Convert object? context to IActionContext
             IActionContext? actionContext = null;
@@ -79,7 +82,7 @@ namespace QuickerExpressionEnhanced
             }
 
             // Call the main RunExpression method
-            return RunExpression(actionContext, eval, code, onUiThread, useArgs, toAction);
+            return RunExpression(actionContext, eval, code, onUiThread, useArgs, toAction, registrationCommands);
         }
 
         /// <summary>
@@ -90,8 +93,9 @@ namespace QuickerExpressionEnhanced
         /// <param name="code">Expression code to execute</param>
         /// <param name="onUiThread">Whether to execute on UI thread</param>
         /// <param name="useArgs">Whether to parse and use arguments</param>
+        /// <param name="registrationCommands">Registration commands string (load, using, type commands)</param>
         /// <returns>Expression execution result</returns>
-        private static object? RunExpressionInternal(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false)
+        private static object? RunExpressionInternal(IActionContext context, EvalContext eval, string code, bool onUiThread, bool useArgs = false, string? registrationCommands = null)
         {
             if (useArgs)
             {
@@ -105,6 +109,23 @@ namespace QuickerExpressionEnhanced
             if (code.StartsWith("$="))
             {
                 code = code.Substring(2);
+            }
+
+            // Parse and execute registration commands from parameter first
+            if (!string.IsNullOrWhiteSpace(registrationCommands))
+            {
+                var parseResult = RegistrationCommandParser.Parse(registrationCommands, context);
+                RegistrationCommandExecutor.Register(eval, parseResult.Commands);
+            }
+
+            // Parse registration commands from code
+            var codeParseResult = RegistrationCommandParser.Parse(code, context);
+            code = codeParseResult.RemainingCode;
+
+            // Parse and execute registration commands from code
+            if (codeParseResult.Commands.Count > 0)
+            {
+                RegistrationCommandExecutor.Register(eval, codeParseResult.Commands);
             }
 
             // Replace variable placeholders {key} with variable names
