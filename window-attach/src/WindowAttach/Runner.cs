@@ -22,15 +22,16 @@ namespace WindowAttach
         /// <param name="window1Handle">Handle of the target window (window to follow) as int</param>
         /// <param name="window2Handle">Handle of the window to attach (window that follows) as int</param>
         /// <param name="placement">Placement position as string (e.g., "RightTop", "LeftCenter", etc.)</param>
-        /// <param name="autoUnregister">If true, automatically unregister when windows are closed (default: true)</param>
+        /// <param name="autoUnregister">If true, toggle behavior (attach if not attached, detach if attached). If false, only register (no toggle) (default: false)</param>
         /// <param name="offsetX">Horizontal offset (default: 0)</param>
         /// <param name="offsetY">Vertical offset (default: 0)</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (default: false)</param>
         /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (default: false)</param>
         /// <param name="callbackAction">Callback action to execute when window1 is closed (default: null)</param>
+        /// <param name="createPopup">Whether to create popup window for detaching (default: true)</param>
         /// <returns>True if attached, false if detached</returns>
         public static bool AttachWindow(int window1Handle, int window2Handle, string placement = "RightTop",
-            bool autoUnregister = true, double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, object? callbackAction = null)
+            bool autoUnregister = false, double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, object? callbackAction = null, bool createPopup = true)
         {
             // Convert int handles to IntPtr
             IntPtr hwnd1 = new IntPtr(window1Handle);
@@ -64,7 +65,18 @@ namespace WindowAttach
             }
              
             // Call the main AttachWindow method
-            return AttachWindow(hwnd1, hwnd2, autoUnregister, placementEnum, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, action);
+            var options = new AttachWindowOptions
+            {
+                AutoUnregister = autoUnregister,
+                Placement = placementEnum,
+                OffsetX = offsetX,
+                OffsetY = offsetY,
+                RestrictToSameScreen = restrictToSameScreen,
+                AutoAdjustToScreen = autoAdjustToScreen,
+                CallbackAction = action,
+                CreatePopup = createPopup
+            };
+            return  Application.Current.Dispatcher.Invoke(() => AttachWindow(hwnd1, hwnd2, options));
         }
 
         /// <summary>
@@ -72,17 +84,9 @@ namespace WindowAttach
         /// </summary>
         /// <param name="window1Handle">Handle of the target window (window to follow)</param>
         /// <param name="window2Handle">Handle of the window to attach (window that follows)</param>
-        /// <param name="autoUnregister">If true, automatically unregister when windows are closed</param>
-        /// <param name="placement">Placement position (default: RightTop)</param>
-        /// <param name="offsetX">Horizontal offset (default: 0)</param>
-        /// <param name="offsetY">Vertical offset (default: 0)</param>
-        /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (default: false)</param>
-        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (default: false)</param>
-        /// <param name="callbackAction">Callback action to execute when window1 is closed (default: null)</param>
-        /// <returns>True if attached, false if detached</returns>
-        public static bool AttachWindow(IntPtr window1Handle, IntPtr window2Handle, bool autoUnregister = true,
-            WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, Action? callbackAction = null)
+        /// <param name="options">Options for attaching windows (optional, can be null to use defaults)</param>
+        /// <returns>True if attached, false if detached or already registered (when autoUnregister is false)</returns>
+        private static bool AttachWindow(IntPtr window1Handle, IntPtr window2Handle, AttachWindowOptions? options = null)
         {
             if (window1Handle == IntPtr.Zero || window2Handle == IntPtr.Zero)
             {
@@ -94,32 +98,32 @@ namespace WindowAttach
                 throw new ArgumentException("Window1 and Window2 cannot be the same window");
             }
 
-            // Ensure we're on the UI thread
-            if (Application.Current?.Dispatcher.CheckAccess() == false)
-            {
-                bool result = false;
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    result = AttachWindow(window1Handle, window2Handle, autoUnregister, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, callbackAction);
-                });
-                return result;
-            }
+            options ??= new AttachWindowOptions();
 
-            // Get root windows before toggling
+            // Get root windows
             IntPtr rootWindow1 = WindowHelper.GetRootWindow(window1Handle);
             IntPtr rootWindow2 = WindowHelper.GetRootWindow(window2Handle);
 
-            // Toggle attachment
-            bool isAttached = _managerService.Toggle(rootWindow1, rootWindow2, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, callbackAction);
-
-            // If auto-unregister is enabled and we just attached, set up monitoring for window closure
-            if (autoUnregister && isAttached)
+            if (options.AutoUnregister)
             {
-                // Note: Window closure monitoring would need to be implemented separately
-                // For now, autoUnregister is a placeholder for future implementation
+                // Toggle behavior: attach if not attached, detach if attached
+                return _managerService.Toggle(rootWindow1, rootWindow2, options);
             }
-
-            return isAttached;
+            else
+            {
+                // Only register, no toggle
+                // If already registered, update the existing attachment instead of returning false
+                if (_managerService.IsRegistered(rootWindow1, rootWindow2, AttachType.Main))
+                {
+                    // Update existing attachment with new settings
+                    return _managerService.UpdateAllSettings(rootWindow1, rootWindow2, options);
+                }
+                else
+                {
+                    // Register new attachment
+                    return _managerService.Register(rootWindow1, rootWindow2, options);
+                }
+            }
         }
 
         /// <summary>
@@ -127,16 +131,9 @@ namespace WindowAttach
         /// </summary>
         /// <param name="window1Handle">Handle of the target window (window to follow)</param>
         /// <param name="window2Handle">Handle of the window to attach (window that follows)</param>
-        /// <param name="placement">Placement position (default: RightTop)</param>
-        /// <param name="offsetX">Horizontal offset (default: 0)</param>
-        /// <param name="offsetY">Vertical offset (default: 0)</param>
-        /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (default: false)</param>
-        /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (default: false)</param>
-        /// <param name="callbackAction">Callback action to execute when window1 is closed (default: null)</param>
+        /// <param name="options">Options for attaching windows (optional, can be null to use defaults)</param>
         /// <returns>True if registered successfully, false if already registered</returns>
-        public static bool Register(IntPtr window1Handle, IntPtr window2Handle,
-            WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, Action? callbackAction = null)
+        public static bool Register(IntPtr window1Handle, IntPtr window2Handle, AttachWindowOptions? options = null)
         {
             if (window1Handle == IntPtr.Zero || window2Handle == IntPtr.Zero)
             {
@@ -148,22 +145,13 @@ namespace WindowAttach
                 throw new ArgumentException("Window1 and Window2 cannot be the same window");
             }
 
-            // Get root windows before registering (Register may be called directly, not only from AttachWindow)
+            options ??= new AttachWindowOptions();
+
+            // Get root windows before registering
             IntPtr rootWindow1 = WindowHelper.GetRootWindow(window1Handle);
             IntPtr rootWindow2 = WindowHelper.GetRootWindow(window2Handle);
 
-            // Ensure we're on the UI thread
-            if (Application.Current?.Dispatcher.CheckAccess() == false)
-            {
-                bool result = false;
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    result = Register(rootWindow1, rootWindow2, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, callbackAction);
-                });
-                return result;
-            }
-
-            return _managerService.Register(rootWindow1, rootWindow2, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, AttachType.Main, callbackAction);
+            return _managerService.Register(rootWindow1, rootWindow2, options);
         }
 
         /// <summary>
@@ -182,17 +170,6 @@ namespace WindowAttach
             // Get root windows before unregistering (Unregister may be called directly, not only from AttachWindow)
             IntPtr rootWindow1 = WindowHelper.GetRootWindow(window1Handle);
             IntPtr rootWindow2 = WindowHelper.GetRootWindow(window2Handle);
-
-            // Ensure we're on the UI thread
-            if (Application.Current?.Dispatcher.CheckAccess() == false)
-            {
-                bool result = false;
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    result = Unregister(rootWindow1, rootWindow2);
-                });
-                return result;
-            }
 
             return _managerService.Unregister(rootWindow1, rootWindow2);
         }
@@ -218,15 +195,6 @@ namespace WindowAttach
         /// </summary>
         public static void UnregisterAll()
         {
-            if (Application.Current?.Dispatcher.CheckAccess() == false)
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    UnregisterAll();
-                });
-                return;
-            }
-
             _managerService.UnregisterAll();
         }
 

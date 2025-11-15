@@ -39,6 +39,13 @@
                 Click="TestWindowAttach_Click"
                 Padding="15,8"
                 FontSize="14"
+                Cursor="Hand"
+                Margin="0,0,10,0"/>
+            <Button 
+                Content="测试 Popup 窗口" 
+                Click="TestPopupWindow_Click"
+                Padding="15,8"
+                FontSize="14"
                 Cursor="Hand"/>
         </StackPanel>
 

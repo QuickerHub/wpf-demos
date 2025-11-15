@@ -33,6 +33,20 @@ namespace WindowAttach.Services
         /// </summary>
         /// <param name="window1Handle">Handle of the target window (window to follow)</param>
         /// <param name="window2Handle">Handle of the window to attach (window that follows)</param>
+        /// <param name="options">Options for attaching windows (optional, can be null to use defaults)</param>
+        /// <returns>True if registered successfully, false if already registered</returns>
+        public bool Register(IntPtr window1Handle, IntPtr window2Handle, AttachWindowOptions? options = null)
+        {
+            options ??= new AttachWindowOptions();
+            return Register(window1Handle, window2Handle, options.Placement, options.OffsetX, options.OffsetY, 
+                options.RestrictToSameScreen, options.AutoAdjustToScreen, AttachType.Main, options.CallbackAction, options.CreatePopup);
+        }
+
+        /// <summary>
+        /// Register a window attachment
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window (window to follow)</param>
+        /// <param name="window2Handle">Handle of the window to attach (window that follows)</param>
         /// <param name="placement">Placement position</param>
         /// <param name="offsetX">Horizontal offset</param>
         /// <param name="offsetY">Vertical offset</param>
@@ -40,9 +54,10 @@ namespace WindowAttach.Services
         /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible</param>
         /// <param name="attachType">Type of attachment (Main or Popup)</param>
         /// <param name="callbackAction">Callback action to execute when window1 is closed (default: null)</param>
+        /// <param name="createPopup">Whether to create popup window for detaching (default: true)</param>
         /// <returns>True if registered successfully, false if already registered</returns>
-        public bool Register(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main, Action? callbackAction = null)
+        private bool Register(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, AttachType attachType = AttachType.Main, Action? callbackAction = null, bool createPopup = true)
         {
             // Check if window1 and window2 are the same
             if (window1Handle == window2Handle)
@@ -114,8 +129,8 @@ namespace WindowAttach.Services
             // Add to cache
             _pairsCache[key] = pair;
 
-            // If this is a main attachment, create popup attachment immediately
-            if (attachType == AttachType.Main)
+            // If this is a main attachment and createPopup is true, create popup attachment immediately
+            if (attachType == AttachType.Main && createPopup)
             {
                 CreatePopupAttachment(window1Handle, window2Handle, actualPlacement, service);
             }
@@ -397,15 +412,30 @@ namespace WindowAttach.Services
         /// </summary>
         /// <param name="window1Handle">Handle of the target window</param>
         /// <param name="window2Handle">Handle of the attached window</param>
+        /// <param name="options">Options for attaching windows (optional, can be null to use defaults)</param>
+        /// <returns>True if registered, false if unregistered</returns>
+        public bool Toggle(IntPtr window1Handle, IntPtr window2Handle, AttachWindowOptions? options = null)
+        {
+            options ??= new AttachWindowOptions();
+            return Toggle(window1Handle, window2Handle, options.Placement, options.OffsetX, options.OffsetY, 
+                options.RestrictToSameScreen, options.AutoAdjustToScreen, options.CallbackAction, options.CreatePopup);
+        }
+
+        /// <summary>
+        /// Toggle window attachment (register if not registered, unregister if registered)
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window</param>
+        /// <param name="window2Handle">Handle of the attached window</param>
         /// <param name="placement">Placement position (used when registering)</param>
         /// <param name="offsetX">Horizontal offset (used when registering)</param>
         /// <param name="offsetY">Vertical offset (used when registering)</param>
         /// <param name="restrictToSameScreen">Whether to restrict window2 to the same screen as window1 (used when registering)</param>
         /// <param name="autoAdjustToScreen">Whether to automatically adjust position to maximize visible area when window is not fully visible (used when registering)</param>
         /// <param name="callbackAction">Callback action to execute when window1 is closed (default: null)</param>
+        /// <param name="createPopup">Whether to create popup window for detaching (default: true)</param>
         /// <returns>True if registered, false if unregistered</returns>
-        public bool Toggle(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
-            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, Action? callbackAction = null)
+        private bool Toggle(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement = WindowPlacement.RightTop,
+            double offsetX = 0, double offsetY = 0, bool restrictToSameScreen = false, bool autoAdjustToScreen = false, Action? callbackAction = null, bool createPopup = true)
         {
             if (IsRegistered(window1Handle, window2Handle, AttachType.Main))
             {
@@ -414,7 +444,7 @@ namespace WindowAttach.Services
             }
             else
             {
-                Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, AttachType.Main, callbackAction);
+                Register(window1Handle, window2Handle, placement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, AttachType.Main, callbackAction, createPopup);
                 return true;
             }
         }
@@ -529,6 +559,84 @@ namespace WindowAttach.Services
             pair.RestrictToSameScreen = restrictToSameScreen;
             pair.AutoAdjustToScreen = autoAdjustToScreen;
             _pairsCache[key] = pair;
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// Update all settings for an existing attachment (placement, offsets, and other settings)
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window</param>
+        /// <param name="window2Handle">Handle of the attached window</param>
+        /// <param name="options">Options for attaching windows (optional, can be null to use defaults)</param>
+        /// <returns>True if updated successfully, false if not found</returns>
+        public bool UpdateAllSettings(IntPtr window1Handle, IntPtr window2Handle, AttachWindowOptions? options = null)
+        {
+            options ??= new AttachWindowOptions();
+            return UpdateAllSettings(window1Handle, window2Handle, options.Placement, options.OffsetX, options.OffsetY, 
+                options.RestrictToSameScreen, options.AutoAdjustToScreen, options.CallbackAction);
+        }
+
+        /// <summary>
+        /// Update all settings for an existing attachment (placement, offsets, and other settings)
+        /// </summary>
+        /// <param name="window1Handle">Handle of the target window</param>
+        /// <param name="window2Handle">Handle of the attached window</param>
+        /// <param name="placement">New placement position</param>
+        /// <param name="offsetX">New horizontal offset</param>
+        /// <param name="offsetY">New vertical offset</param>
+        /// <param name="restrictToSameScreen">Whether to restrict to same screen</param>
+        /// <param name="autoAdjustToScreen">Whether to auto-adjust to screen</param>
+        /// <param name="callbackAction">New callback action (null to keep existing)</param>
+        /// <returns>True if updated successfully, false if not found</returns>
+        private bool UpdateAllSettings(IntPtr window1Handle, IntPtr window2Handle, WindowPlacement placement, 
+            double offsetX, double offsetY, bool restrictToSameScreen, bool autoAdjustToScreen, Action? callbackAction = null)
+        {
+            var key = GetKey(window1Handle, window2Handle, AttachType.Main);
+            
+            if (!_attachments.TryGetValue(key, out var service))
+            {
+                return false;
+            }
+            
+            // Get current pair from cache
+            if (!_pairsCache.TryGetValue(key, out var pair))
+            {
+                return false;
+            }
+            
+            // Handle Nearest placement: calculate the best placement based on current window positions
+            WindowPlacement actualPlacement = placement;
+            if (placement == WindowPlacement.Nearest)
+            {
+                actualPlacement = PlacementCalculator.FindNearestPlacement(window1Handle, window2Handle, offsetX, offsetY);
+            }
+            
+            // If callback action needs to be updated, we need to recreate the attachment
+            // Otherwise, just update the settings
+            if (callbackAction != null)
+            {
+                // Recreate attachment to update callback action
+                Unregister(window1Handle, window2Handle, AttachType.Main);
+                return Register(window1Handle, window2Handle, actualPlacement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen, AttachType.Main, callbackAction);
+            }
+            else
+            {
+                // Update the service settings
+                service.UpdateSettings(actualPlacement, offsetX, offsetY, restrictToSameScreen, autoAdjustToScreen);
+            }
+            
+            // Update the pair in cache
+            pair.Placement = actualPlacement;
+            pair.OffsetX = offsetX;
+            pair.OffsetY = offsetY;
+            pair.RestrictToSameScreen = restrictToSameScreen;
+            pair.AutoAdjustToScreen = autoAdjustToScreen;
+            _pairsCache[key] = pair;
+            
+            // If this is a main attachment, update popup placement as well
+            var popupPlacement = PlacementHelper.GetPopupPlacement(actualPlacement);
+            UpdatePopupPlacement(window2Handle, popupPlacement);
             
             return true;
         }

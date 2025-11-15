@@ -671,9 +671,10 @@ namespace WindowAttach.Services
                     // This ensures popup follows window2's z-order and doesn't stay on top when window1 goes to background
                     WindowHelper.SetWindowZOrder(_window2Handle.Value, _window1Handle.Value, 
                         SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
-                    // Then set position (with SWP_NOZORDER to preserve the z-order we just set)
-                    WindowHelper.SetWindowPos(_window2Handle.Value, window2X, window2Y, window2Width, window2Height,
-                        SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
+                    // Then set position only (with SWP_NOSIZE to let WPF SizeToContent manage the size)
+                    // This prevents forcing a size that may include extra whitespace
+                    WindowHelper.SetWindowPos(_window2Handle.Value, window2X, window2Y, 0, 0,
+                        SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW | SET_WINDOW_POS_FLAGS.SWP_NOSIZE);
                 }
                 else
                 {

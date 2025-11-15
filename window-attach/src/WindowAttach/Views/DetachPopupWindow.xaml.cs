@@ -43,6 +43,9 @@ namespace WindowAttach.Views
             
             // Load current settings
             LoadCurrentSettings();
+
+            Width = 0;
+            Height = 0;
         }
         
         protected override void OnSourceInitialized(EventArgs e)

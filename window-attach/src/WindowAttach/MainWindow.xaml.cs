@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using WindowAttach.Models;
 using WindowAttach.ViewModels;
+using WindowAttach.Views;
 
 namespace WindowAttach
 {
@@ -78,15 +79,15 @@ namespace WindowAttach
 
                     // Register window attachment using Runner (so it appears in management window)
                     // Enable autoAdjustToScreen to test automatic position adjustment
-                    Runner.Register(
-                        window1Handle: mainWindowHandle,
-                        window2Handle: testWindowHandle,
-                        placement: WindowAttach.Models.WindowPlacement.RightTop,
-                        offsetX: 10,  // 10 pixels offset from the right edge
-                        offsetY: 0,   // 0 pixels offset from the top
-                        restrictToSameScreen: false,
-                        autoAdjustToScreen: true  // Enable automatic position adjustment to maximize visible area
-                    );
+                    var options = new WindowAttach.Models.AttachWindowOptions
+                    {
+                        Placement = WindowAttach.Models.WindowPlacement.RightTop,
+                        OffsetX = 10,  // 10 pixels offset from the right edge
+                        OffsetY = 0,   // 0 pixels offset from the top
+                        RestrictToSameScreen = false,
+                        AutoAdjustToScreen = true  // Enable automatic position adjustment to maximize visible area
+                    };
+                    Runner.Register(mainWindowHandle, testWindowHandle, options);
                 };
 
                 // Show the test window
@@ -142,6 +143,29 @@ namespace WindowAttach
         private void TestWindowAttach_Click(object sender, RoutedEventArgs e)
         {
             Runner.ShowWindowList();
+        }
+
+        private void TestPopupWindow_Click(object sender, RoutedEventArgs e)
+        {
+            // Get current window handle
+            var mainWindowHandle = new WindowInteropHelper(this).Handle;
+            if (mainWindowHandle == IntPtr.Zero)
+            {
+                MessageBox.Show("无法获取窗口句柄", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Create a dummy window2 handle (use main window handle as window2 for testing)
+            var window2Handle = mainWindowHandle;
+
+            // Create and show popup window directly
+            var popupWindow = new DetachPopupWindow(mainWindowHandle, window2Handle, null);
+            
+            // Set position manually for testing
+            popupWindow.Left = this.Left + this.Width + 10;
+            popupWindow.Top = this.Top;
+            
+            popupWindow.Show();
         }
     }
 }
