@@ -70,17 +70,19 @@
             dd:DragDrop.IsDropTarget="True"
             AllowDrop="True"
             ItemsSource="{Binding ViewModel.States}"
-            SelectedItem="{Binding ViewModel.SelectedState, Mode=TwoWay}">
+            SelectedItem="{Binding ViewModel.SelectedState, Mode=TwoWay}"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type view:CodeEditorState}">
                     <StackPanel>
                         <Grid>
-                            <TextBlock
-                                x:Name="NameTextBlock"
-                                FontSize="13"
-                                FontWeight="SemiBold"
-                                Foreground="#333333"
-                                Text="{Binding Name}">
+                        <TextBlock
+                            x:Name="NameTextBlock"
+                            FontSize="13"
+                            FontWeight="SemiBold"
+                            Foreground="#333333"
+                            Text="{Binding Name}"
+                            TextWrapping="Wrap">
                                 <TextBlock.Visibility>
                                     <MultiBinding Converter="{StaticResource EqualityToVisibilityConverter}" ConverterParameter="Inverse">
                                         <Binding Path="ViewModel.EditingState" RelativeSource="{RelativeSource AncestorType=UserControl}" />
@@ -113,7 +115,11 @@
                             Margin="0,2,0,0"
                             FontSize="11"
                             Foreground="#666666"
-                            Text="{Binding Expression}" />
+                            Text="{Binding Expression}"
+                            TextWrapping="Wrap"
+                            TextTrimming="CharacterEllipsis"
+                            LineHeight="15"
+                            MaxHeight="45" />
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>

@@ -170,8 +170,18 @@ namespace QuickerCodeEditor.View.CodeEditor
             var state = stateToDelete ?? SelectedState;
             if (state != null && States.Contains(state))
             {
+                // Record the index of the item to be deleted
+                int deletedIndex = States.IndexOf(state);
+                
                 States.Remove(state);
-                if (SelectedState == state)
+                
+                // Select the item at the same index (or the previous one if it was the last item)
+                if (States.Count > 0)
+                {
+                    int targetIndex = deletedIndex < States.Count ? deletedIndex : States.Count - 1;
+                    SelectedState = States[targetIndex];
+                }
+                else
                 {
                     SelectedState = null;
                 }
