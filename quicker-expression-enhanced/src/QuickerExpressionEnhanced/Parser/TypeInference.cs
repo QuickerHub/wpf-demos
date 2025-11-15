@@ -39,9 +39,28 @@ namespace QuickerExpressionEnhanced.Parser
 
             Type? type = null;
 
-            // First, try Type.GetType with full assembly name (only if not a file path)
-            if (!isFilePath)
+            // If a file path is specified, prioritize loading from that specific file
+            // This ensures we use the exact version the user specified, not an already loaded version
+            if (isFilePath)
             {
+                try
+                {
+                    var assembly = LoadAssembly(baseAssemblyName);
+                    type = assembly.GetType(typeName);
+                    if (type != null)
+                    {
+                        _log.Debug($"Resolved type from specified assembly file: {typeName} in {baseAssemblyName}");
+                        return type;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Failed to load assembly from file path '{baseAssemblyName}' for type inference: {ex.Message}");
+                }
+            }
+            else
+            {
+                // First, try Type.GetType with full assembly name (only if not a file path)
                 var fullyQualifiedTypeName = $"{typeName}, {assemblyName}";
                 type = Type.GetType(fullyQualifiedTypeName);
                 if (type != null)
@@ -49,30 +68,30 @@ namespace QuickerExpressionEnhanced.Parser
                     _log.Debug($"Resolved type using Type.GetType: {fullyQualifiedTypeName}");
                     return type;
                 }
-            }
 
-            // Search in all currently loaded assemblies, sorted by segment match score
-            type = SearchInLoadedAssemblies(typeName);
-            if (type != null)
-            {
-                _log.Debug($"Resolved type from loaded assemblies: {typeName} in {type.Assembly.GetName().Name}");
-                return type;
-            }
-
-            // If not found in loaded assemblies, try to load the specified assembly
-            try
-            {
-                var assembly = LoadAssembly(baseAssemblyName);
-                type = assembly.GetType(typeName);
+                // Search in all currently loaded assemblies, sorted by segment match score
+                type = SearchInLoadedAssemblies(typeName);
                 if (type != null)
                 {
-                    _log.Debug($"Resolved type from loaded assembly: {typeName} in {baseAssemblyName}");
+                    _log.Debug($"Resolved type from loaded assemblies: {typeName} in {type.Assembly.GetName().Name}");
                     return type;
                 }
-            }
-            catch (Exception ex)
-            {
-                _log.Warn($"Failed to load assembly '{baseAssemblyName}' for type inference: {ex.Message}");
+
+                // If not found in loaded assemblies, try to load the specified assembly
+                try
+                {
+                    var assembly = LoadAssembly(baseAssemblyName);
+                    type = assembly.GetType(typeName);
+                    if (type != null)
+                    {
+                        _log.Debug($"Resolved type from loaded assembly: {typeName} in {baseAssemblyName}");
+                        return type;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Failed to load assembly '{baseAssemblyName}' for type inference: {ex.Message}");
+                }
             }
 
             // Last resort: try Type.GetType with just the type name (may work if assembly is already loaded)

@@ -25,7 +25,7 @@ filesToExclude:               # 要排除的文件
 # 混淆配置（可选）
 obfuscate: true
 toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
-  # - "QuickerExpressionEnhanced.{version}.dll"
+  - "QuickerExpressionEnhanced.dll"
 
 # 测试配置（可选）
 testDir: "Quicker/_packages/cea.quicker-expression-enhanced"
