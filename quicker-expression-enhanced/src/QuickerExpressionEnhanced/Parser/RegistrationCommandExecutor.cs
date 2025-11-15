@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Z.Expressions;
 using log4net;
@@ -62,7 +63,7 @@ namespace QuickerExpressionEnhanced.Parser
                 throw new ArgumentException("Assembly name cannot be null or empty", nameof(assemblyName));
             }
 
-            Assembly? assembly = null;
+            Assembly assembly;
 
             // Check if it's a file path first
             if (IsFilePath(assemblyName))
@@ -73,7 +74,7 @@ namespace QuickerExpressionEnhanced.Parser
             }
             else
             {
-                // It's an assembly name, try Load first
+                // It's an assembly name, use Assembly.Load
                 try
                 {
                     assembly = Assembly.Load(assemblyName);
@@ -81,34 +82,35 @@ namespace QuickerExpressionEnhanced.Parser
                 }
                 catch (Exception loadEx)
                 {
-                    // If Load fails, try GetType as fallback
-                    try
-                    {
-                        var type = Type.GetType(assemblyName);
-                        if (type != null)
-                        {
-                            assembly = type.Assembly;
-                            _log.Debug($"Loaded assembly from type: {assemblyName}");
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException($"Failed to load assembly '{assemblyName}'. Assembly.Load failed: {loadEx.Message}, and Type.GetType returned null.", loadEx);
-                        }
-                    }
-                    catch (Exception typeEx) when (!(typeEx is InvalidOperationException))
-                    {
-                        throw new InvalidOperationException($"Failed to load assembly '{assemblyName}'. Assembly.Load failed: {loadEx.Message}, and Type.GetType failed: {typeEx.Message}.", loadEx);
-                    }
+                    throw new InvalidOperationException($"Failed to load assembly '{assemblyName}'. Assembly.Load failed: {loadEx.Message}", loadEx);
                 }
             }
 
-            if (assembly == null)
+            // Try to register assembly, but handle ReflectionTypeLoadException gracefully
+            // This can happen when assembly has missing dependencies but we still want to use specific types
+            try
             {
-                throw new InvalidOperationException($"Failed to load assembly: {assemblyName}");
+                eval.RegisterAssembly(assembly);
+                _log.Debug($"Registered assembly: {assemblyName}");
             }
-
-            eval.RegisterAssembly(assembly);
-            _log.Debug($"Registered assembly: {assemblyName}");
+            catch (ReflectionTypeLoadException typeLoadEx)
+            {
+                // Log warning but continue - we can still use specific types from the assembly via TypeInference
+                var loaderExceptions = typeLoadEx.LoaderExceptions ?? Array.Empty<Exception>();
+                var exceptionMessages = string.Join("; ", loaderExceptions.Take(5).Select(ex => ex?.Message ?? "Unknown error"));
+                _log.Warn($"Failed to register all types from assembly '{assemblyName}' due to missing dependencies: {exceptionMessages}. Assembly is loaded and specific types can still be registered individually.");
+                
+                // Note: We don't throw here because:
+                // 1. The assembly is already loaded in memory
+                // 2. TypeInference.GetType can still find types from loaded assemblies
+                // 3. RegisterType commands will work via TypeInference even if RegisterAssembly failed
+            }
+            catch (Exception ex)
+            {
+                // For other exceptions, log and continue as well
+                // The assembly is loaded, so type registration may still work
+                _log.Warn($"Failed to register assembly '{assemblyName}' to EvalContext: {ex.Message}. Assembly is loaded and specific types can still be registered individually.");
+            }
         }
 
         /// <summary>
@@ -168,9 +170,8 @@ namespace QuickerExpressionEnhanced.Parser
                 throw new ArgumentException($"Assembly name is required to register namespace '{namespaceName}'", nameof(assemblyName));
             }
 
-            // Load and register assembly first
+            // Load assembly (but don't register it - that should be done via load command)
             var assembly = LoadAssembly(assemblyName);
-            eval.RegisterAssembly(assembly);
 
             // Register namespace - requires assembly
             eval.RegisterNamespace(assembly, namespaceName);
@@ -196,20 +197,9 @@ namespace QuickerExpressionEnhanced.Parser
             }
 
             // Use TypeInference to get the type (will try multiple methods if Type.GetType fails)
-            var type = TypeInference.GetType(className, assemblyName);
+            var type = TypeInference.GetType(className, assemblyName) 
+                ?? throw new InvalidOperationException($"Failed to find type '{className}' in assembly '{assemblyName}'. Make sure the type name and assembly name are correct.");
             
-            if (type == null)
-            {
-                throw new InvalidOperationException($"Failed to find type '{className}' in assembly '{assemblyName}'. Make sure the type name and assembly name are correct.");
-            }
-
-            // Extract base assembly name (before comma) for loading and registration
-            var baseAssemblyName = assemblyName.Split(',')[0].Trim();
-            var assembly = type.Assembly;
-            
-            // Register assembly if not already registered
-            eval.RegisterAssembly(assembly);
-
             eval.RegisterType(type);
             _log.Debug($"Registered type: {className} from assembly: {assemblyName}");
         }

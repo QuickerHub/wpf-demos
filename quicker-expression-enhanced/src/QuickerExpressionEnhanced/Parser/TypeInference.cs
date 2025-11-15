@@ -34,13 +34,21 @@ namespace QuickerExpressionEnhanced.Parser
             // Extract base assembly name (before comma) for loading
             var baseAssemblyName = assemblyName.Split(',')[0].Trim();
 
-            // First, try Type.GetType with full assembly name
-            var fullyQualifiedTypeName = $"{typeName}, {assemblyName}";
-            var type = Type.GetType(fullyQualifiedTypeName);
-            if (type != null)
+            // Check if assemblyName is a file path - if so, skip Type.GetType (it doesn't support file paths)
+            var isFilePath = IsFilePath(baseAssemblyName);
+
+            Type? type = null;
+
+            // First, try Type.GetType with full assembly name (only if not a file path)
+            if (!isFilePath)
             {
-                _log.Debug($"Resolved type using Type.GetType: {fullyQualifiedTypeName}");
-                return type;
+                var fullyQualifiedTypeName = $"{typeName}, {assemblyName}";
+                type = Type.GetType(fullyQualifiedTypeName);
+                if (type != null)
+                {
+                    _log.Debug($"Resolved type using Type.GetType: {fullyQualifiedTypeName}");
+                    return type;
+                }
             }
 
             // Search in all currently loaded assemblies, sorted by segment match score

@@ -113,6 +113,50 @@ namespace QuickerExpressionEnhanced.Tests.Parser
         }
 
         [TestMethod]
+        public void ParseCommands_LoadAssembly_WithFilePathAndVariables()
+        {
+            // Arrange
+            var context = CreateMockContext(new Dictionary<string, object>
+            {
+                { "packagePath", "C:\\Packages" },
+                { "version", "1.0.0" }
+            });
+            var code = "load {packagePath}/IntelliTools.Quicker.{version}.dll\nvar x = 1;";
+
+            // Act
+            var remainingCode = RegistrationCommandParser.ParseCommands(code, context, out var commands);
+
+            // Assert
+            Assert.HasCount(1, commands);
+            Assert.IsInstanceOfType(commands[0], typeof(LoadAssemblyCommand));
+            var loadCmd = (LoadAssemblyCommand)commands[0];
+            Assert.AreEqual("C:\\Packages/IntelliTools.Quicker.1.0.0.dll", loadCmd.Assembly);
+            Assert.AreEqual("var x = 1;", remainingCode.Trim());
+        }
+
+        [TestMethod]
+        public void ParseCommands_LoadAssembly_WithFilePathAndVariables_ForwardSlash()
+        {
+            // Arrange
+            var context = CreateMockContext(new Dictionary<string, object>
+            {
+                { "packagePath", "C:/Packages" },
+                { "version", "1.0.0" }
+            });
+            var code = "load {packagePath}/IntelliTools.Quicker.{version}.dll\nvar x = 1;";
+
+            // Act
+            var remainingCode = RegistrationCommandParser.ParseCommands(code, context, out var commands);
+
+            // Assert
+            Assert.HasCount(1, commands);
+            Assert.IsInstanceOfType(commands[0], typeof(LoadAssemblyCommand));
+            var loadCmd = (LoadAssemblyCommand)commands[0];
+            Assert.AreEqual("C:/Packages/IntelliTools.Quicker.1.0.0.dll", loadCmd.Assembly);
+            Assert.AreEqual("var x = 1;", remainingCode.Trim());
+        }
+
+        [TestMethod]
         public void ParseCommands_UsingNamespace_WithVariables()
         {
             // Arrange
@@ -377,6 +421,48 @@ namespace QuickerExpressionEnhanced.Tests.Parser
             var typeCmd = (RegisterTypeCommand)commands[0];
             Assert.AreEqual("System.Windows.Forms.Clipboard", typeCmd.ClassName);
             Assert.AreEqual("System.Windows.Forms, Version=4.0.0.0", typeCmd.Assembly);
+            Assert.AreEqual("var x = 1;", remainingCode.Trim());
+        }
+
+        [TestMethod]
+        public void ParseCommands_RegisterType_WithFilePath()
+        {
+            // Arrange
+            var context = CreateMockContext(new Dictionary<string, object>());
+            var code = "type System.String, C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorlib.dll\nvar x = 1;";
+
+            // Act
+            var remainingCode = RegistrationCommandParser.ParseCommands(code, context, out var commands);
+
+            // Assert
+            Assert.HasCount(1, commands);
+            Assert.IsInstanceOfType(commands[0], typeof(RegisterTypeCommand));
+            var typeCmd = (RegisterTypeCommand)commands[0];
+            Assert.AreEqual("System.String", typeCmd.ClassName);
+            Assert.AreEqual("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorlib.dll", typeCmd.Assembly);
+            Assert.AreEqual("var x = 1;", remainingCode.Trim());
+        }
+
+        [TestMethod]
+        public void ParseCommands_RegisterType_WithFilePathAndVariables()
+        {
+            // Arrange
+            var context = CreateMockContext(new Dictionary<string, object>
+            {
+                { "className", "System.String" },
+                { "dllpath", "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorlib.dll" }
+            });
+            var code = "type {className}, {dllpath}\nvar x = 1;";
+
+            // Act
+            var remainingCode = RegistrationCommandParser.ParseCommands(code, context, out var commands);
+
+            // Assert
+            Assert.HasCount(1, commands);
+            Assert.IsInstanceOfType(commands[0], typeof(RegisterTypeCommand));
+            var typeCmd = (RegisterTypeCommand)commands[0];
+            Assert.AreEqual("System.String", typeCmd.ClassName);
+            Assert.AreEqual("C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\mscorlib.dll", typeCmd.Assembly);
             Assert.AreEqual("var x = 1;", remainingCode.Trim());
         }
 
