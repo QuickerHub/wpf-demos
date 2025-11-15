@@ -114,7 +114,7 @@ namespace QuickerExpressionEnhanced
             // Parse and execute registration commands from parameter first
             if (!string.IsNullOrWhiteSpace(registrationCommands))
             {
-                var parseResult = RegistrationCommandParser.Parse(registrationCommands, context);
+                var parseResult = RegistrationCommandParser.Parse(registrationCommands!, context);
                 RegistrationCommandExecutor.Register(eval, parseResult.Commands);
             }
 

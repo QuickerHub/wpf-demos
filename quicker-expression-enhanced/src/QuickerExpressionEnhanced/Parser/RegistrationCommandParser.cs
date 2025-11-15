@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using Quicker.Public.Interfaces;
 
 namespace QuickerExpressionEnhanced.Parser
@@ -60,15 +59,10 @@ namespace QuickerExpressionEnhanced.Parser
     /// Supports:
     /// - load {assembly}
     /// - using {namespace} {assembly}
-    /// - type {class} {assembly}
+    /// - type {typeName}, {assemblyName}[, {additionalInfo}]
     /// </summary>
     public static class RegistrationCommandParser
     {
-        // Regex patterns for matching commands
-        // Support both //comment format (for expressions) and direct format (for external calls)
-        private static readonly Regex LoadPattern = new Regex(@"^\s*(//)?\s*load\s+(\{[^}]+\}|[^\s]+)\s*$", RegexOptions.IgnoreCase);
-        private static readonly Regex UsingPattern = new Regex(@"^\s*(//)?\s*using\s+(\{[^}]+\}|[^\s]+)\s+(\{[^}]+\}|[^\s]+)\s*$", RegexOptions.IgnoreCase);
-        private static readonly Regex TypePattern = new Regex(@"^\s*(//)?\s*type\s+(\{[^}]+\}|[^\s]+)\s+(\{[^}]+\}|[^\s]+)\s*$", RegexOptions.IgnoreCase);
 
         /// <summary>
         /// Parse registration commands from expression
@@ -113,6 +107,12 @@ namespace QuickerExpressionEnhanced.Parser
                 var lineWithValues = ReplaceVariables(originalLine, context);
                 var trimmedLine = lineWithValues.Trim();
                 
+                // Trim trailing semicolon if present
+                if (trimmedLine.EndsWith(";"))
+                {
+                    trimmedLine = trimmedLine.Substring(0, trimmedLine.Length - 1).TrimEnd();
+                }
+                
                 if (string.IsNullOrWhiteSpace(trimmedLine))
                 {
                     remainingLines.Add(originalLine);
@@ -121,29 +121,27 @@ namespace QuickerExpressionEnhanced.Parser
 
                 RegistrationCommand? command = null;
 
-                // Try to parse as LoadAssemblyCommand: load {assembly}
-                var loadCommand = TryParseLoadAssembly(trimmedLine);
-                if (loadCommand != null)
+                // Remove // comment prefix if present
+                var lineToParse = trimmedLine;
+                if (trimmedLine.StartsWith("//", StringComparison.OrdinalIgnoreCase))
                 {
-                    command = loadCommand;
+                    lineToParse = trimmedLine.Substring(2).TrimStart();
                 }
-                else
+
+                // Try to parse as LoadAssemblyCommand: load {assembly}
+                if (lineToParse.StartsWith("load ", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Try to parse as UsingNamespaceCommand: using {namespace} {assembly}
-                    var usingCommand = TryParseUsingNamespace(trimmedLine);
-                    if (usingCommand != null)
-                    {
-                        command = usingCommand;
-                    }
-                    else
-                    {
-                        // Try to parse as RegisterTypeCommand: type {class} {assembly}
-                        var typeCommand = TryParseRegisterType(trimmedLine);
-                        if (typeCommand != null)
-                        {
-                            command = typeCommand;
-                        }
-                    }
+                    command = TryParseLoadAssembly(lineToParse);
+                }
+                // Try to parse as UsingNamespaceCommand: using {namespace} {assembly}
+                else if (lineToParse.StartsWith("using ", StringComparison.OrdinalIgnoreCase))
+                {
+                    command = TryParseUsingNamespace(lineToParse);
+                }
+                // Try to parse as RegisterTypeCommand: type {typeName}, {assemblyName}[, {additionalInfo}]
+                else if (lineToParse.StartsWith("type ", StringComparison.OrdinalIgnoreCase))
+                {
+                    command = TryParseRegisterType(lineToParse);
                 }
 
                 if (command != null)
@@ -183,62 +181,102 @@ namespace QuickerExpressionEnhanced.Parser
         /// <summary>
         /// Try to parse a line as LoadAssemblyCommand: load {assembly}
         /// </summary>
-        /// <param name="line">Line to parse (with variables already replaced with values)</param>
+        /// <param name="line">Line to parse (with variables already replaced with values, should start with "load ")</param>
         /// <returns>LoadAssemblyCommand or null if not a load command</returns>
         private static LoadAssemblyCommand? TryParseLoadAssembly(string line)
         {
-            var match = LoadPattern.Match(line);
-            if (match.Success)
+            if (!line.StartsWith("load ", StringComparison.OrdinalIgnoreCase))
             {
-                var assembly = match.Groups[2].Value.Trim();
-                return new LoadAssemblyCommand
-                {
-                    Assembly = assembly
-                };
+                return null;
             }
-            return null;
+
+            var assembly = line.Substring(5).Trim();
+            if (string.IsNullOrWhiteSpace(assembly))
+            {
+                return null;
+            }
+
+            return new LoadAssemblyCommand
+            {
+                Assembly = assembly
+            };
         }
 
         /// <summary>
         /// Try to parse a line as UsingNamespaceCommand: using {namespace} {assembly}
         /// </summary>
-        /// <param name="line">Line to parse (with variables already replaced with values)</param>
+        /// <param name="line">Line to parse (with variables already replaced with values, should start with "using ")</param>
         /// <returns>UsingNamespaceCommand or null if not a using command</returns>
         private static UsingNamespaceCommand? TryParseUsingNamespace(string line)
         {
-            var match = UsingPattern.Match(line);
-            if (match.Success)
+            if (!line.StartsWith("using ", StringComparison.OrdinalIgnoreCase))
             {
-                var namespaceValue = match.Groups[2].Value.Trim();
-                var assembly = match.Groups[3].Value.Trim();
-                return new UsingNamespaceCommand
-                {
-                    Namespace = namespaceValue,
-                    Assembly = assembly
-                };
+                return null;
             }
-            return null;
+
+            var rest = line.Substring(6).Trim();
+            if (string.IsNullOrWhiteSpace(rest))
+            {
+                return null;
+            }
+
+            // Split by whitespace to get namespace and assembly
+            var parts = rest.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+
+            var namespaceValue = parts[0].Trim();
+            var assembly = string.Join(" ", parts, 1, parts.Length - 1).Trim();
+
+            return new UsingNamespaceCommand
+            {
+                Namespace = namespaceValue,
+                Assembly = assembly
+            };
         }
 
         /// <summary>
-        /// Try to parse a line as RegisterTypeCommand: type {class} {assembly}
+        /// Try to parse a line as RegisterTypeCommand: type {typeName}, {assemblyName}[, {additionalInfo}]
+        /// Supports: type System.Windows.Forms.Clipboard, System.Windows.Forms, Version=4.0.0.0
         /// </summary>
-        /// <param name="line">Line to parse (with variables already replaced with values)</param>
+        /// <param name="line">Line to parse (with variables already replaced with values, should start with "type ")</param>
         /// <returns>RegisterTypeCommand or null if not a type command</returns>
         private static RegisterTypeCommand? TryParseRegisterType(string line)
         {
-            var match = TypePattern.Match(line);
-            if (match.Success)
+            if (!line.StartsWith("type ", StringComparison.OrdinalIgnoreCase))
             {
-                var className = match.Groups[2].Value.Trim();
-                var assembly = match.Groups[3].Value.Trim();
-                return new RegisterTypeCommand
-                {
-                    ClassName = className,
-                    Assembly = assembly
-                };
+                return null;
             }
-            return null;
+
+            var rest = line.Substring(5).Trim();
+            if (string.IsNullOrWhiteSpace(rest))
+            {
+                return null;
+            }
+
+            // Split by comma to get typeName and assembly info
+            var commaIndex = rest.IndexOf(',');
+            if (commaIndex < 0)
+            {
+                // Assembly is required
+                return null;
+            }
+
+            var className = rest.Substring(0, commaIndex).Trim();
+            var assembly = rest.Substring(commaIndex + 1).Trim();
+
+            if (string.IsNullOrWhiteSpace(className) || string.IsNullOrWhiteSpace(assembly))
+            {
+                return null;
+            }
+
+            return new RegisterTypeCommand
+            {
+                ClassName = className,
+                Assembly = assembly
+            };
         }
     }
 }

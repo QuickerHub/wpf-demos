@@ -182,7 +182,7 @@ namespace QuickerExpressionEnhanced.Parser
         /// </summary>
         /// <param name="eval">Eval context</param>
         /// <param name="className">Class name (namespace.class format)</param>
-        /// <param name="assemblyName">Assembly name</param>
+        /// <param name="assemblyName">Assembly name (may include version info, e.g., "System.Windows.Forms, Version=4.0.0.0")</param>
         private static void RegisterType(EvalContext eval, string className, string assemblyName)
         {
             if (string.IsNullOrWhiteSpace(className))
@@ -195,21 +195,23 @@ namespace QuickerExpressionEnhanced.Parser
                 throw new ArgumentException("Assembly name is required to register type", nameof(assemblyName));
             }
 
-            // Load and register assembly first
-            var assembly = LoadAssembly(assemblyName);
-            eval.RegisterAssembly(assembly);
-
-            // Build fully qualified type name: namespace.class, assembly
-            var fullyQualifiedTypeName = $"{className}, {assemblyName}";
-            var type = Type.GetType(fullyQualifiedTypeName);
+            // Use TypeInference to get the type (will try multiple methods if Type.GetType fails)
+            var type = TypeInference.GetType(className, assemblyName);
             
             if (type == null)
             {
-                throw new InvalidOperationException($"Failed to find type '{fullyQualifiedTypeName}'. Make sure the type name and assembly name are correct.");
+                throw new InvalidOperationException($"Failed to find type '{className}' in assembly '{assemblyName}'. Make sure the type name and assembly name are correct.");
             }
 
+            // Extract base assembly name (before comma) for loading and registration
+            var baseAssemblyName = assemblyName.Split(',')[0].Trim();
+            var assembly = type.Assembly;
+            
+            // Register assembly if not already registered
+            eval.RegisterAssembly(assembly);
+
             eval.RegisterType(type);
-            _log.Debug($"Registered type: {fullyQualifiedTypeName}");
+            _log.Debug($"Registered type: {className} from assembly: {assemblyName}");
         }
 
         /// <summary>

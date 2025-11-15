@@ -76,7 +76,7 @@ namespace QuickerActionManage.ViewModel
             {
                 usageInfo = new Dictionary<string, ActionCountItem>();
             }
-            _logger.Info(JsonConvert.SerializeObject(usageInfo, Formatting.Indented));
+            _logger.Debug($"Loaded usage info for {usageInfo.Count} actions");
             var items = QuickerUtil.GetAllActionItems()
                 .Select(x =>
                 {
