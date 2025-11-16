@@ -21,6 +21,7 @@ namespace WindowEdgeHide.Services
         private readonly HWND _windowHandle;
         private readonly IntThickness _visibleArea;
         private readonly bool _autoTopmost; // Whether to automatically set topmost
+        private readonly EdgeDirection _updateEdgeDirection; // Edge direction for restore/update
         private bool _isEnabled;
         private bool _isHidden = false;
         private EdgeDirection _currentHideDirection = EdgeDirection.Nearest; // Current hide direction
@@ -44,9 +45,10 @@ namespace WindowEdgeHide.Services
         /// <param name="mover">Window mover for animation (default: DirectWindowMover). Use same mover for hide/show to prevent conflicts.</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update. If None, automatically selects nearest edge (default: None)</param>
         public WindowEdgeHideService(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest, 
             IntThickness visibleArea = default, 
-            IWindowMover? mover = null, bool showOnScreenEdge = false, bool autoTopmost = true)
+            IWindowMover? mover = null, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None)
         {
             var hwnd = new HWND(windowHandle);
             if (!IsWindow(hwnd))
@@ -54,6 +56,7 @@ namespace WindowEdgeHide.Services
 
             _windowHandle = hwnd;
             _autoTopmost = autoTopmost;
+            _updateEdgeDirection = updateEdgeDirection;
             // Use default thickness if not specified
             if (visibleArea.Equals(default(IntThickness)))
             {
@@ -76,13 +79,26 @@ namespace WindowEdgeHide.Services
                 actualDirection = EdgeCalculator.FindNearestEdge(windowHandle);
             }
 
-            // Always move window to screen edge (even if already at edge, ensure correct position)
-            var edgePos = EdgeCalculator.CalculateEdgePosition(windowHandle, actualDirection, _visibleArea);
-            var directMover = new Implementations.DirectWindowMover();
-            directMover.MoveWindow(windowHandle, edgePos.x, edgePos.y, edgePos.width, edgePos.height);
+            // Only move window to screen edge if edgeDirection is not None
+            if (edgeDirection != EdgeDirection.None)
+            {
+                // Always move window to screen edge (even if already at edge, ensure correct position)
+                var edgePos = EdgeCalculator.CalculateEdgePosition(windowHandle, actualDirection, _visibleArea);
+                var directMover = new Implementations.DirectWindowMover();
+                directMover.MoveWindow(windowHandle, edgePos.x, edgePos.y, edgePos.width, edgePos.height);
 
-            // Store edge position as original (where window should be restored to)
-            _originalPosition = new WindowRect(edgePos.x, edgePos.y, edgePos.x + edgePos.width, edgePos.y + edgePos.height);
+                // Store edge position as original (where window should be restored to)
+                _originalPosition = new WindowRect(edgePos.x, edgePos.y, edgePos.x + edgePos.width, edgePos.y + edgePos.height);
+            }
+            else
+            {
+                // For None option, store current position as original (don't move window)
+                var currentRect = WindowHelper.GetWindowRect(windowHandle);
+                if (currentRect != null)
+                {
+                    _originalPosition = currentRect.Value;
+                }
+            }
             
             // Ensure we start in visible state
             _isHidden = false;
@@ -178,7 +194,17 @@ namespace WindowEdgeHide.Services
 
             // Always restore to edge position (ensure window is at edge after restore)
             // This is critical for MouseLeave to work correctly
-            EdgeDirection edgeDirection = EdgeCalculator.FindNearestEdge(_windowHandle.Value);
+            EdgeDirection edgeDirection;
+            if (_updateEdgeDirection == EdgeDirection.None)
+            {
+                // Auto-detect nearest edge
+                edgeDirection = EdgeCalculator.FindNearestEdge(_windowHandle.Value);
+            }
+            else
+            {
+                // Use configured update edge direction
+                edgeDirection = _updateEdgeDirection;
+            }
             var edgePos = EdgeCalculator.CalculateEdgePosition(_windowHandle.Value, edgeDirection, _visibleArea);
             
             // Restore to edge position

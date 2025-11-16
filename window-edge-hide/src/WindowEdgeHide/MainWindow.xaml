@@ -28,12 +28,13 @@
                 <ComboBox
                     x:Name="EdgeComboBox"
                     Width="120"
-                    SelectedIndex="4">
+                    SelectedIndex="5">
                     <ComboBoxItem Content="Left" />
                     <ComboBoxItem Content="Top" />
                     <ComboBoxItem Content="Right" />
                     <ComboBoxItem Content="Bottom" />
                     <ComboBoxItem Content="Nearest" />
+                    <ComboBoxItem Content="None" />
                 </ComboBox>
             </StackPanel>
 

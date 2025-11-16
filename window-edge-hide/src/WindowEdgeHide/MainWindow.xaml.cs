@@ -76,6 +76,7 @@ namespace WindowEdgeHide
                             "Right" => EdgeDirection.Right,
                             "Bottom" => EdgeDirection.Bottom,
                             "Nearest" => EdgeDirection.Nearest,
+                            "None" => EdgeDirection.None,
                             _ => EdgeDirection.Nearest
                         };
                     }

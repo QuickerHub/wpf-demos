@@ -39,6 +39,12 @@ namespace WindowEdgeHide.Models
         /// Whether to automatically set window to topmost
         /// </summary>
         public bool AutoTopmost { get; set; } = true;
+
+        /// <summary>
+        /// Edge direction for window restore/update
+        /// If None, automatically selects nearest edge based on current position
+        /// </summary>
+        public EdgeDirection UpdateEdgeDirection { get; set; } = EdgeDirection.None;
     }
 }
 

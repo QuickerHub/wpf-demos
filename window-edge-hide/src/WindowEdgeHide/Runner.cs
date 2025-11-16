@@ -56,13 +56,14 @@ namespace WindowEdgeHide
         /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
         /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "")
+            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "", string updateEdgeDirection = "None")
         {
             // Convert useAnimation boolean to animationType string
             string animationType = useAnimation ? "EaseInOut" : "None";
-            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, autoTopmost, quicker_param);
+            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, autoTopmost, quicker_param, updateEdgeDirection);
         }
 
         /// <summary>
@@ -77,9 +78,10 @@ namespace WindowEdgeHide
         /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
         /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "")
+            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "", string updateEdgeDirection = "None")
         {
             // Ensure entire method executes on UI thread
             EnableEdgeHideResult? result = null;
@@ -193,6 +195,7 @@ namespace WindowEdgeHide
                             "right" => "Right",
                             "bottom" => "Bottom",
                             "auto" => "Nearest",
+                            "none" => "None",
                             _ => edgeDirection // Unknown value, use original edgeDirection
                         };
                     }
@@ -200,6 +203,7 @@ namespace WindowEdgeHide
                     EdgeDirection direction = ParseEdgeDirection(actualEdgeDirection);
                     IntThickness thickness = ParseVisibleArea(visibleArea);
                     AnimationType animType = ParseAnimationType(animationType);
+                    EdgeDirection updateDirection = ParseEdgeDirection(updateEdgeDirection);
                     
                     var config = new EdgeHideConfig
                     {
@@ -208,7 +212,8 @@ namespace WindowEdgeHide
                         VisibleArea = thickness,
                         AnimationType = animType,
                         ShowOnScreenEdge = showOnScreenEdge,
-                        AutoTopmost = autoTopmost
+                        AutoTopmost = autoTopmost,
+                        UpdateEdgeDirection = updateDirection
                     };
                     result = EnableEdgeHide(config);
                 });
@@ -259,7 +264,7 @@ namespace WindowEdgeHide
             }
 
             // Create new service (constructor initializes everything)
-            var service = new WindowEdgeHideService(config.WindowHandle, config.EdgeDirection, config.VisibleArea, mover, config.ShowOnScreenEdge, config.AutoTopmost);
+            var service = new WindowEdgeHideService(config.WindowHandle, config.EdgeDirection, config.VisibleArea, mover, config.ShowOnScreenEdge, config.AutoTopmost, config.UpdateEdgeDirection);
             service.WindowDestroyed += (hwnd) =>
             {
                 _services.Remove(hwnd);
@@ -273,7 +278,12 @@ namespace WindowEdgeHide
                 _configs[config.WindowHandle] = config;
                 SaveConfigs();
                 
-                string directionText = config.EdgeDirection == EdgeDirection.Nearest ? "最近边缘" : config.EdgeDirection.ToString();
+                string directionText = config.EdgeDirection switch
+                {
+                    EdgeDirection.Nearest => "最近边缘",
+                    EdgeDirection.None => "无（仅注册）",
+                    _ => config.EdgeDirection.ToString()
+                };
                 string animationText = config.AnimationType switch
                 {
                     AnimationType.None => "未启用动画",
@@ -311,9 +321,10 @@ namespace WindowEdgeHide
         /// <param name="animationType">Animation type for window movement (default: None)</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update. If None, automatically selects nearest edge (default: None)</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest,
-            IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true)
+            IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None)
         {
             // Get top-level window handle to prevent operations on child windows
             // Operations on child windows are likely to fail
@@ -334,7 +345,8 @@ namespace WindowEdgeHide
                 VisibleArea = visibleArea.Equals(default(IntThickness)) ? new IntThickness(5) : visibleArea,
                 AnimationType = animationType,
                 ShowOnScreenEdge = showOnScreenEdge,
-                AutoTopmost = autoTopmost
+                AutoTopmost = autoTopmost,
+                UpdateEdgeDirection = updateEdgeDirection
             };
             return EnableEdgeHide(config);
         }
@@ -356,6 +368,7 @@ namespace WindowEdgeHide
                 "right" => EdgeDirection.Right,
                 "bottom" => EdgeDirection.Bottom,
                 "nearest" => EdgeDirection.Nearest,
+                "none" => EdgeDirection.None,
                 _ => EdgeDirection.Nearest
             };
         }

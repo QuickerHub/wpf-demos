@@ -29,7 +29,13 @@ namespace WindowEdgeHide.Models
         /// Automatically select the nearest edge based on current window position
         /// This option is processed during registration
         /// </summary>
-        Nearest
+        Nearest,
+
+        /// <summary>
+        /// Register edge hiding without automatically moving window to edge
+        /// Window will only hide when manually moved to screen edge
+        /// </summary>
+        None
     }
 }
 
