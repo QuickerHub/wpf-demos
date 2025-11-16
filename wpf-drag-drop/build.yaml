@@ -1,0 +1,35 @@
+# BuildTools 简化配置文件
+# 将此文件放在你的项目根目录，然后运行 BuildTools.exe 即可自动构建
+
+# 基本项目信息
+name: wpf-drag-drop
+displayName: WpfDragDrop
+versionKey: WpfDragDrop          # 对应 version.json 中的键名
+subprogramName: WpfDragDrop
+# 项目路径（可选，默认为当前目录）
+projectDir: src/WpfDragDrop
+
+# 发布相关配置
+uploadDir: cea.wpf-drag-drop
+packageName: cea.wpf-drag-drop
+instruction: WPF drag and drop library for administrator-privileged processes
+
+# 文件处理配置
+filesToInclude:
+  - "WpfDragDrop*.dll"
+binaryFilter: "WpfDragDrop*"
+filesToExclude:               # 要排除的文件
+  - "*.pdb"
+  - "*.xml"
+
+# 混淆配置（可选）
+obfuscate: true
+toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
+  - "WpfDragDrop.{version}.dll"
+
+# 测试配置（可选）
+testDir: "Quicker/_packages/cea.wpf-drag-drop"
+
+# 构建控制
+enabled: true
+
