@@ -116,6 +116,38 @@ public partial class MyViewModel : ObservableObject
 }
 ```
 
+### DataContext 和 ViewModel 使用规范
+- **UserControl/Window 的 DataContext 应设置为 this**：将控件的 DataContext 设置为控件本身，而不是直接设置为 ViewModel
+- **通过 ViewModel 属性访问 ViewModel**：在 XAML 中使用 `{Binding ViewModel.PropertyName}` 的形式绑定到 ViewModel 的属性
+- **暴露 ViewModel 属性**：控件类应提供一个 `ViewModel` 属性来访问 ViewModel 实例
+
+```csharp
+public partial class MyControl : UserControl
+{
+    private readonly MyViewModel _viewModel;
+    
+    public MyViewModel ViewModel => _viewModel;
+    
+    public MyControl()
+    {
+        InitializeComponent();
+        _viewModel = new MyViewModel();
+        DataContext = this; // ✅ 设置为 this，而不是 _viewModel
+    }
+}
+```
+
+```xml
+<!-- ✅ 正确：在 XAML 中使用 ViewModel.xxx 形式 -->
+<Button Command="{Binding ViewModel.SaveCommand}" />
+<TextBlock Text="{Binding ViewModel.Title}" />
+<ListBox ItemsSource="{Binding ViewModel.Items}" />
+
+<!-- ❌ 错误：不要直接绑定到 DataContext -->
+<Button Command="{Binding SaveCommand}" />
+<TextBlock Text="{Binding Title}" />
+```
+
 ### 必需的包
 - `CommunityToolkit.Mvvm` - MVVM 特性
 - `DependencyPropertyGenerator` - DependencyProperty 源生成器
