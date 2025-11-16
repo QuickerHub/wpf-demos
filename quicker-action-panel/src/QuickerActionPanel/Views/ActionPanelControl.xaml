@@ -1,0 +1,445 @@
+<UserControl
+    x:Class="QuickerActionPanel.Views.ActionPanelControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dd="urn:gong-wpf-dragdrop"
+    xmlns:editor="clr-namespace:QuickerActionPanel.Views.Editor"
+    xmlns:models="clr-namespace:QuickerActionPanel.Models"
+    xmlns:qk="https://getquicker.net"
+    xmlns:vm="clr-namespace:QuickerActionPanel.ViewModels"
+        xmlns:System="clr-namespace:System;assembly=mscorlib">
+    <UserControl.Resources>
+        <!-- Preset DynamicResources -->
+        <SolidColorBrush x:Key="FontColor" Color="Black" />
+        <SolidColorBrush x:Key="DefaultIconColor" Color="Black" />
+        <SolidColorBrush x:Key="ButtonBackground" Color="White" />
+        <SolidColorBrush x:Key="WindowBackground" Color="White" />
+        <System:Double x:Key="BigIconFontSize">14</System:Double>
+        <System:Double x:Key="SmallIconFontSize">15</System:Double>
+        <System:Double x:Key="SmallWidth">100</System:Double>
+        <System:Double x:Key="SmallMinHeight">20</System:Double>
+        <System:Double x:Key="OnlyIconSize">30</System:Double>
+        <System:Double x:Key="BigIconWidth">60</System:Double>
+        <System:Double x:Key="BigIconHeight">60</System:Double>
+        <System:Double x:Key="SmallIconSize">20</System:Double>
+        <CornerRadius x:Key="ItemCornerRadius">4</CornerRadius>
+        <SolidColorBrush x:Key="MouseOverBrush" Color="#809ADDFF" />
+        <SolidColorBrush x:Key="SelectedBrush" Color="#FFBDBD" />
+        <Color x:Key="MouseOverColor">#809ADDFF</Color>
+        <SolidColorBrush x:Key="TransparentBrush" Color="Transparent" />
+
+        <!-- Unified Text Style -->
+        <Style x:Key="PanelItemTextStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Foreground" Value="{DynamicResource FontColor}" />
+            <Setter Property="TextWrapping" Value="WrapWithOverflow" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="500" />
+        </Style>
+
+        <!-- Icon Control Style -->
+        <Style TargetType="{x:Type qk:IconControl}">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="DefaultIconBrush" Value="{DynamicResource DefaultIconColor}" />
+        </Style>
+
+        <!-- ListBox Base Style -->
+        <Style
+            x:Key="MyListBoxBaseStyle"
+            TargetType="ListBox">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <ScrollViewer Background="{TemplateBinding Background}" VerticalScrollBarVisibility="Hidden">
+                            <ItemsPresenter Margin="{TemplateBinding Padding}" />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Panel Item Container Base Style -->
+        <!-- Note: This style does NOT include a Template to avoid conflicts with default ListBoxItem binding behavior -->
+        <!-- The alignment properties are set here to prevent binding to parent ItemsControl -->
+        <Style x:Key="MyPanelItemContainerBaseStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Margin" Value="1" />
+            <!-- Explicitly set alignment to prevent binding to parent ItemsControl -->
+            <!-- These setters must come before any Template to override default binding -->
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+
+        <!-- Panel Item Container Style with Animation -->
+        <!-- This style completely overrides the default ListBoxItem style to prevent binding errors -->
+        <Style
+            x:Key="MyPanelItemContainerStyle"
+            TargetType="ListBoxItem">
+            <!-- Set all properties explicitly to prevent default binding behavior -->
+            <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Margin" Value="1" />
+            <Setter Property="RenderTransformOrigin" Value="0.5 0.5" />
+            <!-- CRITICAL: These must be set to prevent RelativeSource binding to parent ItemsControl -->
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid RenderTransformOrigin="{TemplateBinding RenderTransformOrigin}">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="MyAnimatedScaleTransform" ScaleX="1" ScaleY="1" />
+                            </Grid.RenderTransform>
+                            <Border
+                                Name="_Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="LightGray"
+                                CornerRadius="{DynamicResource ItemCornerRadius}"
+                                Opacity="0"
+                                SnapsToDevicePixels="true" />
+                            <!-- Use fixed alignment values, NOT TemplateBinding to prevent binding errors -->
+                            <ContentPresenter
+                                Margin="{TemplateBinding Padding}"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <EventTrigger RoutedEvent="MouseEnter">
+                                <BeginStoryboard Name="MouseEnterStoryboard">
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="_Border"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0.2"
+                                            Duration="0:0:0.07" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="MouseLeave">
+                                <StopStoryboard BeginStoryboardName="MouseDownStoryboard" />
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="_Border"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0"
+                                            Duration="0:0:0.07" />
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="MyAnimatedScaleTransform"
+                                            Storyboard.TargetProperty="(ScaleTransform.ScaleX)"
+                                            To="1"
+                                            Duration="0:0:0.15" />
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="MyAnimatedScaleTransform"
+                                            Storyboard.TargetProperty="(ScaleTransform.ScaleY)"
+                                            To="1"
+                                            Duration="0:0:0.15" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="PreviewMouseLeftButtonDown">
+                                <BeginStoryboard Name="MouseDownStoryboard">
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="MyAnimatedScaleTransform"
+                                            Storyboard.TargetProperty="(ScaleTransform.ScaleX)"
+                                            To="0.9"
+                                            Duration="0:0:0.1" />
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="MyAnimatedScaleTransform"
+                                            Storyboard.TargetProperty="(ScaleTransform.ScaleY)"
+                                            To="0.9"
+                                            Duration="0:0:0.1" />
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="_Border"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0.4"
+                                            Duration="0:0:0.1" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                            <EventTrigger RoutedEvent="PreviewMouseLeftButtonUp">
+                                <StopStoryboard BeginStoryboardName="MouseDownStoryboard" />
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="MyAnimatedScaleTransform"
+                                            Storyboard.TargetProperty="(ScaleTransform.ScaleX)"
+                                            To="1"
+                                            Duration="0:0:0.15" />
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="MyAnimatedScaleTransform"
+                                            Storyboard.TargetProperty="(ScaleTransform.ScaleY)"
+                                            To="1"
+                                            Duration="0:0:0.15" />
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="_Border"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0.2"
+                                            Duration="0:0:0.1" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!--  Icon and Text Layout (Small Icon)  -->
+        <DataTemplate x:Key="IconAndTextTemplate" DataType="{x:Type vm:ActionItemViewModel}">
+            <Grid Margin="1" ToolTip="{Binding Description}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto" MaxWidth="50" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <qk:IconControl
+                    Width="{DynamicResource SmallIconSize}"
+                    Height="{DynamicResource SmallIconSize}"
+                    MaxWidth="300"
+                    MaxHeight="300"
+                    Margin="5,0"
+                    Icon="{Binding Icon}" />
+                <TextBlock
+                    Name="TitleBox"
+                    Grid.Column="1"
+                    HorizontalAlignment="Left"
+                    FontSize="{DynamicResource SmallIconFontSize}"
+                    Style="{StaticResource PanelItemTextStyle}"
+                    Text="{Binding Title}"
+                    TextWrapping="NoWrap">
+                    <TextBlock.ToolTip>
+                        <ToolTip Placement="Center">
+                            <TextBlock FontSize="{DynamicResource SmallIconFontSize}" Text="{Binding Title}" />
+                        </ToolTip>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
+
+        <!--  Big Icon Layout  -->
+        <DataTemplate x:Key="BigIconTemplate" DataType="{x:Type vm:ActionItemViewModel}">
+            <Grid Background="Transparent" ToolTip="{Binding Description}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="1.5*" />
+                    <RowDefinition />
+                </Grid.RowDefinitions>
+                <qk:IconControl
+                    MaxWidth="300"
+                    MaxHeight="300"
+                    Margin="3,8,3,0"
+                    Icon="{Binding Icon}" />
+                <TextBlock
+                    x:Name="TitleBox"
+                    Grid.Row="1"
+                    FontSize="{DynamicResource BigIconFontSize}"
+                    Style="{StaticResource PanelItemTextStyle}"
+                    Text="{Binding Title}">
+                    <TextBlock.ToolTip>
+                        <ToolTip Placement="Center">
+                            <TextBlock FontSize="{DynamicResource BigIconFontSize}" Text="{Binding Title}" />
+                        </ToolTip>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
+
+        <!--  Icon Only Layout  -->
+        <DataTemplate x:Key="IconOnlyTemplate" DataType="{x:Type vm:ActionItemViewModel}">
+            <Grid Background="Transparent">
+                <qk:IconControl
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="{Binding Icon}" />
+                <Grid.ToolTip>
+                    <ToolTip Placement="Bottom">
+                        <TextBlock FontSize="{DynamicResource SmallIconFontSize}" Text="{Binding Title}" />
+                    </ToolTip>
+                </Grid.ToolTip>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Panel Style for IconAndText (Style 2) -->
+        <Style
+            x:Key="PanelStyle2"
+            BasedOn="{StaticResource MyListBoxBaseStyle}"
+            TargetType="ListBox">
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <WrapPanel HorizontalAlignment="Center" />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style BasedOn="{StaticResource MyPanelItemContainerStyle}" TargetType="ListBoxItem">
+                        <Setter Property="MinWidth" Value="{DynamicResource SmallWidth}" />
+                        <Setter Property="MinHeight" Value="{DynamicResource SmallMinHeight}" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemTemplate" Value="{StaticResource IconAndTextTemplate}" />
+        </Style>
+
+        <!-- Panel Style for BigIcon (Style 1) -->
+        <Style
+            x:Key="PanelStyle1"
+            BasedOn="{StaticResource MyListBoxBaseStyle}"
+            TargetType="ListBox">
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style BasedOn="{StaticResource MyPanelItemContainerStyle}" TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="2" />
+                        <Setter Property="Width" Value="{DynamicResource BigIconWidth}" />
+                        <Setter Property="Height" Value="{DynamicResource BigIconHeight}" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemTemplate" Value="{StaticResource BigIconTemplate}" />
+        </Style>
+
+        <!-- Panel Style for IconOnly (Style 4) -->
+        <Style
+            x:Key="PanelStyle4"
+            BasedOn="{StaticResource MyListBoxBaseStyle}"
+            TargetType="ListBox">
+            <Setter Property="ItemTemplate" Value="{StaticResource IconOnlyTemplate}" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <UniformGrid />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style BasedOn="{StaticResource MyPanelItemContainerStyle}" TargetType="ListBoxItem">
+                        <Setter Property="Margin" Value="3" />
+                        <Setter Property="Width" Value="{DynamicResource OnlyIconSize}" />
+                        <Setter Property="Height" Value="{DynamicResource OnlyIconSize}" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Toolbar  -->
+        <StackPanel
+            Grid.Row="0"
+            Margin="0,0,0,10"
+            Orientation="Horizontal">
+            <Button
+                Margin="0,0,10,0"
+                Padding="10,5"
+                Command="{Binding ViewModel.ClearAllCommand}"
+                Content="Clear All" />
+            <editor:MyCombobox
+                Width="120"
+                Margin="0,0,10,0"
+                SelectedValue="{Binding ViewModel.LayoutMode, Mode=TwoWay}" />
+        </StackPanel>
+
+        <!--  Action Items List  -->
+        <ListBox
+            x:Name="TheListBox"
+            Grid.Row="1"
+            HorizontalContentAlignment="Center"
+            dd:DragDrop.DropHandler="{Binding ViewModel.DropHandler}"
+            dd:DragDrop.IsDragSource="True"
+            dd:DragDrop.IsDropTarget="True"
+            FocusVisualStyle="{x:Null}"
+            ItemsSource="{Binding ViewModel.ActionItems}">
+            <ListBox.Style>
+                <Style BasedOn="{StaticResource MyListBoxBaseStyle}" TargetType="ListBox">
+                    <Setter Property="Padding" Value="5" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                    <Setter Property="ItemsPanel">
+                        <Setter.Value>
+                            <ItemsPanelTemplate>
+                                <WrapPanel HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ItemContainerStyle">
+                        <Setter.Value>
+                            <Style BasedOn="{StaticResource MyPanelItemContainerStyle}" TargetType="ListBoxItem">
+                                <Setter Property="MinWidth" Value="{DynamicResource SmallWidth}" />
+                                <Setter Property="MinHeight" Value="{DynamicResource SmallMinHeight}" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ItemTemplate" Value="{StaticResource IconAndTextTemplate}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ViewModel.LayoutMode}" Value="{x:Static models:LayoutMode.BigIcon}">
+                            <Setter Property="ItemsPanel">
+                                <Setter.Value>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="ItemContainerStyle">
+                                <Setter.Value>
+                                    <Style BasedOn="{StaticResource MyPanelItemContainerStyle}" TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="2" />
+                                        <Setter Property="Width" Value="{DynamicResource BigIconWidth}" />
+                                        <Setter Property="Height" Value="{DynamicResource BigIconHeight}" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="ItemTemplate" Value="{StaticResource BigIconTemplate}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding ViewModel.LayoutMode}" Value="{x:Static models:LayoutMode.IconOnly}">
+                            <Setter Property="ItemTemplate" Value="{StaticResource IconOnlyTemplate}" />
+                            <Setter Property="ItemsPanel">
+                                <Setter.Value>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid />
+                                    </ItemsPanelTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="ItemContainerStyle">
+                                <Setter.Value>
+                                    <Style BasedOn="{StaticResource MyPanelItemContainerStyle}" TargetType="ListBoxItem">
+                                        <Setter Property="Margin" Value="3" />
+                                        <Setter Property="Width" Value="{DynamicResource OnlyIconSize}" />
+                                        <Setter Property="Height" Value="{DynamicResource OnlyIconSize}" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.Style>
+        </ListBox>
+    </Grid>
+</UserControl>
