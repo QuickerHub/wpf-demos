@@ -8,6 +8,8 @@
     Title="ActionManageWindow"
     Width="1400"
     Height="800"
+    MinWidth="800"
+    MinHeight="600"
     d:Height="300"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">

@@ -238,7 +238,7 @@ namespace QuickerActionManage.ViewModel
         {
             EditingRule = rule;
         }
-
+        
         /// <summary>
         /// Cancel editing rule name
         /// </summary>

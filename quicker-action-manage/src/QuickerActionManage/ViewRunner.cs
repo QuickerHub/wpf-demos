@@ -15,7 +15,9 @@ namespace QuickerActionManage
     public static class ViewRunner
     {
         private static readonly GlobalStateWriter _stateWriter = new(typeof(ViewRunner).FullName);
-        
+        private static ActionManageWindow? _actionManageWindowInstance;
+        private static readonly DebounceTimer _sizeSaveDebounce = new(500); // 500ms debounce for size saving
+
         /// <summary>
         /// Get storage key with debug suffix if not in Quicker
         /// </summary>
@@ -27,14 +29,49 @@ namespace QuickerActionManage
         }
 
         /// <summary>
-        /// Show action management window
+        /// Show action management window (singleton)
         /// </summary>
         public static void ActionManageWindow()
         {
+            // Check if window already exists and is still open
+            if (_actionManageWindowInstance != null)
+            {
+                // Check if window is still valid (not closed)
+                // IsVisible is false when window is closed
+                if (_actionManageWindowInstance.IsVisible)
+                {
+                    // Window exists and is open, activate it
+                    _actionManageWindowInstance.Activate();
+                    _actionManageWindowInstance.Focus();
+                    // Bring window to front
+                    if (_actionManageWindowInstance.WindowState == WindowState.Minimized)
+                    {
+                        _actionManageWindowInstance.WindowState = WindowState.Normal;
+                    }
+                    return;
+                }
+                else
+                {
+                    // Window was closed, clear the reference
+                    _actionManageWindowInstance = null;
+                }
+            }
+
+            // Create new window instance
             var win = new ActionManageWindow()
             {
                 Title = "动作&公共子程序管理窗口"
             };
+
+            // Store the instance
+            _actionManageWindowInstance = win;
+
+            // Handle window closed event to clear the instance
+            win.Closed += (s, e) =>
+            {
+                _actionManageWindowInstance = null;
+            };
+
             ShowWindow(win, new WindowOptions { LastSize = true });
         }
 
@@ -45,26 +82,23 @@ namespace QuickerActionManage
         {
             string windowTag = win.GetType().FullName ?? "ActionManageWindow";
 
+            if (options.LastSize)
+            {
+                // 恢复窗口大小
+                var sizeKey = GetKey($"{windowTag}.Size");
+                var sizeStr = _stateWriter.Read(sizeKey, "") as string;
+                var size = String2Point(sizeStr);
+                if (size != null && size.Value.X > 0 && size.Value.Y > 0)
+                {
+                    // Set window size directly using WPF properties
+                    win.Width = size.Value.X;
+                    win.Height = size.Value.Y;
+                }
+            }
+
             win.SourceInitialized += (s, e) =>
             {
-                var handle = WindowHelper.GetHandle(win);
-                if (handle == IntPtr.Zero) return;
-
-                if (options.LastSize)
-                {
-                    // 恢复窗口大小
-                    var sizeKey = GetKey($"{windowTag}.Size");
-                    var sizeStr = _stateWriter.Read(sizeKey, "") as string;
-                    var size = String2Point(sizeStr);
-                    if (size != null && size.Value.X > 0 && size.Value.Y > 0)
-                    {
-                        WindowHelper.SetWindowSize(handle, size.Value.X, size.Value.Y);
-                    }
-                }
-            };
-
-            win.Loaded += (s, e) =>
-            {
+                // Center window in screen after size is restored
                 var handle = WindowHelper.GetHandle(win);
                 if (handle != IntPtr.Zero)
                 {
@@ -72,19 +106,37 @@ namespace QuickerActionManage
                 }
             };
 
-            win.Closing += (s, e) =>
+            win.Loaded += (s, e) =>
             {
                 if (options.LastSize)
                 {
-                    var handle = WindowHelper.GetHandle(win);
-                    if (handle != IntPtr.Zero)
+                    // Save window size on SizeChanged event with debounce
+                    win.SizeChanged += (s, e) =>
                     {
-                        var rect = WinProperty.Get(handle).Rect;
-                        var sizeKey = GetKey($"{windowTag}.Size");
-                        _stateWriter.Write(sizeKey, Point2String(new Point((int)rect.Width, (int)rect.Height)));
-                    }
+                        // Skip saving if window is minimized
+                        if (win.WindowState == WindowState.Minimized)
+                        {
+                            return;
+                        }
+
+                        // Use debounce to avoid frequent saves during window resizing
+                        _sizeSaveDebounce.DoAction(() =>
+                        {
+                            // Use WPF window properties directly to handle DPI scaling correctly
+                            var width = (int)win.Width;
+                            var height = (int)win.Height;
+
+                            // Only save if size is valid (greater than 0)
+                            if (width > 0 && height > 0)
+                            {
+                                var sizeKey = GetKey($"{windowTag}.Size");
+                                _stateWriter.Write(sizeKey, Point2String(new Point(width, height)));
+                            }
+                        });
+                    };
                 }
             };
+
 
             win.Show();
             win.Activate();
