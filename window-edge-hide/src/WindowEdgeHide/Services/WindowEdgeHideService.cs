@@ -82,13 +82,13 @@ namespace WindowEdgeHide.Services
             // Only move window to screen edge if edgeDirection is not None
             if (edgeDirection != EdgeDirection.None)
             {
-                // Always move window to screen edge (even if already at edge, ensure correct position)
-                var edgePos = EdgeCalculator.CalculateEdgePosition(windowHandle, actualDirection, _visibleArea);
-                var directMover = new Implementations.DirectWindowMover();
-                directMover.MoveWindow(windowHandle, edgePos.x, edgePos.y, edgePos.width, edgePos.height);
+            // Always move window to screen edge (even if already at edge, ensure correct position)
+            var edgePos = EdgeCalculator.CalculateEdgePosition(windowHandle, actualDirection, _visibleArea);
+            var directMover = new Implementations.DirectWindowMover();
+            directMover.MoveWindow(windowHandle, edgePos.x, edgePos.y, edgePos.width, edgePos.height);
 
-                // Store edge position as original (where window should be restored to)
-                _originalPosition = new WindowRect(edgePos.x, edgePos.y, edgePos.x + edgePos.width, edgePos.y + edgePos.height);
+            // Store edge position as original (where window should be restored to)
+            _originalPosition = new WindowRect(edgePos.x, edgePos.y, edgePos.x + edgePos.width, edgePos.y + edgePos.height);
             }
             else
             {

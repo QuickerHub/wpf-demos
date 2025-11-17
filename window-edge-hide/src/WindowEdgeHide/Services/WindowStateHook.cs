@@ -8,6 +8,7 @@ namespace WindowEdgeHide.Services
 {
     /// <summary>
     /// Hook to monitor window state changes (minimize, maximize, visibility, activation)
+    /// Also monitors mouse capture events to detect user interaction (e.g., dragging) for better activation detection
     /// </summary>
     internal class WindowStateHook : IDisposable
     {
@@ -18,6 +19,8 @@ namespace WindowEdgeHide.Services
 
         // Windows Event Constants
         private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint EVENT_SYSTEM_CAPTURESTART = 0x0008;
+        private const uint EVENT_SYSTEM_CAPTUREEND = 0x0009;
         private const uint EVENT_SYSTEM_MINIMIZESTART = 0x0016;
         private const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
         private const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
@@ -28,6 +31,8 @@ namespace WindowEdgeHide.Services
         private static readonly uint[] EventsToMonitor = new[]
         {
             EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_CAPTURESTART,
+            EVENT_SYSTEM_CAPTUREEND,
             EVENT_SYSTEM_MINIMIZESTART,
             EVENT_SYSTEM_MINIMIZEEND,
             EVENT_OBJECT_LOCATIONCHANGE,
@@ -86,7 +91,7 @@ namespace WindowEdgeHide.Services
                     maxEvent = eventId;
             }
 
-            // Hook multiple events: foreground, minimize start/end, location change (for maximize/restore), show/hide
+            // Hook multiple events: foreground, mouse capture start/end, minimize start/end, location change (for maximize/restore), show/hide
             _hook = SetWinEventHook(
                 minEvent,
                 maxEvent,
@@ -109,11 +114,56 @@ namespace WindowEdgeHide.Services
                         _wasForeground = true;
                         Activated?.Invoke(_targetWindowHandle.Value);
                     }
-                    else if (_wasForeground)
+                    else
                     {
-                        // Another window became foreground, target window lost focus
-                        _wasForeground = false;
-                        Deactivated?.Invoke(_targetWindowHandle.Value);
+                        // Another window became foreground
+                        // Verify by checking current foreground window to handle edge cases
+                        // This is important for topmost windows that might not be the true foreground window
+                        var currentForeground = GetForegroundWindow();
+                        bool isTargetForeground = currentForeground == _targetWindowHandle;
+                        
+                        if (isTargetForeground)
+                        {
+                            // Target window is actually foreground (edge case: event might fire out of order)
+                            _wasForeground = true;
+                            Activated?.Invoke(_targetWindowHandle.Value);
+                        }
+                        else if (_wasForeground)
+                        {
+                            // Target window was previously foreground and now lost focus
+                            _wasForeground = false;
+                            Deactivated?.Invoke(_targetWindowHandle.Value);
+                        }
+                        // If _wasForeground is false and target is not foreground, do nothing
+                        // (target window was never foreground, so no need to trigger deactivated)
+                    }
+                    break;
+
+                case EVENT_SYSTEM_CAPTURESTART:
+                    // Mouse capture started - check if it's our target window
+                    // This indicates user interaction with the window (e.g., dragging)
+                    if (hwnd == _targetWindowHandle)
+                    {
+                        // Window started capturing mouse, consider it active
+                        if (!_wasForeground)
+                        {
+                            _wasForeground = true;
+                            Activated?.Invoke(_targetWindowHandle.Value);
+                        }
+                    }
+                    break;
+
+                case EVENT_SYSTEM_CAPTUREEND:
+                    // Mouse capture ended - check if it's our target window
+                    if (hwnd == _targetWindowHandle)
+                    {
+                        // Window released mouse capture, check if still foreground
+                        var currentForeground = GetForegroundWindow();
+                        if (currentForeground != _targetWindowHandle && _wasForeground)
+                        {
+                            _wasForeground = false;
+                            Deactivated?.Invoke(_targetWindowHandle.Value);
+                        }
                     }
                     break;
 
