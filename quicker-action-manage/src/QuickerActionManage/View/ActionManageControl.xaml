@@ -23,27 +23,123 @@
             <viewmodel:ActionItemModel Title="哈哈哈哈" Icon="fa:Light_Times" />
         </x:Array>
     </UserControl.Resources>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="300" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="50" />
-            <RowDefinition />
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
-        </Grid.RowDefinitions>
-        
+    <DockPanel>
+        <!-- 右侧：规则和筛选区域（优先 dock 到右边） -->
+        <Border
+            DockPanel.Dock="Right"
+            Width="300"
+            Margin="5,0,0,0"
+            BorderBrush="LightGray"
+            BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                
+                <!-- 规则区域 -->
+                <GroupBox Grid.Row="0" Header="规则" Margin="5">
+                    <StackPanel>
+                        <!-- 按钮区域 -->
+                        <WrapPanel Margin="0,0,0,8">
+                            <WrapPanel.Resources>
+                                <Style BasedOn="{StaticResource ButtonDefault}" TargetType="{x:Type Button}">
+                                    <Setter Property="Margin" Value="3,0" />
+                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    <Setter Property="Padding" Value="12,6" />
+                                    <Setter Property="MinWidth" Value="60" />
+                                </Style>
+                            </WrapPanel.Resources>
+                            <Button Click="AddRule_Click">添加</Button>
+                            <Button
+                                Click="DeleteRule_Click"
+                                Foreground="Red"
+                                Opacity="0.7"
+                                ToolTip="删除当前规则"
+                                IsEnabled="{Binding SelectedRule, Converter={StaticResource ObjectToBoolConverter}}">
+                                删除
+                            </Button>
+                        </WrapPanel>
+                        <!-- 规则列表 -->
+                        <Border
+                            BorderBrush="#E0E0E0"
+                            BorderThickness="1"
+                            Background="White"
+                            CornerRadius="3"
+                            Padding="5">
+                            <ListBox
+                                x:Name="TheRuleListBox"
+                                MinHeight="30"
+                                MaxHeight="150"
+                                BorderThickness="0"
+                                Background="Transparent"
+                                ItemsSource="{Binding RuleItems}"
+                                PreviewMouseLeftButtonUp="TheRuleListBox_PreviewMouseLeftButtonUp"
+                                SelectionChanged="TheRuleListBox_SelectionChanged"
+                                SelectedItem="{Binding SelectedRule, Mode=TwoWay}"
+                                SelectionMode="Single">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <local:EditableTextBlock
+                                            Text="{Binding Title, Mode=TwoWay}"
+                                            FontSize="13">
+                                            <local:EditableTextBlock.IsEditing>
+                                                <MultiBinding Converter="{StaticResource EqualityToBoolConverter}">
+                                                    <Binding Path="ViewModel.EditingRule" RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                                                    <Binding />
+                                                </MultiBinding>
+                                            </local:EditableTextBlock.IsEditing>
+                                        </local:EditableTextBlock>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListBoxItemStyle}">
+                                        <EventSetter Event="MouseDoubleClick" Handler="RuleListBoxItem_MouseDoubleClick" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="重命名" Click="RenameRuleMenuItem_Click" />
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
+                            </ListBox>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+                
+                <!-- 排序区域 -->
+                <GroupBox Grid.Row="1" Header="排序" Margin="5,5,5,5">
+                    <editor:PropertyGridPlus
+                        Margin="0"
+                        SelectedObject="{Binding CurrentRule.Sorter}" />
+                </GroupBox>
+                
+                <!-- 筛选区域 -->
+                <GroupBox Grid.Row="2" Header="筛选" Margin="5,5,5,5">
+                    <editor:PropertyGridPlus
+                        Margin="0"
+                        SelectedObject="{Binding CurrentRule.FilterItem}" />
+                </GroupBox>
+            </Grid>
+        </Border>
         <!-- 顶部工具栏 -->
         <DockPanel
-            Grid.ColumnSpan="2"
+            DockPanel.Dock="Top"
             Margin="20,0,20,0"
-            VerticalAlignment="Center">
+            VerticalAlignment="Center"
+            Height="50">
             <Button
                 Click="RefreshButton_Click"
-                DockPanel.Dock="Right"
-                ToolTip="当添加了新动作或者修改了动作过后点击这里刷新">
+                DockPanel.Dock="Left"
+                Margin="0,0,10,0"
+                ToolTip="当添加了新动作或者修改了动作过后点击这里刷新 (F5)">
                 刷新
             </Button>
             <local:PopupButtonControl
@@ -85,15 +181,27 @@
                     </ListBox>
                 </Grid>
             </local:PopupButtonControl>
-            <TextBox Text="{Binding FilterItem.SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center"
+                Height="28"
+                Text="{Binding FilterItem.SearchText, UpdateSourceTrigger=PropertyChanged}" />
         </DockPanel>
 
-        <!-- 左侧：动作列表 -->
-        <ListView
-            Name="TheListView"
-            Grid.Row="1"
-            Grid.Column="0"
-            Margin="0,0,0,0"
+
+        <!-- 中间区域：动作列表、分组选择、底部状态栏 -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="auto" />
+            </Grid.RowDefinitions>
+            
+            <!-- 动作列表 -->
+            <ListView
+                Name="TheListView"
+                Grid.Row="0"
+                Margin="0,0,0,0"
             d:ItemsSource="{StaticResource testlist}"
             dd:DragDrop.IsDragSource="False"
             dd:DragDrop.IsDropTarget="False"
@@ -216,8 +324,7 @@
         
         <!-- 分组选择区域 -->
         <Border
-            Grid.Row="2"
-            Grid.Column="0"
+            Grid.Row="1"
             Margin="0,5,0,0"
             BorderBrush="LightGray"
             BorderThickness="0,1,0,0"
@@ -311,115 +418,9 @@
             </StackPanel>
         </Border>
         
-        <!-- 右侧：规则和筛选区域 -->
+        <!-- 底部状态栏 -->
         <Border
-            Grid.Row="1"
-            Grid.Column="1"
-            Margin="5,0,0,0"
-            BorderBrush="LightGray"
-            BorderThickness="1">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                
-                <!-- 规则区域 -->
-                <GroupBox Grid.Row="0" Header="规则" Margin="5">
-                    <StackPanel>
-                        <!-- 按钮区域 -->
-                        <WrapPanel Margin="0,0,0,8">
-                            <WrapPanel.Resources>
-                                <Style BasedOn="{StaticResource ButtonDefault}" TargetType="{x:Type Button}">
-                                    <Setter Property="Margin" Value="3,0" />
-                                    <Setter Property="HorizontalAlignment" Value="Left" />
-                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                    <Setter Property="Padding" Value="12,6" />
-                                    <Setter Property="MinWidth" Value="60" />
-                                </Style>
-                            </WrapPanel.Resources>
-                            <Button Click="AddRule_Click">添加</Button>
-                            <Button
-                                Click="DeleteRule_Click"
-                                Foreground="Red"
-                                Opacity="0.7"
-                                ToolTip="删除当前规则"
-                                IsEnabled="{Binding SelectedRule, Converter={StaticResource ObjectToBoolConverter}}">
-                                删除
-                            </Button>
-                        </WrapPanel>
-                        <!-- 规则列表 -->
-                        <Border
-                            BorderBrush="#E0E0E0"
-                            BorderThickness="1"
-                            Background="White"
-                            CornerRadius="3"
-                            Padding="5">
-                            <ListBox
-                                x:Name="TheRuleListBox"
-                                MinHeight="30"
-                                MaxHeight="150"
-                                BorderThickness="0"
-                                Background="Transparent"
-                                ItemsSource="{Binding RuleItems}"
-                                PreviewMouseLeftButtonUp="TheRuleListBox_PreviewMouseLeftButtonUp"
-                                SelectionChanged="TheRuleListBox_SelectionChanged"
-                                SelectedItem="{Binding SelectedRule, Mode=TwoWay}"
-                                SelectionMode="Single">
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <local:EditableTextBlock
-                                            Text="{Binding Title, Mode=TwoWay}"
-                                            FontSize="13">
-                                            <local:EditableTextBlock.IsEditing>
-                                                <MultiBinding Converter="{StaticResource EqualityToBoolConverter}">
-                                                    <Binding Path="ViewModel.EditingRule" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                    <Binding />
-                                                </MultiBinding>
-                                            </local:EditableTextBlock.IsEditing>
-                                        </local:EditableTextBlock>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                                <ListBox.ItemContainerStyle>
-                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListBoxItemStyle}">
-                                        <EventSetter Event="MouseDoubleClick" Handler="RuleListBoxItem_MouseDoubleClick" />
-                                    </Style>
-                                </ListBox.ItemContainerStyle>
-                                <ListBox.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="重命名" Click="RenameRuleMenuItem_Click" />
-                                    </ContextMenu>
-                                </ListBox.ContextMenu>
-                            </ListBox>
-                        </Border>
-                    </StackPanel>
-                </GroupBox>
-                
-                <!-- 排序区域 -->
-                <GroupBox Grid.Row="1" Header="排序" Margin="5,5,5,5">
-                    <editor:PropertyGridPlus
-                        Margin="0"
-                        SelectedObject="{Binding CurrentRule.Sorter}" />
-                </GroupBox>
-                
-                <!-- 筛选区域 -->
-                <GroupBox Grid.Row="2" Header="筛选" Margin="5,5,5,5">
-                    <editor:PropertyGridPlus
-                        Margin="0"
-                        SelectedObject="{Binding CurrentRule.FilterItem}" />
-                </GroupBox>
-            </Grid>
-        </Border>
-        
-        <Border
-            Grid.Row="3"
-            Grid.Column="0"
+            Grid.Row="2"
             Margin="0,5,0,0"
             BorderBrush="Black"
             BorderThickness="0,0.5,0,0">
@@ -466,6 +467,7 @@
                 </WrapPanel>
             </Grid>
         </Border>
-    </Grid>
+        </Grid>
+    </DockPanel>
 </UserControl>
 

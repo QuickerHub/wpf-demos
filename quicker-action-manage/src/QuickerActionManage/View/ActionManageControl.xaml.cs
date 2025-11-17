@@ -43,6 +43,7 @@ namespace QuickerActionManage.View
             InitializeComponent();
             DataContext = ViewModel;
             CommandBindings.AddKeyGesture(new KeyGesture(Key.Delete), (s, e) => _ = DeleteActionAsync(TheListView.SelectedItems.Cast<ActionItemModel>().ToList()));
+            CommandBindings.AddKeyGesture(new KeyGesture(Key.F5), (s, e) => ViewModel.SetUpActions());
             this.Loaded += (s, e) =>
             {
                 if (Window.GetWindow(this) is Window win)
