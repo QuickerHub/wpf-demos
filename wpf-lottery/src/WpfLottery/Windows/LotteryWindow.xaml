@@ -1,0 +1,14 @@
+<Window x:Class="WpfLottery.Windows.LotteryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:WpfLottery.Controls"
+        Title="抽签程序" 
+        Height="500" 
+        Width="600"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize">
+    <Grid>
+        <controls:LotteryControl />
+    </Grid>
+</Window>
+

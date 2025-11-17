@@ -1,0 +1,123 @@
+<UserControl x:Class="WpfLottery.Controls.LotteryControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:WpfLottery.ViewModels"
+             xmlns:conv="clr-namespace:WpfLottery.Converters"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="600">
+    <UserControl.Resources>
+        <vm:LotteryViewModel x:Key="DesignViewModel" />
+        <conv:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Result Display -->
+        <Border Grid.Row="0" 
+                Background="#F0F0F0" 
+                BorderBrush="#CCCCCC" 
+                BorderThickness="1" 
+                CornerRadius="5" 
+                Margin="10"
+                Padding="20">
+            <TextBlock Text="{Binding ViewModel.CurrentResult, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                       FontSize="32" 
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center"
+                       Foreground="#333333">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ViewModel.IsRolling, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <Setter Property="Foreground" Value="#FF6B6B"/>
+                                <Setter Property="Text" Value="{Binding ViewModel.CurrentResult, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat='🎲 {0}'}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Border>
+
+        <!-- Items List -->
+        <GroupBox Grid.Row="1" Header="抽签选项" Margin="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <ListBox Grid.Row="0" 
+                         ItemsSource="{Binding ViewModel.Items, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                         Margin="5">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding}" Margin="5"/>
+                                <Button Grid.Column="1" 
+                                        Content="删除" 
+                                        Padding="5,2"
+                                        Margin="5"
+                                        Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="5">
+                    <TextBox x:Name="NewItemTextBox" 
+                             Width="200" 
+                             Margin="0,0,5,0"
+                             KeyDown="NewItemTextBox_KeyDown"/>
+                    <Button Content="添加" 
+                            Padding="10,5"
+                            Command="{Binding ViewModel.AddItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding Text, ElementName=NewItemTextBox}"/>
+                    <Button Content="清空" 
+                            Padding="10,5"
+                            Margin="5,0,0,0"
+                            Command="{Binding ViewModel.ClearItemsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- Control Buttons -->
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Center"
+                    Margin="10">
+            <Button x:Name="RollButton"
+                    Content="开始抽签" 
+                    Padding="20,10"
+                    FontSize="16"
+                    FontWeight="Bold"
+                    Command="{Binding ViewModel.StartRollingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    IsEnabled="{Binding ViewModel.IsRolling, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InverseBooleanConverter}}">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ViewModel.IsRolling, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <Setter Property="Content" Value="停止"/>
+                                <Setter Property="Command" Value="{Binding ViewModel.StopRollingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                <Setter Property="IsEnabled" Value="True"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>
+
