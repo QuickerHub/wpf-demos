@@ -62,6 +62,12 @@ namespace QuickerActionManage.ViewModel
             SubscribeRuleEvents(CurrentRule);
 
             GSModel.PropertyChanged += GSModel_PropertyChanged;
+
+            // Initialize with "All" group selected
+            SelectedGroup = GroupManager.AllGroup;
+            
+            // Post-initialize GroupManager to subscribe to events
+            GroupManager.PostInit();
         }
         
         public IList<ActionItemModel> GetItems()
@@ -109,9 +115,17 @@ namespace QuickerActionManage.ViewModel
         }
 
         private HashSet<string>? _referencedActionIds;
+        private HashSet<string>? _groupActionIds;
 
         private bool AdvanceFilter(ActionItemModel item)
         {
+            // Filter by group
+            if (_groupActionIds != null && !_groupActionIds.Contains(item.Id))
+            {
+                return false;
+            }
+
+            // Filter by referenced actions
             if (_referencedActionIds == null)
             {
                 return true;
@@ -160,7 +174,9 @@ namespace QuickerActionManage.ViewModel
         static ActionListViewModel()
         {
             var wt = new GlobalStateWriter(typeof(ActionListViewModel).FullName);
-            var data = wt.Read(nameof(Rules)) as string;
+            // Use different key for debug mode to avoid mixing test data with real data
+            var rulesKey = QuickerUtil.CheckIsInQuicker() ? nameof(Rules) : $"{nameof(Rules)}_Debug";
+            var data = wt.Read(rulesKey) as string;
             try
             {
                 Rules = JsonConvert.DeserializeObject<QuickerActionManage.Utils.FullyObservableCollection<ActionRuleModel>>(data ?? "null") ?? new QuickerActionManage.Utils.FullyObservableCollection<ActionRuleModel>();
@@ -170,8 +186,8 @@ namespace QuickerActionManage.ViewModel
                 Rules = new();
             }
 
-            Rules.CollectionChanged += (s, e) => wt.Write(nameof(Rules), Rules);
-            Rules.ItemPropertyChanged += (s, e) => wt.Write(nameof(Rules), Rules);
+            Rules.CollectionChanged += (s, e) => wt.Write(rulesKey, Rules);
+            Rules.ItemPropertyChanged += (s, e) => wt.Write(rulesKey, Rules);
         }
 
         private static QuickerActionManage.Utils.FullyObservableCollection<ActionRuleModel> Rules { get; }
@@ -193,12 +209,6 @@ namespace QuickerActionManage.ViewModel
         /// </summary>
         [ObservableProperty]
         public partial ActionRuleModel? EditingRule { get; set; }
-        
-        /// <summary>
-        /// Temporary name for editing
-        /// </summary>
-        [ObservableProperty]
-        public partial string? EditingName { get; set; }
         
         partial void OnSelectedRuleChanged(ActionRuleModel? oldValue, ActionRuleModel? newValue)
         {
@@ -227,16 +237,14 @@ namespace QuickerActionManage.ViewModel
         public void StartEditingRule(ActionRuleModel rule)
         {
             EditingRule = rule;
-            EditingName = rule.Title;
         }
-        
+
         /// <summary>
         /// Cancel editing rule name
         /// </summary>
         public void CancelEditingRule()
         {
             EditingRule = null;
-            EditingName = null;
         }
         
         public void SetDefaultRule()
@@ -256,7 +264,6 @@ namespace QuickerActionManage.ViewModel
             
             // Automatically start editing the new rule's name
             EditingRule = rule;
-            EditingName = rule.Title;
         }
 
         protected override CollectionView GetView() => _view;
@@ -269,6 +276,34 @@ namespace QuickerActionManage.ViewModel
         }
 
         public GlobalSubprogramListModel GSModel { get; } = new();
+
+        /// <summary>
+        /// Action group manager
+        /// </summary>
+        public ActionGroupManager GroupManager { get; } = new();
+
+        /// <summary>
+        /// Currently selected group
+        /// </summary>
+        [ObservableProperty]
+        public partial ActionGroup? SelectedGroup { get; set; }
+
+        partial void OnSelectedGroupChanged(ActionGroup? oldValue, ActionGroup? newValue)
+        {
+            // Update filter based on selected group
+            _groupActionIds = GroupManager.GetActionIdsForGroup(newValue);
+            Refresh();
+        }
+
+        /// <summary>
+        /// Update group filter based on current selected group
+        /// Call this when group's ActionIds collection changes
+        /// </summary>
+        public void UpdateGroupFilter()
+        {
+            _groupActionIds = GroupManager.GetActionIdsForGroup(SelectedGroup);
+            Refresh();
+        }
     }
 }
 

@@ -15,6 +15,11 @@ namespace QuickerActionManage
     public static class ViewRunner
     {
         private static readonly GlobalStateWriter _stateWriter = new(typeof(ViewRunner).FullName);
+        
+        /// <summary>
+        /// Get storage key with debug suffix if not in Quicker
+        /// </summary>
+        private static string GetKey(string key) => QuickerUtil.CheckIsInQuicker() ? key : $"{key}_Debug";
 
         static ViewRunner()
         {
@@ -48,7 +53,8 @@ namespace QuickerActionManage
                 if (options.LastSize)
                 {
                     // 恢复窗口大小
-                    var sizeStr = _stateWriter.Read($"{windowTag}.Size", "") as string;
+                    var sizeKey = GetKey($"{windowTag}.Size");
+                    var sizeStr = _stateWriter.Read(sizeKey, "") as string;
                     var size = String2Point(sizeStr);
                     if (size != null && size.Value.X > 0 && size.Value.Y > 0)
                     {
@@ -74,7 +80,8 @@ namespace QuickerActionManage
                     if (handle != IntPtr.Zero)
                     {
                         var rect = WinProperty.Get(handle).Rect;
-                        _stateWriter.Write($"{windowTag}.Size", Point2String(new Point((int)rect.Width, (int)rect.Height)));
+                        var sizeKey = GetKey($"{windowTag}.Size");
+                        _stateWriter.Write(sizeKey, Point2String(new Point((int)rect.Width, (int)rect.Height)));
                     }
                 }
             };

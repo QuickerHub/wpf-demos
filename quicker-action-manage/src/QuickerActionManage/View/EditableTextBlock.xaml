@@ -1,0 +1,50 @@
+<UserControl
+    x:Class="QuickerActionManage.View.EditableTextBlock"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    MouseDoubleClick="UserControl_MouseDoubleClick">
+    <Grid>
+        <TextBlock
+            x:Name="DisplayTextBlock"
+            Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            FontWeight="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsEditing, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+        <TextBox
+            x:Name="EditTextBox"
+            Padding="4,2"
+            BorderBrush="#4A90E2"
+            BorderThickness="1"
+            FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            FontWeight="SemiBold"
+            Foreground="#333333"
+            Background="White"
+            IsVisibleChanged="EditTextBox_IsVisibleChanged"
+            KeyDown="EditTextBox_KeyDown"
+            Loaded="EditTextBox_Loaded"
+            LostFocus="EditTextBox_LostFocus"
+            Text="{Binding Text, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}">
+            <TextBox.Style>
+                <Style TargetType="TextBox">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsEditing, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBox.Style>
+        </TextBox>
+    </Grid>
+</UserControl>
+

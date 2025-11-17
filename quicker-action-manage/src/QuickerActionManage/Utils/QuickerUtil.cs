@@ -102,11 +102,12 @@ namespace QuickerActionManage.Utils
             }
             else
             {
+                // Use fixed IDs for debug mode so groups can match actions correctly
                 return new List<ActionItem>()
                 {
-                    new(){Title = "aaaaaaaa",LastEditTimeUtc=DateTime.UtcNow,ShareTimeUtc=DateTime.UtcNow},
-                    new(){Title = "bbbbbbbb",LastEditTimeUtc = DateTime.UtcNow},
-                    new() {Title ="cccccccc"},
+                    new(){Id = "debug-action-1", Title = "aaaaaaaa",LastEditTimeUtc=DateTime.UtcNow,ShareTimeUtc=DateTime.UtcNow},
+                    new(){Id = "debug-action-2", Title = "bbbbbbbb",LastEditTimeUtc = DateTime.UtcNow},
+                    new(){Id = "debug-action-3", Title ="cccccccc"},
                 };
             }
         }
@@ -166,12 +167,16 @@ namespace QuickerActionManage.Utils
 
         public static void CreateActionMenus(ContextMenu menu, string actionId, Window owner, bool showDelete = false)
         {
+            if (!IsInQuicker)
+                return;
             (ActionItem action, ActionProfile profile) = AppState.DataService.GetActionById(actionId);
             ActionEditMgr.BuildMenuForActionButton(menu, action, profile, 0, 0, owner, ActionTrigger.NA, showDelete);
         }
 
         public static async Task<bool> DeleteAction(string id)
         {
+            if (!IsInQuicker)
+                return false;
             (ActionItem action, ActionProfile profile) = AppState.DataService.GetActionById(id);
             return await ActionEditMgr.DeleteAction(profile, action, true, false);
         }
