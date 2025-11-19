@@ -1,7 +1,10 @@
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using OpenAI.Realtime;
+using OpenAI.Responses;
 using QuickerExpressionAgent.Demo.Plugins;
 
 // Load configuration
@@ -70,57 +73,79 @@ while (true)
 {
     Console.Write("You: ");
     var userInput = Console.ReadLine();
-    
+
     if (string.IsNullOrWhiteSpace(userInput) || userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
     {
         break;
     }
-    
+
     try
     {
         // Add user message to chat history
         chatHistory.AddUserMessage(userInput);
-        
+
         // Store initial history count to detect new messages
         int initialHistoryCount = chatHistory.Count;
-        
+
+        // Track the last processed message index to detect new tool call results in real-time
+        int lastProcessedMessageIndex = initialHistoryCount;
+
         // Configure execution settings to auto-invoke kernel functions
         // This will automatically execute tool calls and add results to chat history
         var executionSettings = new OpenAIPromptExecutionSettings
         {
             ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
         };
-        
-        // Use FunctionCallContentBuilder to accumulate streaming function call updates
-        var fccBuilder = new FunctionCallContentBuilder();
-        
-        await foreach (var streamingContent in chatCompletion.GetStreamingChatMessageContentsAsync(
+
+        var lastMessageCount = chatHistory.Count;
+
+        await foreach (var chatUpdate in chatCompletion.GetStreamingChatMessageContentsAsync(
             chatHistory,
             executionSettings: executionSettings,
             kernel,
             CancellationToken.None))
         {
-            // Real-time streaming output - print incremental content
-            if (!string.IsNullOrEmpty(streamingContent.Content))
+            if (chatHistory.Count > lastMessageCount)
             {
-                Console.Write(streamingContent.Content);
+                // New message(s) added to chat history (likely tool call results)
+                Console.WriteLine();
+                for (int i = lastMessageCount; i < chatHistory.Count; i++)
+                {
+                    var newMessage = chatHistory[i];
+                    if (newMessage.Role == AuthorRole.Tool)
+                    {
+                        Console.Write($"[Tool Call Result] {newMessage.Content}");
+                    }
+                }
+                lastMessageCount = chatHistory.Count;
             }
-            
-            // Accumulate function call updates
-            fccBuilder.Append(streamingContent);
-        }
 
-        Console.WriteLine(); // New line after streaming
-        
-        // Build complete function calls (arguments are automatically deserialized)
-        var functionCalls = fccBuilder.Build();
-        foreach (var functionCall in functionCalls)
-        {
-            // Arguments is already KernelArguments type
-            string argumentsJson = System.Text.Json.JsonSerializer.Serialize(functionCall.Arguments, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            Console.WriteLine($"\nTool Call: {functionCall.FunctionName}");
-            Console.WriteLine($"Arguments:\n{argumentsJson}");
+            // Real-time streaming output - print incremental content
+            if (!string.IsNullOrEmpty(chatUpdate.Content))
+            {
+                Console.Write(chatUpdate.Content);
+            }
+            if (chatUpdate.Role is not null)
+            {
+                Console.WriteLine();
+                Console.Write($"[{chatUpdate.Role}] ");
+            }
+            // Check for tool call updates in streaming content
+            var functionCallUpdates = chatUpdate.Items.OfType<StreamingFunctionCallUpdateContent>();
+            foreach (var update in functionCallUpdates)
+            {
+                if (!string.IsNullOrEmpty(update.Name))
+                {
+                    Console.WriteLine($"\n[Tool Call Start] {update.Name}");
+                    Console.Write("[Tool Call Arguments] ");
+                }
+                if (!string.IsNullOrEmpty(update.Arguments))
+                {
+                    Console.Write(update.Arguments); // 增量打印参数  
+                }
+            }
         }
+        Console.WriteLine();
     }
     catch (Exception ex)
     {
