@@ -64,7 +64,7 @@ public class RoslynExpressionService : IRoslynExpressionService
     
     /// <summary>
     /// Execute a C# expression using Roslyn scripting with dictionary-based variables
-    /// Variables are accessible via type casting: {varname} is replaced with (varname as Type)
+    /// Variables are accessible via type casting: {varname} is replaced with ((Type)Variables["varname"])
     /// </summary>
     public async Task<ExpressionResult> ExecuteExpressionAsync(
         string code,
@@ -210,7 +210,7 @@ public class RoslynExpressionService : IRoslynExpressionService
     }
     
     /// <summary>
-    /// Process {varname} format and replace with type casting: (varname as Type)
+    /// Process {varname} format and replace with type casting: ((Type)Variables["varname"])
     /// Returns the processed code and a list of variable names that were found in the expression
     /// </summary>
     private (string processedCode, List<string> usedVariableNames) ProcessVariableReferences(string code, Dictionary<string, object>? variables)
@@ -223,7 +223,7 @@ public class RoslynExpressionService : IRoslynExpressionService
         var processedCode = code;
         var usedVariableNames = new List<string>();
         
-        // Replace {varname} with (Variables["varname"] as Type)
+        // Replace {varname} with ((Type)Variables["varname"])
         foreach (var kvp in variables)
         {
             var varName = kvp.Key;
@@ -239,8 +239,8 @@ public class RoslynExpressionService : IRoslynExpressionService
             // Get C# type name for casting
             var typeName = GetCSharpTypeName(varType);
             
-            // Replace {varname} with (Variables["varname"] as Type)
-            var replacement = $"(Variables[\"{varName}\"] as {typeName})";
+            // Replace {varname} with ((Type)Variables["varname"]) - using explicit cast instead of 'as'
+            var replacement = $"(({typeName})Variables[\"{varName}\"])";
             processedCode = processedCode.Replace($"{{{varName}}}", replacement);
         }
         

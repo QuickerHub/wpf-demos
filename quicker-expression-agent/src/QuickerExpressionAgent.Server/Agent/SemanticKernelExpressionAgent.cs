@@ -171,87 +171,7 @@ public class SemanticKernelExpressionAgent
                 $"发生错误: {ex.Message}");
         }
     }
-    
-    /// <summary>
-    /// Convert KernelArguments to Dictionary for UI display
-    /// </summary>
-    private Dictionary<string, string> ConvertKernelArgumentsToDictionary(KernelArguments? kernelArgs)
-    {
-        var arguments = new Dictionary<string, string>();
-        
-        if (kernelArgs == null)
-            return arguments;
-        
-        foreach (var kvp in kernelArgs)
-        {
-            arguments[kvp.Key] = kvp.Value?.ToString() ?? string.Empty;
-        }
-        
-        return arguments;
-    }
-    
-    /// <summary>
-    /// Extract tool arguments from FunctionCallContent for UI display (legacy method, kept for compatibility)
-    /// </summary>
-    private Dictionary<string, string> ExtractToolArguments(FunctionCallContent toolCall)
-    {
-        var arguments = new Dictionary<string, string>();
-        
-        // Try to get arguments from metadata
-        if (toolCall.Metadata != null && toolCall.Metadata.TryGetValue("arguments", out var argsObj))
-        {
-            var argumentsJson = argsObj?.ToString();
-            if (!string.IsNullOrEmpty(argumentsJson))
-            {
-                try
-                {
-                    using var doc = JsonDocument.Parse(argumentsJson);
-                    foreach (var prop in doc.RootElement.EnumerateObject())
-                    {
-                        arguments[prop.Name] = prop.Value.GetRawText();
-                    }
-                }
-                catch
-                {
-                    arguments["arguments"] = argumentsJson;
-                }
-            }
-        }
-        
-        return arguments;
-    }
-    
-    /// <summary>
-    /// Execute tool using framework's plugin system
-    /// </summary>
-    private async Task<string> ExecuteTool(string toolName, Dictionary<string, string> arguments)
-    {
-        try
-        {
-            var function = _kernel.Plugins
-                .SelectMany(p => p)
-                .FirstOrDefault(f => string.Equals(f.Name, toolName, StringComparison.OrdinalIgnoreCase));
-            
-            if (function == null)
-            {
-                return $"Tool '{toolName}' not found in kernel plugins";
-            }
-            
-            var kernelArgs = new KernelArguments();
-            foreach (var kvp in arguments)
-            {
-                kernelArgs[kvp.Key] = kvp.Value;
-            }
-            
-            var result = await _kernel.InvokeAsync(function, kernelArgs);
-            return result.GetValue<string>() ?? result.ToString() ?? string.Empty;
-        }
-        catch (Exception ex)
-        {
-            return $"Error executing {toolName}: {ex.Message}";
-        }
-    }
-    
+      
     /// <summary>
     /// Build system instructions for the agent
     /// Tools are automatically provided by the framework, no need to describe them
@@ -276,18 +196,22 @@ public class SemanticKernelExpressionAgent
             
             ## Expression Format:
             - Expression is **pure C# code** - standard C# syntax that can be executed directly
-            - Use **{variableName}** format to reference external variables (variables that are inputs to the expression)
-            - The {variableName} syntax is a Quicker-specific format for referencing external variables
+            - **CRITICAL: Use {variableName} format to get input variables** - This is the ONLY way to reference external variables (input variables) in expressions
+            - The **{variableName}** syntax is a Quicker-specific format for referencing external variables that provide input to the expression
+            - **ALL external variables MUST be referenced using {variableName} format** - e.g., {userName}, {age}, {items}
             - During execution, {variableName} will be replaced with the actual variable name (varname) for parsing
             - The expression itself remains valid C# code and can execute normally after replacement
             - Expression can be multi-line
             - Prefer LINQ expressions over verbose loops
             - Write concise code
             
-            ## Variable Reference Example:
+            ## Variable Reference Rules:
+            - **To get input from external variables, you MUST use {variableName} format**
             - If you need to use a variable named "userName", write it as **{userName}** in the expression
             - Example expression: `"Hello, " + {userName} + "!"`
             - During execution, {userName} will be replaced with userName, making it valid C#: `"Hello, " + userName + "!"`
+            - **DO NOT** declare variables that are external inputs - use {variableName} format instead
+            - **DO NOT** use variable names directly without curly braces for external variables
             
             ## Variable Types:
             Supported variable types are STRICTLY limited to: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object

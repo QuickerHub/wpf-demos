@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -15,15 +16,14 @@ namespace QuickerExpressionAgent.Server.Plugins;
 public class ExpressionAgentPlugin
 {
     /// <summary>
-    /// Description of the JSON format for variables
+    /// Description of the expression format with {variableName} syntax for external variables
     /// </summary>
-    private const string VariablesJsonFormatDescription = 
-        "Array format (JSON array): [{\"VarName\":\"name\",\"VarType\":\"String\",\"DefaultValue\":\"value\"},...]. " +
-        "Must be an array of objects. Each object in the array must have: VarName (string), VarType (String|Int|Double|Bool|DateTime|ListString|Dictionary|Object), DefaultValue (type depends on VarType). " +
-        "DefaultValue type must match VarType: String uses string, Int uses number, Double uses number, Bool uses boolean, " +
-        "DateTime uses ISO8601 string, ListString uses array of strings [\"item1\",\"item2\"], " +
-        "Dictionary uses object {\"key\":\"value\"}, Object uses any JSON value. " +
-        "Example array: [{\"VarName\":\"userName\",\"VarType\":\"String\",\"DefaultValue\":\"John\"},{\"VarName\":\"age\",\"VarType\":\"Int\",\"DefaultValue\":25}]";
+    private const string ExpressionFormatDescription = 
+        "C# code with {variableName} format. " +
+        "The expression is pure C# code that can be executed directly. " +
+        "To reference external variables (input variables), use {variableName} format, e.g., {userName}, {age}, {items}. " +
+        "During execution, {variableName} will be replaced with the actual variable name for parsing. " +
+        "Example: \"Hello, \" + {userName} + \"!\" will become \"Hello, \" + userName + \"!\" after replacement.";
     
     private readonly IExpressionAgentToolHandler _toolHandler;
     private readonly IRoslynExpressionService? _roslynService;
@@ -36,7 +36,7 @@ public class ExpressionAgentPlugin
 
 
     [KernelFunction]
-    [Description("Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {variableName} format. Returns a formatted string with variable names and types only (no default values).")]
+    [Description($"Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {{variableName}} format. Returns a formatted string with variable names and types only (no default values). Expression format: {ExpressionFormatDescription}")]
     public string GetExternalVariables()
     {
         var variables = _toolHandler.GetAllVariables();
@@ -125,12 +125,15 @@ public class ExpressionAgentPlugin
             return $"Error: Variable '{name}' not found. Use CreateVariable to create it first.";
         }
 
+        // Convert defaultValue to correct type, handling JsonElement if present
+        var convertedValue = ConvertValueToVariableType(defaultValue, existing.VarType);
+
         // Update variable with new default value
         var variable = new VariableClass
         {
             VarName = name,
             VarType = existing.VarType,
-            DefaultValue = defaultValue
+            DefaultValue = convertedValue
         };
         
         _toolHandler.SetVariable(variable);
@@ -184,7 +187,7 @@ public class ExpressionAgentPlugin
     [KernelFunction]
     [Description("Test an expression with optional variable default values. This allows testing expressions with different variable values without modifying the UI variables. The variables must already exist (created via CreateVariable). If variables parameter is not provided, uses the current UI variable default values.")]
     public async Task<string> TestExpression(
-        [Description("Expression to test (C# code with {variableName} format)")] string expression,
+        [Description($"Expression to test. {ExpressionFormatDescription}")] string expression,
         [Description("Optional dictionary of variable names to default values. Format: {\"variableName\": value, ...}. Variables must already exist (created via CreateVariable). The dictionary allows setting temporary default values for testing without modifying UI variables. Example: {\"userName\": \"John\", \"age\": 25}")] Dictionary<string, object>? variables = null)
     {
         if (_roslynService == null)
@@ -199,44 +202,45 @@ public class ExpressionAgentPlugin
 
         try
         {
-            List<VariableClass>? variablesToUse = null;
+            // Get all existing variables from tool handler
+            var existingVariables = _toolHandler.GetAllVariables();
             
-            // Parse variables if provided
+            // Build variable list: start with all external variables, then override with dictionary values if provided
+            var variablesToUse = existingVariables.Select(v => new VariableClass
+            {
+                VarName = v.VarName,
+                VarType = v.VarType,
+                DefaultValue = v.DefaultValue
+            }).ToList();
+            
+            // Override default values with dictionary values if provided
             if (variables != null && variables.Count > 0)
             {
-                // Get all existing variables from tool handler
-                var existingVariables = _toolHandler.GetAllVariables();
-                
-                // Create list with updated default values from dictionary
-                variablesToUse = new List<VariableClass>();
-                
-                foreach (var existingVar in existingVariables)
-                {
-                    var variableToUse = new VariableClass
-                    {
-                        VarName = existingVar.VarName,
-                        VarType = existingVar.VarType,
-                        DefaultValue = existingVar.DefaultValue // Use existing default value
-                    };
-                    
-                    // Override default value if provided in dictionary
-                    if (variables.TryGetValue(existingVar.VarName, out var newValue))
-                    {
-                        variableToUse.DefaultValue = newValue;
-                    }
-                    
-                    variablesToUse.Add(variableToUse);
-                }
-                
-                // Check for variables in dictionary that don't exist
+                // Check if all variables in dictionary exist
                 var missingVariables = variables.Keys
                     .Where(varName => !existingVariables.Any(v => 
                         string.Equals(v.VarName, varName, StringComparison.OrdinalIgnoreCase)))
                     .ToList();
-                
+
                 if (missingVariables.Any())
                 {
                     return $"Error: The following variables do not exist and must be created first using CreateVariable: {string.Join(", ", missingVariables)}";
+                }
+                
+                // Override default values with dictionary values
+                foreach (var kvp in variables)
+                {
+                    var varName = kvp.Key;
+                    var value = kvp.Value;
+                    
+                    var variableToUpdate = variablesToUse.FirstOrDefault(v => 
+                        string.Equals(v.VarName, varName, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (variableToUpdate != null)
+                    {
+                        // Convert value to correct type, handling JsonElement if present
+                        variableToUpdate.DefaultValue = ConvertValueToVariableType(value, variableToUpdate.VarType);
+                    }
                 }
             }
             
@@ -268,14 +272,106 @@ public class ExpressionAgentPlugin
         }
         catch (Exception ex)
         {
-            return $"Error testing expression: {ex.Message}";
+                return $"Error testing expression: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Convert a value to the correct type for the given VariableType
+    /// Handles JsonElement conversion if the value is a JsonElement
+    /// </summary>
+    private object ConvertValueToVariableType(object value, VariableType varType)
+    {
+        // If value is JsonElement, use ConvertValueFromJson
+        if (value is JsonElement jsonElement)
+        {
+            return varType.ConvertValueFromJson(jsonElement);
+        }
+        
+        // If value is already the correct type, return as-is
+        var valueType = value?.GetType();
+        if (valueType != null)
+        {
+            // Check if the value type matches the expected type
+            var expectedType = GetExpectedType(varType);
+            if (expectedType != null && expectedType.IsAssignableFrom(valueType))
+            {
+                return value;
+            }
+        }
+        
+        // If value is null, return default for the type
+        if (value == null)
+        {
+            return varType.GetDefaultValue();
+        }
+        
+        // Try to convert using string representation
+        try
+        {
+            return varType.ConvertValueFromString(value.ToString());
+        }
+        catch
+        {
+            // If conversion fails, return default for the type
+            return varType.GetDefaultValue();
+        }
+    }
+    
+    /// <summary>
+    /// Get the expected .NET type for a VariableType
+    /// </summary>
+    private Type? GetExpectedType(VariableType varType)
+    {
+        return varType switch
+        {
+            VariableType.String => typeof(string),
+            VariableType.Int => typeof(int),
+            VariableType.Double => typeof(double),
+            VariableType.Bool => typeof(bool),
+            VariableType.DateTime => typeof(DateTime),
+            VariableType.ListString => typeof(List<string>),
+            VariableType.Dictionary => typeof(Dictionary<string, object>),
+            VariableType.Object => typeof(object),
+            _ => typeof(object)
+        };
+    }
+
+    /// <summary>
+    /// Extract variable names from expression (format: {varname})
+    /// </summary>
+    private List<string> ExtractVariableNamesFromExpression(string expression)
+    {
+        var variableNames = new List<string>();
+        
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return variableNames;
+        }
+        
+        // Match {varname} pattern
+        var pattern = @"\{([a-zA-Z_][a-zA-Z0-9_]*)\}";
+        var matches = Regex.Matches(expression, pattern);
+        
+        foreach (Match match in matches)
+        {
+            if (match.Groups.Count > 1)
+            {
+                var varName = match.Groups[1].Value;
+                if (!variableNames.Contains(varName, StringComparer.OrdinalIgnoreCase))
+                {
+                    variableNames.Add(varName);
+                }
+            }
+        }
+        
+        return variableNames;
     }
 
     [KernelFunction]
     [Description("Set the final expression. This should be called only after the expression has been tested and verified to work correctly. This is the final step to output the completed expression. Use CreateVariable method to create or update variables separately.")]
     public string SetExpression(
-        [Description("Final C# expression code with {variableName} format")] string expression)
+        [Description($"Final expression code. {ExpressionFormatDescription}")] string expression)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
