@@ -17,6 +17,7 @@ namespace QuickerActionManage
         private static readonly GlobalStateWriter _stateWriter = new(typeof(ViewRunner).FullName);
         private static ActionManageWindow? _actionManageWindowInstance;
         private static readonly DebounceTimer _sizeSaveDebounce = new(500); // 500ms debounce for size saving
+        private static bool _isFirstShow = true; // Track if this is the first time showing the window
 
         /// <summary>
         /// Get storage key with debug suffix if not in Quicker
@@ -40,7 +41,7 @@ namespace QuickerActionManage
                 // IsVisible is false when window is closed
                 if (_actionManageWindowInstance.IsVisible)
                 {
-                    // Window exists and is open, activate it
+                    // Window exists and is open, activate it and refresh
                     _actionManageWindowInstance.Activate();
                     _actionManageWindowInstance.Focus();
                     // Bring window to front
@@ -48,6 +49,8 @@ namespace QuickerActionManage
                     {
                         _actionManageWindowInstance.WindowState = WindowState.Normal;
                     }
+                    // Refresh action list when window is shown again
+                    _actionManageWindowInstance.TheActionManageControl.ViewModel.SetUpActions();
                     return;
                 }
                 else
@@ -70,6 +73,24 @@ namespace QuickerActionManage
             win.Closed += (s, e) =>
             {
                 _actionManageWindowInstance = null;
+            };
+
+            // Handle window visibility changed to refresh on show (except first time)
+            win.IsVisibleChanged += (s, e) =>
+            {
+                if (win.IsVisible && !_isFirstShow)
+                {
+                    // Refresh action list when window becomes visible (not first time)
+                    if (win is ActionManageWindow actionWin)
+                    {
+                        actionWin.TheActionManageControl.ViewModel.SetUpActions();
+                    }
+                }
+                else if (win.IsVisible && _isFirstShow)
+                {
+                    // Mark that first show is done
+                    _isFirstShow = false;
+                }
             };
 
             ShowWindow(win, new WindowOptions { LastSize = true });
