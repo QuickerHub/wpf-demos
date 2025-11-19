@@ -35,7 +35,7 @@ public interface IExpressionAgentToolHandler
     /// Test an expression for syntax and execution
     /// </summary>
     /// <param name="expression">Expression to test</param>
-    /// <param name="variables">Optional variable list (uses current variables if null)</param>
+    /// <param name="variables">Optional list of variables with default values (uses current variables if null)</param>
     /// <returns>Expression execution result</returns>
     Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null);
 }
