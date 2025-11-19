@@ -38,5 +38,41 @@ public class DateTimeVariableFormatter : IVariableTypeFormatter
 
         return "null";
     }
+
+    public object? ParseValue(object? value)
+    {
+        if (value == null)
+        {
+            return default(DateTime);
+        }
+
+        // If already DateTime, return as-is
+        if (value is DateTime dateTime)
+        {
+            return dateTime;
+        }
+
+        // If JsonElement, extract DateTime value
+        if (value is System.Text.Json.JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var jsonStr = jsonElement.GetString();
+                if (!string.IsNullOrEmpty(jsonStr) && DateTime.TryParse(jsonStr, out var jsonDateTime))
+                {
+                    return jsonDateTime;
+                }
+            }
+            return default(DateTime);
+        }
+
+        // Try to parse from string
+        if (value is string strValue && DateTime.TryParse(strValue, out var stringDateTime))
+        {
+            return stringDateTime;
+        }
+
+        return default(DateTime);
+    }
 }
 

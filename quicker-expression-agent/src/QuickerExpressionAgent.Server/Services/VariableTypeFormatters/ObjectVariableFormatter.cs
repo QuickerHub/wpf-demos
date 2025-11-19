@@ -74,5 +74,11 @@ public class ObjectVariableFormatter : IVariableTypeFormatter
 
         return false;
     }
+
+    public object? ParseValue(object? value)
+    {
+        // For Object type, return value as-is (no conversion needed)
+        return value;
+    }
 }
 

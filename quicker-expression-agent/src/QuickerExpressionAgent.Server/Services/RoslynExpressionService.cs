@@ -223,25 +223,57 @@ public class RoslynExpressionService : IRoslynExpressionService
         var processedCode = code;
         var usedVariableNames = new List<string>();
         
-        // Replace {varname} with ((Type)Variables["varname"])
+        // First, replace {varname} format
         foreach (var kvp in variables)
         {
             var varName = kvp.Key;
             var varValue = kvp.Value;
             var varType = varValue?.GetType() ?? typeof(object);
             
-            // Check if this variable is used in the expression
-            if (code.Contains($"{{{varName}}}"))
+            // Check if this variable is used in {varname} format
+            if (processedCode.Contains($"{{{varName}}}"))
             {
                 usedVariableNames.Add(varName);
+                
+                // Get C# type name for casting
+                var typeName = GetCSharpTypeName(varType);
+                
+                // Replace {varname} with ((Type)Variables["varname"])
+                var replacement = $"(({typeName})Variables[\"{varName}\"])";
+                processedCode = processedCode.Replace($"{{{varName}}}", replacement);
+            }
+        }
+        
+        // Then, check for direct variable name usage (without {varname} format)
+        // Use regex to find variable names that are valid C# identifiers and match our variable names
+        foreach (var kvp in variables)
+        {
+            var varName = kvp.Key;
+            var varValue = kvp.Value;
+            var varType = varValue?.GetType() ?? typeof(object);
+            
+            // Skip if already processed as {varname} format
+            if (usedVariableNames.Contains(varName))
+            {
+                continue;
             }
             
-            // Get C# type name for casting
-            var typeName = GetCSharpTypeName(varType);
+            // Use regex to find variable name as a whole word (not part of another identifier)
+            // Pattern: word boundary + variable name + word boundary (but not inside strings or comments)
+            var pattern = $@"\b{System.Text.RegularExpressions.Regex.Escape(varName)}\b";
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
             
-            // Replace {varname} with ((Type)Variables["varname"]) - using explicit cast instead of 'as'
-            var replacement = $"(({typeName})Variables[\"{varName}\"])";
-            processedCode = processedCode.Replace($"{{{varName}}}", replacement);
+            if (regex.IsMatch(processedCode))
+            {
+                usedVariableNames.Add(varName);
+                
+                // Get C# type name for casting
+                var typeName = GetCSharpTypeName(varType);
+                
+                // Replace variable name with ((Type)Variables["varname"])
+                var replacement = $"(({typeName})Variables[\"{varName}\"])";
+                processedCode = regex.Replace(processedCode, replacement);
+            }
         }
         
         return (processedCode, usedVariableNames);
@@ -525,11 +557,17 @@ public class RoslynExpressionService : IRoslynExpressionService
         List<VariableClass> variableList)
     {
         // Convert VariableClass list to dictionary
+        // Ensure DefaultValue is converted to correct type (handles JsonElement, etc.)
         var variablesDict = new Dictionary<string, object>();
         var variableMap = new Dictionary<string, VariableClass>();
         foreach (var variable in variableList)
         {
-            variablesDict[variable.VarName] = variable.DefaultValue;
+            // Use formatter's ParseValue method to convert DefaultValue to correct type
+            // This handles JsonElement, string, and other object types
+            var formatter = _formatterFactory.GetFormatter(variable.VarType);
+            var convertedValue = formatter.ParseValue(variable.DefaultValue);
+            
+            variablesDict[variable.VarName] = convertedValue ?? variable.VarType.GetDefaultValue();
             variableMap[variable.VarName] = variable;
         }
         

@@ -171,6 +171,111 @@ public class SemanticKernelExpressionAgent
                 $"发生错误: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Generate expression with direct console output (no callbacks, prints directly to console)
+    /// </summary>
+    public async Task GenerateExpressionWithConsoleOutputAsync(
+        string naturalLanguage,
+        CancellationToken cancellationToken = default)
+    {
+        _currentExpression = null;
+        
+        // Build initial context with variables (Agent can get them via GetExternalVariables tool)
+        var contextMessage = BuildContextMessage();
+        
+        // Initialize chat history on first use (add system instructions once)
+        if (_chatHistory.Count == 0)
+        {
+            var systemInstructions = BuildSystemInstructions();
+            if (!string.IsNullOrEmpty(systemInstructions))
+            {
+                _chatHistory.AddSystemMessage(systemInstructions);
+            }
+            if (!string.IsNullOrEmpty(contextMessage))
+            {
+                _chatHistory.AddSystemMessage(contextMessage);
+            }
+        }
+        
+        // Add user request to persistent chat history
+        _chatHistory.AddUserMessage(naturalLanguage);
+        
+        // Get chat completion service from kernel
+        var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
+        
+        // Configure execution settings to auto-invoke kernel functions
+        // This will automatically execute tool calls and add results to chat history
+        var executionSettings = new OpenAIPromptExecutionSettings
+        {
+            ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
+        };
+        
+        try
+        {
+            // Track the last processed message count to detect new tool call results in real-time
+            int lastMessageCount = _chatHistory.Count;
+            
+            // Stream response from chat completion service
+            await foreach (var chatUpdate in chatCompletion.GetStreamingChatMessageContentsAsync(
+                _chatHistory,
+                executionSettings: executionSettings,
+                _kernel,
+                cancellationToken))
+            {
+                // Check for new messages in chat history (likely tool call results)
+                if (_chatHistory.Count > lastMessageCount)
+                {
+                    // New message(s) added to chat history (likely tool call results)
+                    Console.WriteLine();
+                    for (int i = lastMessageCount; i < _chatHistory.Count; i++)
+                    {
+                        var newMessage = _chatHistory[i];
+                        if (newMessage.Role == AuthorRole.Tool)
+                        {
+                            Console.Write($"[Tool Call Result] {newMessage.Content}");
+                        }
+                    }
+                    lastMessageCount = _chatHistory.Count;
+                }
+
+                // Real-time streaming output - print incremental content
+                if (!string.IsNullOrEmpty(chatUpdate.Content))
+                {
+                    Console.Write(chatUpdate.Content);
+                }
+                
+                // Print role information if available
+                if (chatUpdate.Role is not null)
+                {
+                    Console.WriteLine();
+                    Console.Write($"[{chatUpdate.Role}] ");
+                }
+                
+                // Check for tool call updates in streaming content
+                var functionCallUpdates = chatUpdate.Items.OfType<StreamingFunctionCallUpdateContent>();
+                foreach (var update in functionCallUpdates)
+                {
+                    if (!string.IsNullOrEmpty(update.Name))
+                    {
+                        Console.WriteLine($"\n[Tool Call Start] {update.Name}");
+                        Console.Write("[Tool Call Arguments] ");
+                    }
+                    if (!string.IsNullOrEmpty(update.Arguments))
+                    {
+                        Console.Write(update.Arguments); // Incremental arguments printing
+                    }
+                }
+            }
+            
+            Console.WriteLine();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            throw;
+        }
+    }
       
     /// <summary>
     /// Build system instructions for the agent
@@ -207,6 +312,7 @@ public class SemanticKernelExpressionAgent
             
             ## Variable Reference Rules:
             - **To get input from external variables, you MUST use {variableName} format**
+            - **IMPORTANT: You CANNOT assign values to {variableName} variables. For example, {varname} = value is NOT allowed.**
             - If you need to use a variable named "userName", write it as **{userName}** in the expression
             - Example expression: `"Hello, " + {userName} + "!"`
             - During execution, {userName} will be replaced with userName, making it valid C#: `"Hello, " + userName + "!"`

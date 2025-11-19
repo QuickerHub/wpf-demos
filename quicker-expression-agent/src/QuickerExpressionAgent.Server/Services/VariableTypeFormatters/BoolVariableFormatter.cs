@@ -38,5 +38,41 @@ public class BoolVariableFormatter : IVariableTypeFormatter
 
         return "false";
     }
+
+    public object? ParseValue(object? value)
+    {
+        if (value == null)
+        {
+            return false;
+        }
+
+        // If already bool, return as-is
+        if (value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        // If JsonElement, extract bool value
+        if (value is System.Text.Json.JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.True)
+            {
+                return true;
+            }
+            if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.False)
+            {
+                return false;
+            }
+            return false;
+        }
+
+        // Try to parse from string
+        if (value is string str && bool.TryParse(str, out var parsedBool))
+        {
+            return parsedBool;
+        }
+
+        return false;
+    }
 }
 

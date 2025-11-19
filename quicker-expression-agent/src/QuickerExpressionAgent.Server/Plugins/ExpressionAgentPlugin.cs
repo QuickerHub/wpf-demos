@@ -23,7 +23,19 @@ public class ExpressionAgentPlugin
         "The expression is pure C# code that can be executed directly. " +
         "To reference external variables (input variables), use {variableName} format, e.g., {userName}, {age}, {items}. " +
         "During execution, {variableName} will be replaced with the actual variable name for parsing. " +
-        "Example: \"Hello, \" + {userName} + \"!\" will become \"Hello, \" + userName + \"!\" after replacement.";
+        "Example: \"Hello, \" + {userName} + \"!\" will become \"Hello, \" + userName + \"!\" after replacement. " +
+        "**IMPORTANT: You CANNOT assign values to {variableName} variables. For example, {varname} = value is NOT allowed.**";
+    
+    /// <summary>
+    /// Description of the JSON format for List&lt;VariableClass&gt;
+    /// </summary>
+    private const string VariableListJsonFormatDescription = 
+        "JSON array format: [{\"VarName\":\"string\",\"VarType\":\"String|Int|Double|Bool|DateTime|ListString|Dictionary|Object\",\"DefaultValue\":object value},...]. " +
+        "Each object must have: VarName (string), VarType (String|Int|Double|Bool|DateTime|ListString|Dictionary|Object), DefaultValue (type depends on VarType). " +
+        "DefaultValue type must match VarType: String uses string, Int uses number, Double uses number, Bool uses boolean, " +
+        "DateTime uses ISO8601 string, ListString uses array of strings [\"item1\",\"item2\"], " +
+        "Dictionary uses object {\"key\":\"value\"}, Object uses any JSON value. " +
+        "Example: [{\"VarName\":\"userName\",\"VarType\":\"String\",\"DefaultValue\":\"John\"},{\"VarName\":\"age\",\"VarType\":\"Int\",\"DefaultValue\":25}]";
     
     private readonly IExpressionAgentToolHandler _toolHandler;
     private readonly IRoslynExpressionService? _roslynService;
@@ -36,7 +48,7 @@ public class ExpressionAgentPlugin
 
 
     [KernelFunction]
-    [Description($"Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {{variableName}} format. Returns a formatted string with variable names and types only (no default values). Expression format: {ExpressionFormatDescription}")]
+    [Description($"Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {{variableName}} format. {ExpressionFormatDescription} Returns a formatted string with variable names and types only (no default values).")]
     public string GetExternalVariables()
     {
         var variables = _toolHandler.GetAllVariables();
@@ -185,10 +197,10 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description("Test an expression with optional variable default values. This allows testing expressions with different variable values without modifying the UI variables. The variables must already exist (created via CreateVariable). If variables parameter is not provided, uses the current UI variable default values.")]
+    [Description($"Test an expression with optional variable default values. {ExpressionFormatDescription} The variables must already exist (created via CreateVariable). If variables parameter is not provided, uses the current UI variable default values.")]
     public async Task<string> TestExpression(
         [Description($"Expression to test. {ExpressionFormatDescription}")] string expression,
-        [Description("Optional dictionary of variable names to default values. Format: {\"variableName\": value, ...}. Variables must already exist (created via CreateVariable). The dictionary allows setting temporary default values for testing without modifying UI variables. Example: {\"userName\": \"John\", \"age\": 25}")] Dictionary<string, object>? variables = null)
+        [Description($"Optional list of variables with default values. {VariableListJsonFormatDescription} Variables must already exist (created via CreateVariable). This allows setting temporary default values for testing without modifying UI variables.")] List<VariableClass>? variables = null)
     {
         if (_roslynService == null)
         {
@@ -205,7 +217,7 @@ public class ExpressionAgentPlugin
             // Get all existing variables from tool handler
             var existingVariables = _toolHandler.GetAllVariables();
             
-            // Build variable list: start with all external variables, then override with dictionary values if provided
+            // Build variable list: start with all external variables, then override with provided values if provided
             var variablesToUse = existingVariables.Select(v => new VariableClass
             {
                 VarName = v.VarName,
@@ -213,13 +225,14 @@ public class ExpressionAgentPlugin
                 DefaultValue = v.DefaultValue
             }).ToList();
             
-            // Override default values with dictionary values if provided
+            // Override default values with provided values if provided
             if (variables != null && variables.Count > 0)
             {
-                // Check if all variables in dictionary exist
-                var missingVariables = variables.Keys
-                    .Where(varName => !existingVariables.Any(v => 
-                        string.Equals(v.VarName, varName, StringComparison.OrdinalIgnoreCase)))
+                // Check if all variables in list exist
+                var missingVariables = variables
+                    .Where(v => !existingVariables.Any(existing => 
+                        string.Equals(existing.VarName, v.VarName, StringComparison.OrdinalIgnoreCase)))
+                    .Select(v => v.VarName)
                     .ToList();
 
                 if (missingVariables.Any())
@@ -227,19 +240,16 @@ public class ExpressionAgentPlugin
                     return $"Error: The following variables do not exist and must be created first using CreateVariable: {string.Join(", ", missingVariables)}";
                 }
                 
-                // Override default values with dictionary values
-                foreach (var kvp in variables)
+                // Override default values with provided values
+                foreach (var variable in variables)
                 {
-                    var varName = kvp.Key;
-                    var value = kvp.Value;
-                    
                     var variableToUpdate = variablesToUse.FirstOrDefault(v => 
-                        string.Equals(v.VarName, varName, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(v.VarName, variable.VarName, StringComparison.OrdinalIgnoreCase));
                     
                     if (variableToUpdate != null)
                     {
                         // Convert value to correct type, handling JsonElement if present
-                        variableToUpdate.DefaultValue = ConvertValueToVariableType(value, variableToUpdate.VarType);
+                        variableToUpdate.DefaultValue = ConvertValueToVariableType(variable.DefaultValue, variableToUpdate.VarType);
                     }
                 }
             }
@@ -298,12 +308,6 @@ public class ExpressionAgentPlugin
             {
                 return value;
             }
-        }
-        
-        // If value is null, return default for the type
-        if (value == null)
-        {
-            return varType.GetDefaultValue();
         }
         
         // Try to convert using string representation
@@ -369,7 +373,7 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description("Set the final expression. This should be called only after the expression has been tested and verified to work correctly. This is the final step to output the completed expression. Use CreateVariable method to create or update variables separately.")]
+    [Description($"Set the final expression. {ExpressionFormatDescription} This should be called only after the expression has been tested and verified to work correctly. This is the final step to output the completed expression. Use CreateVariable method to create or update variables separately.")]
     public string SetExpression(
         [Description($"Final expression code. {ExpressionFormatDescription}")] string expression)
     {

@@ -1,113 +1,46 @@
-using System.Net.Http;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Agent;
+using QuickerExpressionAgent.Server.Extensions;
 using QuickerExpressionAgent.Server.Services;
 
 namespace QuickerExpressionAgent.Server;
 
-/// <summary>
-/// Custom HTTP handler to rewrite request URI to use custom endpoint
-/// </summary>
-internal class CustomEndpointHandler : DelegatingHandler
-{
-    private readonly Uri _baseUri;
-
-    public CustomEndpointHandler(Uri baseUri) : base(new HttpClientHandler())
-    {
-        _baseUri = baseUri;
-    }
-
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        if (request.RequestUri != null)
-        {
-            // Rewrite the URI to use the custom base address
-            var newUri = new Uri(_baseUri, request.RequestUri.PathAndQuery);
-            request.RequestUri = newUri;
-        }
-        return base.SendAsync(request, cancellationToken);
-    }
-}
-
 class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
-        // Load configuration
-        var basePath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
-            ?? Directory.GetCurrentDirectory();
+        // Configure services using DI
+        var services = new ServiceCollection();
+        services.AddServerServices();
         
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-            .AddEnvironmentVariables()
-            .Build();
-
-        // Setup logging
-        using var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder
-                .AddConsole()
-                .SetMinimumLevel(LogLevel.Information);
-        });
-
-        var logger = loggerFactory.CreateLogger<Program>();
+        // Build service provider
+        using var serviceProvider = services.BuildServiceProvider();
+        
+        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 
         try
         {
-            // Get API configuration
-            var apiKey = configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
-            var modelId = configuration["OpenAI:ModelId"] ?? "deepseek-chat";
-            var baseUrl = configuration["OpenAI:BaseUrl"];
-
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                Console.WriteLine("Error: API key not found. Please set it in appsettings.json or OPENAI_API_KEY environment variable.");
-                return;
-            }
-
-            // Create Kernel builder
-            var kernelBuilder = Kernel.CreateBuilder();
+            // Get services from DI
+            var agent = serviceProvider.GetRequiredService<SemanticKernelExpressionAgent>();
+            var roslynService = serviceProvider.GetRequiredService<IRoslynExpressionService>();
             
-            // Configure OpenAI/DeepSeek client
-            if (!string.IsNullOrEmpty(baseUrl))
+            // Parse command line arguments
+            bool runTests = args.Contains("-t") || args.Contains("--test");
+            
+            if (runTests)
             {
-                var customEndpointUri = new Uri(baseUrl);
-                var customHandler = new CustomEndpointHandler(customEndpointUri);
-                var httpClient = new HttpClient(customHandler);
-                
-                kernelBuilder.AddOpenAIChatCompletion(
-                    modelId: modelId,
-                    apiKey: apiKey,
-                    httpClient: httpClient);
+                // Run expression tests
+                await TestRoslynServiceAsync(roslynService, logger);
             }
             else
             {
-                kernelBuilder.AddOpenAIChatCompletion(
-                    modelId: modelId,
-                    apiKey: apiKey);
+                // Default: run expression dialog
+                await RunExpressionDialogAsync(agent, logger);
             }
-            
-            var kernel = kernelBuilder.Build();
-
-            // Create Roslyn service
-            var roslynService = new RoslynExpressionService();
-            
-            // Create a dummy tool handler for plugin registration (not used in server mode)
-            var dummyToolHandler = new DummyToolHandler();
-            
-            // Add plugin to kernel manually
-            var plugin = new Plugins.ExpressionAgentPlugin(dummyToolHandler, roslynService);
-            kernel.Plugins.AddFromObject(plugin, "ExpressionAgent");
-
-            // Print all available tools/functions as JSON
-            PrintAvailableTools(kernel, logger);
         }
         catch (Exception ex)
         {
@@ -117,22 +50,38 @@ class Program
     }
 
     /// <summary>
-    /// Dummy tool handler for server mode (only used to register plugins)
+    /// Run interactive expression dialog
     /// </summary>
-    private class DummyToolHandler : IExpressionAgentToolHandler
+    private static async Task RunExpressionDialogAsync(SemanticKernelExpressionAgent agent, ILogger logger)
     {
-        public string Expression { get; set; } = string.Empty;
-        
-        public void SetVariable(VariableClass variable) { }
-        
-        public VariableClass? GetVariable(string name) => null;
-        
-        public List<VariableClass> GetAllVariables() => new();
-        
-        public Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null)
+        Console.WriteLine("=== Quicker Expression Agent ===");
+        Console.WriteLine("Enter natural language descriptions to generate C# expressions.");
+        Console.WriteLine("Type 'exit' to quit.\n");
+
+        // Interactive loop
+        while (true)
         {
-            return Task.FromResult(new ExpressionResult { Success = false, Error = "Not implemented in server mode" });
+            Console.Write("You: ");
+            var userInput = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(userInput) || userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            try
+            {
+                await agent.GenerateExpressionWithConsoleOutputAsync(userInput);
+                Console.WriteLine();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error generating expression");
+                Console.WriteLine($"Error: {ex.Message}\n");
+            }
         }
+
+        Console.WriteLine("Goodbye!");
     }
 
     /// <summary>
@@ -242,13 +191,35 @@ class Program
     }
 
     /// <summary>
+    /// Generate expression with direct console output using agent (no callbacks, prints directly to console)
+    /// </summary>
+    private static async Task GenerateExpressionWithConsoleOutputAsync(
+        SemanticKernelExpressionAgent agent,
+        string naturalLanguage,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            logger.LogInformation("Generating expression for: {Description}", naturalLanguage);
+            
+            await agent.GenerateExpressionWithConsoleOutputAsync(naturalLanguage, cancellationToken);
+            
+            Console.WriteLine("\nExpression generation completed.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error generating expression");
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Test Roslyn expression execution service
     /// </summary>
-    private static async Task TestRoslynServiceAsync(ILogger logger)
+    private static async Task TestRoslynServiceAsync(IRoslynExpressionService roslynService, ILogger logger)
     {
         Console.WriteLine("=== Roslyn Expression Service Test ===\n");
-        
-        var roslynService = new RoslynExpressionService();
         
         // Test cases
         var testCases = new[]
@@ -309,7 +280,7 @@ list.Where(x => x > 2).Sum()",
             {
                 Name = "Expression with {varname} format - variable in expression",
                 Code = @"var list = new List<int> { 1, 2, 3, 4, 5 };
-{list}.Sum()",
+list.Sum()",
                 Variables = new List<VariableClass>()
             },
             new

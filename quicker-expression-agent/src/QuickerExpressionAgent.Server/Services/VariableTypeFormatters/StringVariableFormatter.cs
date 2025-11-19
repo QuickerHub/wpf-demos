@@ -81,5 +81,32 @@ public class StringVariableFormatter : IVariableTypeFormatter
 
         return false;
     }
+
+    public object? ParseValue(object? value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        // If already string, return as-is
+        if (value is string str)
+        {
+            return str;
+        }
+
+        // If JsonElement, extract string value
+        if (value is System.Text.Json.JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                return jsonElement.GetString() ?? string.Empty;
+            }
+            return jsonElement.ToString();
+        }
+
+        // Convert to string
+        return value.ToString() ?? string.Empty;
+    }
 }
 

@@ -26,5 +26,11 @@ public interface IVariableTypeFormatter
     /// Format a value for Dictionary entry (used when value is inside a Dictionary)
     /// </summary>
     string FormatValueForDictionary(object? value);
+    
+    /// <summary>
+    /// Parse an object value to the correct type for this variable type
+    /// Handles JsonElement, string, and other object types
+    /// </summary>
+    object? ParseValue(object? value);
 }
 
