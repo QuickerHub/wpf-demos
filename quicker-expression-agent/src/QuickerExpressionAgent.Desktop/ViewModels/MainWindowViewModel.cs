@@ -549,6 +549,40 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         /// <summary>
+        /// Create a new variable with default name and type
+        /// </summary>
+        [RelayCommand]
+        private void CreateVariable()
+        {
+            // Generate a unique variable name
+            var baseName = "var";
+            var counter = 1;
+            var varName = $"{baseName}{counter}";
+            
+            // Find a unique name
+            while (VariableList.Any(v => string.Equals(v.VarName, varName, StringComparison.OrdinalIgnoreCase)))
+            {
+                counter++;
+                varName = $"{baseName}{counter}";
+            }
+            
+            // Create new variable with default type (String)
+            var newVariable = new VariableItemViewModel(
+                new VariableClass
+                {
+                    VarName = varName,
+                    VarType = VariableType.String,
+                    DefaultValue = string.Empty
+                });
+            
+            // Subscribe to value changes for auto-execution
+            newVariable.ValueChanged += OnVariableValueChanged;
+            
+            // Add to variable list
+            VariableList.Add(newVariable);
+        }
+        
+        /// <summary>
         /// Test an expression for syntax and execution
         /// </summary>
         public async Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null)
@@ -573,9 +607,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             try
             {
+                // If variables not provided, get current variables from UI
+                var variablesToUse = variables ?? VariableList.Select(v => v.ToVariableClass()).ToList();
+                
                 var result = await _roslynService.ExecuteExpressionAsync(
                     expression,
-                    variables ?? []);
+                    variablesToUse);
 
                 // Add chat message to show test result (UI update, keep in ViewModel)
                 RunOnUIThread(() =>

@@ -6,6 +6,7 @@
     xmlns:controls="clr-namespace:QuickerExpressionAgent.Desktop.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop"
+    xmlns:markdig="clr-namespace:Markdig.Wpf;assembly=Markdig.Wpf"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Quicker Expression Agent"
     Width="1200"
@@ -18,6 +19,11 @@
         <local:InvertBooleanConverter x:Key="InvertBooleanConverter" />
         <local:MessageTypeConverter x:Key="MessageTypeConverter" />
         <local:NullToBoolConverter x:Key="NullToBoolConverter" />
+        
+        <!-- Markdig.Wpf Styles -->
+        <Style TargetType="{x:Type markdig:MarkdownViewer}">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
     </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -117,6 +123,13 @@
                             Grid.Column="0"
                             FontWeight="SemiBold"
                             Text="变量测试值" />
+                        <Button
+                            Grid.Column="1"
+                            Margin="10,0,0,0"
+                            Padding="8,4"
+                            Command="{Binding ViewModel.CreateVariableCommand}"
+                            Content="+ 添加变量"
+                            FontSize="12" />
                     </Grid>
 
                     <!--  Variable List  -->
@@ -300,14 +313,40 @@
                                             </Grid>
 
                                             <!--  Message Content  -->
-                                            <TextBlock
-                                                Grid.Row="1"
-                                                FontFamily="Consolas"
-                                                FontSize="12"
-                                                Foreground="{Binding ForegroundBrush}"
-                                                LineHeight="18"
-                                                Text="{Binding Content}"
-                                                TextWrapping="Wrap" />
+                                            <ContentControl Grid.Row="1" Content="{Binding}">
+                                                <ContentControl.Style>
+                                                    <Style TargetType="ContentControl">
+                                                        <!-- Default: TextBlock for User messages -->
+                                                        <Setter Property="ContentTemplate">
+                                                            <Setter.Value>
+                                                                <DataTemplate>
+                                                                    <TextBlock
+                                                                        FontFamily="Consolas"
+                                                                        FontSize="12"
+                                                                        Foreground="{Binding ForegroundBrush}"
+                                                                        LineHeight="18"
+                                                                        Text="{Binding Content}"
+                                                                        TextWrapping="Wrap" />
+                                                                </DataTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                        <!-- Markdown for Assistant messages -->
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding MessageType}" Value="Assistant">
+                                                                <Setter Property="ContentTemplate">
+                                                                    <Setter.Value>
+                                                                        <DataTemplate>
+                                                                            <markdig:MarkdownViewer
+                                                                                Markdown="{Binding Content}"
+                                                                                Background="Transparent" />
+                                                                        </DataTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ContentControl.Style>
+                                            </ContentControl>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
