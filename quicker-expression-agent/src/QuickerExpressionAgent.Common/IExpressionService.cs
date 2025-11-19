@@ -82,6 +82,13 @@ public class ExpressionResult
     
     [Key(2)]
     public string Error { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// List of variables that were used in the expression
+    /// This is populated when executing expressions with variable references
+    /// </summary>
+    [IgnoreMember]
+    public List<VariableClass> UsedVariables { get; set; } = [];
 }
 
 /// <summary>

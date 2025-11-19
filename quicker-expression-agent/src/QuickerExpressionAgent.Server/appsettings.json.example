@@ -1,0 +1,14 @@
+{
+  "OpenAI": {
+    "ApiKey": "your-api-key-here",
+    "ModelId": "deepseek-chat",
+    "BaseUrl": "https://api.deepseek.com"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning"
+    }
+  }
+}
+

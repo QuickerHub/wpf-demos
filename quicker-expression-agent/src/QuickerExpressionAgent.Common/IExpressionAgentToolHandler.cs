@@ -8,52 +8,34 @@ namespace QuickerExpressionAgent.Common;
 public interface IExpressionAgentToolHandler
 {
     /// <summary>
-    /// Update or set the current expression
+    /// Current expression code (C# code with {variableName} format)
     /// </summary>
-    /// <param name="expression">The expression to set</param>
-    /// <returns>True if successful, false otherwise</returns>
-    Task<bool> UpdateExpressionAsync(string expression);
+    string Expression { get; set; }
     
     /// <summary>
-    /// Create a new variable
+    /// Set or update a variable
+    /// </summary>
+    /// <param name="variable">Variable information</param>
+    void SetVariable(VariableClass variable);
+    
+    /// <summary>
+    /// Get a specific variable by name
     /// </summary>
     /// <param name="name">Variable name</param>
-    /// <param name="type">Variable type</param>
-    /// <param name="defaultValue">Default value (optional)</param>
-    /// <returns>True if successful, false if variable already exists</returns>
-    Task<bool> CreateVariableAsync(string name, VariableType type, string? defaultValue = null);
+    /// <returns>Variable information, or null if not found</returns>
+    VariableClass? GetVariable(string name);
     
     /// <summary>
-    /// Update an existing variable's value
+    /// Get all variables
     /// </summary>
-    /// <param name="variable">Variable information with updated value</param>
-    /// <returns>True if successful, false if variable not found</returns>
-    Task<bool> UpdateVariableAsync(VariableClass variable);
+    /// <returns>List of all variables</returns>
+    List<VariableClass> GetAllVariables();
     
     /// <summary>
     /// Test an expression for syntax and execution
     /// </summary>
-    /// <param name="expression">Expression to test (optional, uses current if null)</param>
+    /// <param name="expression">Expression to test</param>
+    /// <param name="variables">Optional variable list (uses current variables if null)</param>
     /// <returns>Expression execution result</returns>
-    Task<ExpressionResult> TestExpressionAsync(string? expression = null);
-    
-    /// <summary>
-    /// Get external variables (variables that are inputs to the expression)
-    /// </summary>
-    /// <returns>Current external variable list</returns>
-    Task<List<VariableClass>> GetExternalVariablesAsync();
-    
-    /// <summary>
-    /// Get current expression code
-    /// </summary>
-    /// <returns>Current expression code (C# code with {variableName} format)</returns>
-    Task<string> GetExpressionAsync();
-}
-
-public interface IExpressionAgentToolHandler2
-{
-    string Expression { get; set; }
-    void SetVariable(VariableClass variable);
-    VariableClass GetVariable(string name);
-    List<VariableClass> GetAllVariables();
+    Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null);
 }

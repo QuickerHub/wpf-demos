@@ -1,0 +1,317 @@
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using QuickerExpressionAgent.Common;
+using QuickerExpressionAgent.Server.Plugins;
+using QuickerExpressionAgent.Server.Services;
+using System.Text.Json;
+
+namespace QuickerExpressionAgent.Server.Agent;
+
+/// <summary>
+/// Expression Agent using Semantic Kernel's official ChatCompletionAgent framework
+/// </summary>
+public class SemanticKernelExpressionAgent
+{
+    private readonly Kernel _kernel;
+    private readonly ChatCompletionAgent _agent;
+    private readonly IRoslynExpressionService _roslynService;
+    private readonly IExpressionAgentToolHandler? _toolHandler;
+    
+    // Current state
+    private string? _currentExpression;
+    private List<VariableClass> _variables = new();
+    
+    // Persistent chat history for conversation memory
+    private readonly ChatHistory _chatHistory = new();
+    
+    /// <summary>
+    /// Callback for reporting agent progress
+    /// </summary>
+    public delegate void AgentProgressCallback(AgentStep step, string content);
+    
+    /// <summary>
+    /// Callback for streaming content updates (for real-time UI updates)
+    /// </summary>
+    public delegate void AgentStreamingCallback(AgentStepType stepType, string partialContent, bool isComplete);
+    
+    /// <summary>
+    /// Types of agent steps
+    /// </summary>
+    public enum AgentStepType
+    {
+        Thought,
+        ToolCall,
+        FinalAnswer
+    }
+    
+    /// <summary>
+    /// A single agent step
+    /// </summary>
+    public class AgentStep
+    {
+        public AgentStepType Type { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public string? ToolName { get; set; }
+        public Dictionary<string, string>? ToolArguments { get; set; }
+    }
+
+    public SemanticKernelExpressionAgent(Kernel kernel, IRoslynExpressionService? roslynService = null, IExpressionAgentToolHandler? toolHandler = null)
+    {
+        _kernel = kernel;
+        _roslynService = roslynService ?? new RoslynExpressionService();
+        _toolHandler = toolHandler;
+        
+        // Add plugin to kernel if tool handler is available
+        // The agent framework will automatically expose these as tools
+        if (_toolHandler != null)
+        {
+            var plugin = new ExpressionAgentPlugin(_toolHandler, _roslynService);
+            _kernel.Plugins.AddFromObject(plugin, "ExpressionAgent");
+        }
+        
+        // Create ChatCompletionAgent with system instructions
+        // Tools are automatically available from kernel plugins
+        var systemInstructions = BuildSystemInstructions();
+        _agent = new ChatCompletionAgent
+        {
+            Kernel = _kernel,
+            Instructions = systemInstructions,
+            Name = "ExpressionAgent"
+        };
+    }
+
+    /// <summary>
+    /// Generate expression using Semantic Kernel's ChatCompletionAgent
+    /// </summary>
+    public async Task GenerateExpressionAsync(
+        string naturalLanguage,
+        AgentProgressCallback? progressCallback = null,
+        AgentStreamingCallback? streamingCallback = null,
+        CancellationToken cancellationToken = default)
+    {
+        _currentExpression = null;
+        
+        var attempts = new List<ExpressionAttempt>();
+        
+        // Build initial context with variables (Agent can get them via GetExternalVariables tool)
+        var contextMessage = BuildContextMessage();
+        
+        progressCallback?.Invoke(
+            new AgentStep { Type = AgentStepType.Thought, Content = "Starting agent..." }, 
+            "开始处理用户请求");
+        
+        // Initialize chat history on first use (add system instructions once)
+        if (_chatHistory.Count == 0 && !string.IsNullOrEmpty(contextMessage))
+        {
+            _chatHistory.AddSystemMessage(contextMessage);
+        }
+        
+        // Add user request to persistent chat history
+        _chatHistory.AddUserMessage(naturalLanguage);
+        
+        // Get chat completion service from kernel
+        var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
+        
+        // Configure execution settings to auto-invoke kernel functions
+        // This will automatically execute tool calls and add results to chat history
+        var executionSettings = new OpenAIPromptExecutionSettings
+        {
+            ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
+        };
+        
+        try
+        {
+            // Use streaming API for real-time updates
+            string accumulatedContent = string.Empty;
+            
+            // Stream response from chat completion service
+            await foreach (var streamingContent in chatCompletion.GetStreamingChatMessageContentsAsync(
+                _chatHistory,
+                executionSettings: executionSettings,
+                _kernel,
+                cancellationToken))
+            {
+                // Real-time streaming output - accumulate content
+                if (!string.IsNullOrEmpty(streamingContent.Content))
+                {
+                    accumulatedContent = streamingContent.Content;
+                    
+                    // Send streaming updates to UI
+                    if (streamingCallback != null)
+                    {
+                        streamingCallback(AgentStepType.Thought, accumulatedContent, false);
+                    }
+                }
+            }
+            
+            // Send final content update
+            if (streamingCallback != null && !string.IsNullOrEmpty(accumulatedContent))
+            {
+                streamingCallback(AgentStepType.Thought, accumulatedContent, true);
+            }
+            
+            // Send progress callback with final content
+            if (progressCallback != null && !string.IsNullOrWhiteSpace(accumulatedContent))
+            {
+                progressCallback?.Invoke(
+                    new AgentStep 
+                    { 
+                        Type = AgentStepType.Thought, 
+                        Content = accumulatedContent 
+                    }, 
+                    accumulatedContent);
+            }
+        }
+        catch (Exception ex)
+        {
+            progressCallback?.Invoke(
+                new AgentStep { Type = AgentStepType.Thought, Content = $"Error: {ex.Message}" },
+                $"发生错误: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// Convert KernelArguments to Dictionary for UI display
+    /// </summary>
+    private Dictionary<string, string> ConvertKernelArgumentsToDictionary(KernelArguments? kernelArgs)
+    {
+        var arguments = new Dictionary<string, string>();
+        
+        if (kernelArgs == null)
+            return arguments;
+        
+        foreach (var kvp in kernelArgs)
+        {
+            arguments[kvp.Key] = kvp.Value?.ToString() ?? string.Empty;
+        }
+        
+        return arguments;
+    }
+    
+    /// <summary>
+    /// Extract tool arguments from FunctionCallContent for UI display (legacy method, kept for compatibility)
+    /// </summary>
+    private Dictionary<string, string> ExtractToolArguments(FunctionCallContent toolCall)
+    {
+        var arguments = new Dictionary<string, string>();
+        
+        // Try to get arguments from metadata
+        if (toolCall.Metadata != null && toolCall.Metadata.TryGetValue("arguments", out var argsObj))
+        {
+            var argumentsJson = argsObj?.ToString();
+            if (!string.IsNullOrEmpty(argumentsJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(argumentsJson);
+                    foreach (var prop in doc.RootElement.EnumerateObject())
+                    {
+                        arguments[prop.Name] = prop.Value.GetRawText();
+                    }
+                }
+                catch
+                {
+                    arguments["arguments"] = argumentsJson;
+                }
+            }
+        }
+        
+        return arguments;
+    }
+    
+    /// <summary>
+    /// Execute tool using framework's plugin system
+    /// </summary>
+    private async Task<string> ExecuteTool(string toolName, Dictionary<string, string> arguments)
+    {
+        try
+        {
+            var function = _kernel.Plugins
+                .SelectMany(p => p)
+                .FirstOrDefault(f => string.Equals(f.Name, toolName, StringComparison.OrdinalIgnoreCase));
+            
+            if (function == null)
+            {
+                return $"Tool '{toolName}' not found in kernel plugins";
+            }
+            
+            var kernelArgs = new KernelArguments();
+            foreach (var kvp in arguments)
+            {
+                kernelArgs[kvp.Key] = kvp.Value;
+            }
+            
+            var result = await _kernel.InvokeAsync(function, kernelArgs);
+            return result.GetValue<string>() ?? result.ToString() ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            return $"Error executing {toolName}: {ex.Message}";
+        }
+    }
+    
+    /// <summary>
+    /// Build system instructions for the agent
+    /// Tools are automatically provided by the framework, no need to describe them
+    /// </summary>
+    private string BuildSystemInstructions()
+    {
+        return """
+            You are an AI agent that generates C# expressions for Quicker software.
+            
+            ## Your Workflow:
+            Your core function is to **call tools to create or modify expressions**. The workflow is:
+            1. **Get external variables** - First, retrieve the current external variables (if any) using GetExternalVariables tool
+            2. **Analyze user intent** - Understand whether the user wants to:
+               - **Create a new expression** from scratch
+               - **Modify the existing expression** based on user's request
+            3. **Get current expression** (if modifying) - If the user wants to modify the existing expression, call GetCurrentExpressionDescription tool to retrieve the current expression and variables
+            4. **Determine input variables** - Based on the user's requirement and existing expression, determine what external variables are needed
+            5. **Create or modify expression** - Use ModifyExpression tool to generate or modify the expression
+            6. **Test the expression** - Use TestExpression tool with the variables to verify it works
+            7. **Fix errors** - If the test fails, modify the expression or adjust variables, then repeat step 6
+            8. **Output final result** - Once the expression executes successfully, call SetExpression with the final working expression. Variables should be created/updated separately using CreateVariable method before calling SetExpression.
+            
+            ## Expression Format:
+            - Expression is **pure C# code** - standard C# syntax that can be executed directly
+            - Use **{variableName}** format to reference external variables (variables that are inputs to the expression)
+            - The {variableName} syntax is a Quicker-specific format for referencing external variables
+            - During execution, {variableName} will be replaced with the actual variable name (varname) for parsing
+            - The expression itself remains valid C# code and can execute normally after replacement
+            - Expression can be multi-line
+            - Prefer LINQ expressions over verbose loops
+            - Write concise code
+            
+            ## Variable Reference Example:
+            - If you need to use a variable named "userName", write it as **{userName}** in the expression
+            - Example expression: `"Hello, " + {userName} + "!"`
+            - During execution, {userName} will be replaced with userName, making it valid C#: `"Hello, " + userName + "!"`
+            
+            ## Variable Types:
+            Supported variable types are STRICTLY limited to: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object
+            
+            ## Important:
+            - Always test expressions before calling SetExpression
+            - Only call SetExpression when the expression has been tested and works correctly
+            - Use TestExpression tool to verify your expression works with the variables
+            """;
+    }
+    
+    /// <summary>
+    /// Build context message with existing variables information
+    /// </summary>
+    private string BuildContextMessage()
+    {
+        if (_variables == null || !_variables.Any())
+        {
+            return string.Empty;
+        }
+        
+        var varList = string.Join("\n", _variables.Select(v => 
+            $"- {v.VarName} ({v.VarType}): {v.DefaultValue}"));
+        
+        return $"Existing variables (do not recreate these):\n{varList}";
+    }
+}
