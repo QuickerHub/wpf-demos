@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Server.Services;
 
 namespace QuickerExpressionAgent.Desktop.Extensions;
