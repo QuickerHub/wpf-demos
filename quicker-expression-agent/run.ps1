@@ -18,6 +18,13 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Running Server..." -ForegroundColor Green
 Write-Host ""
 
-# Run the server
-dotnet run --project $serverProject
+# Get script arguments and pass them to the server
+$scriptArgs = $args
+
+# Run the server with arguments
+if ($scriptArgs.Count -gt 0) {
+    dotnet run --project $serverProject -- $scriptArgs
+} else {
+    dotnet run --project $serverProject
+}
 
