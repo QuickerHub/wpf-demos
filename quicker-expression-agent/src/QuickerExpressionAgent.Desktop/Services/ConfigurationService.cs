@@ -1,0 +1,53 @@
+using System.IO;
+using Microsoft.Extensions.Configuration;
+
+namespace QuickerExpressionAgent.Desktop.Services;
+
+/// <summary>
+/// Implementation of IConfigurationService
+/// </summary>
+public class ConfigurationService : IConfigurationService
+{
+    public IConfiguration Configuration { get; }
+
+    public ConfigurationService()
+    {
+        // Load configuration (same as demo project)
+        var configPaths = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
+            Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json")
+        };
+
+        var configBuilder = new ConfigurationBuilder();
+        foreach (var path in configPaths)
+        {
+            if (File.Exists(path))
+            {
+                configBuilder.AddJsonFile(path, optional: true);
+                break;
+            }
+        }
+
+        Configuration = configBuilder
+            .AddEnvironmentVariables()
+            .Build();
+    }
+
+    public string GetApiKey()
+    {
+        return Configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
+    }
+
+    public string GetBaseUrl()
+    {
+        return Configuration["OpenAI:BaseUrl"] ?? "https://api.deepseek.com/v1";
+    }
+
+    public string GetModelId()
+    {
+        return Configuration["OpenAI:ModelId"] ?? "deepseek-chat";
+    }
+}
+
