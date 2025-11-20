@@ -1,16 +1,19 @@
 using System.Windows;
 
-namespace QuickerExpressionAgent.Quicker
+namespace QuickerExpressionAgent.Quicker;
+
+/// <summary>
+/// Interaction logic for MainWindow.xaml
+/// </summary>
+public partial class MainWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    public partial class MainWindow : Window
+    public MainWindowViewModel ViewModel { get; set; }
+
+    public MainWindow()
     {
-        public MainWindow()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+        ViewModel = new MainWindowViewModel();
+        DataContext = this;
     }
 }
 
