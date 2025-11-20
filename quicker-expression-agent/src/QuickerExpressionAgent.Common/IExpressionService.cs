@@ -37,7 +37,7 @@ public class VariableClass
 /// <summary>
 /// Service interface for expression execution in Quicker
 /// </summary>
-public interface IExpressionService
+public interface IQuickerService
 {
     /// <summary>
     /// Execute a C# expression in Quicker
@@ -92,10 +92,10 @@ public class ExpressionResult
 }
 
 /// <summary>
-/// Auto-generated IPC client for IExpressionService
+/// Auto-generated IPC client for IQuickerService
 /// </summary>
 [H.IpcGenerators.IpcClient]
-public partial class ExpressionServiceClient : IExpressionService
+public partial class QuickerServiceClient : IQuickerService
 {
 }
 

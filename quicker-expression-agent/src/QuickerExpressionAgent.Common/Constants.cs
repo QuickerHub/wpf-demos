@@ -17,9 +17,13 @@ public static class Constants
 
     public static readonly string ServerName = GetPipeName("Server");
 
+    /// <summary>
+    /// Mutex name for ensuring only one instance of the application is running
+    /// </summary>
+    public static readonly string AppMutexName = GetPipeName("AppMutex");
+
     private static string GetPipeName(params string[] input)
     {
-        return string.Join("_", [AppName, Configuration, .. input, VID]);
+        return string.Join("_", [AppName, .. input, VID]);
     }
 }
-
