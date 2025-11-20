@@ -5,6 +5,13 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
+		<GenerateSatelliteAssemblies>false</GenerateSatelliteAssemblies>
+		<Version Condition="'$(Version)' == ''">1.0.0.0</Version>
+	</PropertyGroup>
+
+	<!-- Set assembly name with version suffix for net472 Release builds -->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net472' And '$(Configuration)' == 'Release'">
+		<AssemblyName>$(MSBuildProjectName).$(Version)</AssemblyName>
 	</PropertyGroup>
 
 	<ItemGroup>
