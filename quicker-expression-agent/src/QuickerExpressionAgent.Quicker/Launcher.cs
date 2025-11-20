@@ -1,10 +1,13 @@
 using System;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using QuickerExpressionAgent.Common;
 using log4net;
 
 namespace QuickerExpressionAgent.Quicker;
@@ -36,11 +39,14 @@ public static class Launcher
             services.AddLogging();
             services.AddSingleton<ConfigService>();
             services.AddSingleton<ApplicationLauncher>();
-            services.AddSingleton<CodeEditorWrapperManager>();
+            services.AddSingleton<ExpressionAgentToolHandlerService>();
             services.AddSingleton<QuickerServiceImplementation>();
             // Register as singleton and hosted service
             services.AddSingleton<QuickerServiceServer>();
-            services.AddHostedService(s=>s.GetRequiredService<QuickerServiceServer>());
+            services.AddHostedService(s => s.GetRequiredService<QuickerServiceServer>());
+            // Register MainWindow and ViewModel
+            services.AddTransient<MainWindowViewModel>();
+            services.AddTransient<MainWindow>();
         })
         .Build();
 
@@ -54,7 +60,6 @@ public static class Launcher
     /// </summary>
     public static T GetService<T>() where T : class
     {
-        Start();
         return _host.Services.GetRequiredService<T>();
     }
 
@@ -63,6 +68,7 @@ public static class Launcher
     /// </summary>
     public static void Start()
     {
+
         lock (_lockObject)
         {
             if (_status == LauncherStatus.Started)
@@ -110,6 +116,37 @@ public static class Launcher
 
             try
             {
+                // Close all windows created by current assembly
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        var currentAssembly = Assembly.GetExecutingAssembly();
+                        var windowsToClose = Application.Current.Windows.Cast<Window>()
+                            .Where(w => w.GetType().Assembly == currentAssembly && w.IsLoaded)
+                            .ToList();
+
+                        foreach (var window in windowsToClose)
+                        {
+                            try
+                            {
+                                window.Close();
+                            }
+                            catch (Exception ex)
+                            {
+                                _log.Warn($"Error closing window {window.GetType().Name}", ex);
+                            }
+                        }
+
+                        // Clear main window reference
+                        _mainWindow = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.Warn("Error closing windows", ex);
+                    }
+                });
+
                 // QuickerServiceServer will stop automatically as a hosted service
                 _host.StopAsync().GetAwaiter().GetResult();
                 _status = LauncherStatus.Stopped;
@@ -141,7 +178,12 @@ public static class Launcher
     /// </summary>
     public static void ShowMainWindow()
     {
-        Application.Current.Dispatcher.Invoke(() =>
+
+        Start();
+
+        // Use BeginInvoke to avoid blocking the caller
+        // Don't wait for Start() to complete - show window immediately
+        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
         {
             // If window exists and is not closed, activate it
             if (_mainWindow != null && _mainWindow.IsLoaded)
@@ -152,8 +194,8 @@ public static class Launcher
                 return;
             }
 
-            // Create new window instance
-            _mainWindow = new MainWindow();
+            // Create new window instance from DI container
+            _mainWindow = GetService<MainWindow>();
 
             // Remove reference when window is closed
             _mainWindow.Closed += (s, e) =>
@@ -164,7 +206,7 @@ public static class Launcher
             _mainWindow.WindowState = WindowState.Normal;
             _mainWindow.Show();
             _mainWindow.Activate();
-        });
+        }));
     }
 }
 

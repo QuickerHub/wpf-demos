@@ -31,7 +31,7 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="DependencyPropertyGenerator" Version="1.5.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
-		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.3"></PackageReference>
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.3"/>
 		<PackageReference Include="Costura.Fody" Version="5.7.0">
 			<PrivateAssets>All</PrivateAssets>
 		</PackageReference>
@@ -67,6 +67,9 @@
 		</Reference>
 		<Reference Include="MdXaml">
 			<HintPath>C:\Program Files\Quicker\MdXaml.dll</HintPath>
+		</Reference>
+		<Reference Include="Z.Expressions.Eval">
+			<HintPath>C:\Program Files\Quicker\Z.Expressions.Eval.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 

@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Threading;
 using Quicker.Common.Vm.Expression;
 using Quicker.Domain.Actions.X.Storage;
 using Quicker.Public.Actions;
@@ -36,7 +35,7 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
                 return string.Empty;
             }
             
-            return _codeEditorWindow.Dispatcher.Invoke(() => _codeEditorWindow.Text ?? string.Empty);
+            return _codeEditorWindow.Text ?? string.Empty;
         }
         set
         {
@@ -45,10 +44,7 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
                 return;
             }
             
-            _codeEditorWindow.Dispatcher.Invoke(() =>
-            {
-                _codeEditorWindow.Text = value ?? string.Empty;
-            });
+            _codeEditorWindow.Text = value ?? string.Empty;
         }
     }
 
@@ -70,10 +66,7 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
                 return IntPtr.Zero;
             }
             
-            return _codeEditorWindow.Dispatcher.Invoke(() =>
-            {
-                return new System.Windows.Interop.WindowInteropHelper(_codeEditorWindow).Handle;
-            });
+            return new System.Windows.Interop.WindowInteropHelper(_codeEditorWindow).Handle;
         }
     }
 
@@ -124,11 +117,8 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
     {
         if (_codeEditorWindow != null)
         {
-            _codeEditorWindow.Dispatcher.Invoke(() =>
-            {
-                _codeEditorWindow.Show();
-                _codeEditorWindow.Activate();
-            });
+            _codeEditorWindow.Show();
+            _codeEditorWindow.Activate();
         }
     }
 
@@ -139,10 +129,7 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
     {
         if (_codeEditorWindow != null)
         {
-            _codeEditorWindow.Dispatcher.Invoke(() =>
-            {
-                _codeEditorWindow.Close();
-            });
+            _codeEditorWindow.Close();
         }
     }
 
@@ -161,42 +148,39 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
             return;
         }
 
-        _codeEditorWindow.Dispatcher.Invoke(() =>
+        lock (_variablesLock)
         {
-            lock (_variablesLock)
+            // Convert VariableClass to ActionVariable
+            var actionVar = ConvertToActionVariable(variable);
+            
+            // Check if variable already exists
+            var existingVar = _sourceVarList.FirstOrDefault(v => v.Key == variable.VarName);
+            if (existingVar != null)
             {
-                // Convert VariableClass to ActionVariable
-                var actionVar = ConvertToActionVariable(variable);
+                // Update existing variable
+                var index = _sourceVarList.IndexOf(existingVar);
+                _sourceVarList[index] = actionVar;
                 
-                // Check if variable already exists
-                var existingVar = _sourceVarList.FirstOrDefault(v => v.Key == variable.VarName);
-                if (existingVar != null)
+                // Update ExpressionInputParam if exists
+                var existingParam = _variableList.FirstOrDefault(p => p.Key == variable.VarName);
+                if (existingParam != null)
                 {
-                    // Update existing variable
-                    var index = _sourceVarList.IndexOf(existingVar);
-                    _sourceVarList[index] = actionVar;
-                    
-                    // Update ExpressionInputParam if exists
-                    var existingParam = _variableList.FirstOrDefault(p => p.Key == variable.VarName);
-                    if (existingParam != null)
-                    {
-                        existingParam.VarType = ConvertToVarType(variable.VarType);
-                        existingParam.SampleValue = ConvertDefaultValueToString(variable.DefaultValue);
-                    }
-                    else
-                    {
-                        // Add new ExpressionInputParam
-                        _variableList.Add(ConvertToExpressionInputParam(variable));
-                    }
+                    existingParam.VarType = ConvertToVarType(variable.VarType);
+                    existingParam.SampleValue = ConvertDefaultValueToString(variable.DefaultValue);
                 }
                 else
                 {
-                    // Add new variable
-                    _sourceVarList.Add(actionVar);
+                    // Add new ExpressionInputParam
                     _variableList.Add(ConvertToExpressionInputParam(variable));
                 }
             }
-        });
+            else
+            {
+                // Add new variable
+                _sourceVarList.Add(actionVar);
+                _variableList.Add(ConvertToExpressionInputParam(variable));
+            }
+        }
     }
 
     /// <summary>
@@ -214,19 +198,16 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
             return null;
         }
 
-        return _codeEditorWindow.Dispatcher.Invoke(() =>
+        lock (_variablesLock)
         {
-            lock (_variablesLock)
+            var actionVar = _sourceVarList.FirstOrDefault(v => v.Key == name);
+            if (actionVar == null)
             {
-                var actionVar = _sourceVarList.FirstOrDefault(v => v.Key == name);
-                if (actionVar == null)
-                {
-                    return null;
-                }
-
-                return ConvertToVariableClass(actionVar);
+                return null;
             }
-        });
+
+            return ConvertToVariableClass(actionVar);
+        }
     }
 
     /// <summary>
@@ -239,13 +220,10 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
             return new List<VariableClass>();
         }
 
-        return _codeEditorWindow.Dispatcher.Invoke(() =>
+        lock (_variablesLock)
         {
-            lock (_variablesLock)
-            {
-                return _sourceVarList.Select(ConvertToVariableClass).ToList();
-            }
-        });
+            return _sourceVarList.Select(ConvertToVariableClass).ToList();
+        }
     }
 
     /// <summary>

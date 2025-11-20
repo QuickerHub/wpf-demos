@@ -12,11 +12,21 @@ namespace QuickerExpressionAgent.Quicker;
 [H.IpcGenerators.IpcServer]
 public partial class QuickerServiceImplementation : IQuickerService
 {
-    private readonly CodeEditorWrapperManager _wrapperManager;
+    private readonly ExpressionAgentToolHandlerService _toolHandlerService;
 
-    public QuickerServiceImplementation(CodeEditorWrapperManager wrapperManager)
+    public QuickerServiceImplementation(ExpressionAgentToolHandlerService toolHandlerService)
     {
-        _wrapperManager = wrapperManager;
+        _toolHandlerService = toolHandlerService;
+    }
+
+    /// <summary>
+    /// Get handler by handler ID
+    /// </summary>
+    /// <param name="handlerId">Handler ID (returns standalone handler if empty or null)</param>
+    /// <returns>Expression agent tool handler</returns>
+    private IExpressionAgentToolHandler GetHandler(string handlerId)
+    {
+        return _toolHandlerService.GetHandler(handlerId);
     }
 
     /// <summary>
@@ -24,16 +34,8 @@ public partial class QuickerServiceImplementation : IQuickerService
     /// </summary>
     public Task<ExpressionResult> ExecuteExpressionAsync(ExpressionRequest request)
     {
-        // For backward compatibility, use the first available wrapper or create a default one
-        var wrappers = _wrapperManager.GetAllWrappers();
-        if (wrappers.Count > 0)
-        {
-            return wrappers[0].TestExpression(request.Code, request.VariableList);
-        }
-        
-        // Create a temporary wrapper for testing
-        var tempWrapper = new CodeEditorWrapper();
-        return tempWrapper.TestExpression(request.Code, request.VariableList);
+        // Use standalone handler for execution
+        return GetHandler("standalone").TestExpression(request.Code, request.VariableList);
     }
 
     /// <summary>
@@ -41,36 +43,18 @@ public partial class QuickerServiceImplementation : IQuickerService
     /// </summary>
     public Task SetExpressionAsync(ExpressionRequest request)
     {
-        // For backward compatibility, use the first available wrapper or create a new one
-        var wrappers = _wrapperManager.GetAllWrappers();
-        CodeEditorWrapper wrapper;
-        
-        if (wrappers.Count > 0)
-        {
-            wrapper = wrappers[0];
-        }
-        else
-        {
-            // Create a new wrapper and register it
-            wrapper = new CodeEditorWrapper();
-            _wrapperManager.Register(wrapper);
-            wrapper.Show();
-        }
-        
-        // Set expression
-        wrapper.Expression = request.Code;
+        // Use standalone handler for setting expression
+        var handler = GetHandler("standalone");
+        handler.Expression = request.Code;
         
         // Set variables
         if (request.VariableList != null)
         {
             foreach (var variable in request.VariableList)
             {
-                wrapper.SetVariable(variable);
+                handler.SetVariable(variable);
             }
         }
-        
-        // Show the code editor window
-        wrapper.Show();
         
         return Task.CompletedTask;
     }
@@ -81,69 +65,42 @@ public partial class QuickerServiceImplementation : IQuickerService
     {
         if (string.IsNullOrEmpty(windowHandle) || !long.TryParse(windowHandle, out var handleValue))
         {
-            return Task.FromResult(string.Empty);
+            // Return standalone handler ID for empty or invalid handle
+            return Task.FromResult("standalone");
         }
-        var handle = new IntPtr(handleValue);
-        var wrapperId = _wrapperManager.GetWrapperIdByWindowHandle(handle);
-        return Task.FromResult(wrapperId);
+        return Task.FromResult(_toolHandlerService.GetHandlerIdByWindowHandle(new IntPtr(handleValue)));
     }
 
-    public Task<ExpressionAndVariables> GetExpressionAndVariablesForWrapperAsync(string wrapperId)
+    public Task<ExpressionRequest> GetExpressionAndVariablesForWrapperAsync(string handlerId)
     {
-        var wrapper = _wrapperManager.GetWrapper(wrapperId);
-        if (wrapper == null)
+        var handler = GetHandler(handlerId);
+        return Task.FromResult(new ExpressionRequest
         {
-            return Task.FromResult(new ExpressionAndVariables
-            {
-                Expression = string.Empty,
-                Variables = new List<VariableClass>()
-            });
-        }
-        return Task.FromResult(new ExpressionAndVariables
-        {
-            Expression = wrapper.Expression,
-            Variables = wrapper.GetAllVariables()
+            Code = handler.Expression,
+            VariableList = handler.GetAllVariables()
         });
     }
 
-    public Task SetExpressionForWrapperAsync(string wrapperId, string expression)
+    public Task SetExpressionForWrapperAsync(string handlerId, string expression)
     {
-        var wrapper = _wrapperManager.GetWrapper(wrapperId);
-        if (wrapper != null)
-        {
-            wrapper.Expression = expression;
-        }
+        GetHandler(handlerId).Expression = expression;
         return Task.CompletedTask;
     }
 
-    public Task<VariableClass?> GetVariableForWrapperAsync(string wrapperId, string name)
+    public Task<VariableClass?> GetVariableForWrapperAsync(string handlerId, string name)
     {
-        var wrapper = _wrapperManager.GetWrapper(wrapperId);
-        return Task.FromResult(wrapper?.GetVariable(name));
+        return Task.FromResult(GetHandler(handlerId).GetVariable(name));
     }
 
-    public Task SetVariableForWrapperAsync(string wrapperId, VariableClass variable)
+    public Task SetVariableForWrapperAsync(string handlerId, VariableClass variable)
     {
-        var wrapper = _wrapperManager.GetWrapper(wrapperId);
-        if (wrapper != null)
-        {
-            wrapper.SetVariable(variable);
-        }
+        GetHandler(handlerId).SetVariable(variable);
         return Task.CompletedTask;
     }
 
-    public Task<ExpressionResult> TestExpressionForWrapperAsync(string wrapperId, ExpressionRequest request)
+    public Task<ExpressionResult> TestExpressionForWrapperAsync(string handlerId, ExpressionRequest request)
     {
-        var wrapper = _wrapperManager.GetWrapper(wrapperId);
-        if (wrapper == null)
-        {
-            return Task.FromResult(new ExpressionResult
-            {
-                Success = false,
-                Error = $"Code editor wrapper with ID {wrapperId} not found"
-            });
-        }
-        return wrapper.TestExpression(request.Code, request.VariableList);
+        return GetHandler(handlerId).TestExpression(request.Code, request.VariableList);
     }
 
     #endregion

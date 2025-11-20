@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 
 namespace QuickerExpressionAgent.Quicker;
@@ -9,10 +10,10 @@ public partial class MainWindow : Window
 {
     public MainWindowViewModel ViewModel { get; set; }
 
-    public MainWindow()
+    public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
-        ViewModel = new MainWindowViewModel();
+        ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = this;
     }
 }

@@ -3,6 +3,12 @@
     <IncludeAssemblies>
       Microsoft.Extensions*
       QuickerExpressionAgent.Common*
+      H.*
+      System.Text.Json*
+      MessagePack*
+      NamedPipeServerStream.NetFrameworkVersion*
+      System.Text.Encodings.Web*
+      Microsoft.NET.StringTools*
     </IncludeAssemblies>
   </Costura>
 </Weavers>

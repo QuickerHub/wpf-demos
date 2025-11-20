@@ -15,24 +15,19 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private bool _isConnected = false;
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(QuickerServiceServer serviceServer)
     {
-        try
-        {
-            _serviceServer = Launcher.GetService<QuickerServiceServer>();
-            _serviceServer.ConnectionStatusChanged += OnConnectionStatusChanged;
-            UpdateConnectionStatus(_serviceServer.IsClientConnected);
-        }
-        catch (Exception ex)
-        {
-            ConnectionStatus = $"错误: {ex.Message}";
-            throw;
-        }
+        _serviceServer = serviceServer ?? throw new ArgumentNullException(nameof(serviceServer));
+        _serviceServer.ConnectionStatusChanged += OnConnectionStatusChanged;
+        UpdateConnectionStatus(_serviceServer.IsClientConnected);
     }
 
     private void OnConnectionStatusChanged(object? sender, bool isConnected)
     {
-        UpdateConnectionStatus(isConnected);
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            UpdateConnectionStatus(isConnected);
+        });
     }
 
     private void UpdateConnectionStatus(bool isConnected)
