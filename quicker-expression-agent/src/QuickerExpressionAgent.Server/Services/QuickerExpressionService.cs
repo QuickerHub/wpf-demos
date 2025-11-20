@@ -1,17 +1,17 @@
 using QuickerExpressionAgent.Common;
 
-namespace QuickerExpressionAgent.Server.Communication;
+namespace QuickerExpressionAgent.Server.Services;
 
 /// <summary>
-/// Client for communicating with Quicker Expression Service via H.Ipc
+/// Service implementation for executing expressions in Quicker via H.Ipc
 /// </summary>
-public class QuickerServiceClient : IDisposable
+public class QuickerExpressionService : IQuickerExpressionService
 {
-    private readonly ExpressionServiceClient _client;
+    private readonly QuickerServerClientConnector _connector;
 
-    public QuickerServiceClient()
+    public QuickerExpressionService(QuickerServerClientConnector connector)
     {
-        _client = new ExpressionServiceClient();
+        _connector = connector;
     }
 
     /// <summary>
@@ -29,7 +29,7 @@ public class QuickerServiceClient : IDisposable
             Code = code,
             VariableList = variableList
         };
-        return await _client.ExecuteExpressionAsync(request);
+        return await _connector.ServiceClient.ExecuteExpressionAsync(request);
     }
 
     /// <summary>
@@ -46,12 +46,7 @@ public class QuickerServiceClient : IDisposable
             Code = code,
             VariableList = variableList
         };
-        await _client.SetExpressionAsync(request);
-    }
-
-    public void Dispose()
-    {
-        // H.Ipc client handles disposal automatically
+        await _connector.ServiceClient.SetExpressionAsync(request);
     }
 }
 

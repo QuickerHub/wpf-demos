@@ -26,6 +26,13 @@ public static class ServiceCollectionExtensions
         // Roslyn service
         services.AddSingleton<IRoslynExpressionService, RoslynExpressionService>();
         
+        // Quicker service connector (connects to .Quicker project via pipe)
+        // Must be registered before QuickerExpressionService as it's a dependency
+        services.AddSingleton<QuickerServerClientConnector>();
+        
+        // Quicker expression service (connects to .Quicker project via pipe)
+        services.AddSingleton<IQuickerExpressionService, QuickerExpressionService>();
+        
         // Tool handler
         services.AddSingleton<IExpressionAgentToolHandler, ServerToolHandler>();
         

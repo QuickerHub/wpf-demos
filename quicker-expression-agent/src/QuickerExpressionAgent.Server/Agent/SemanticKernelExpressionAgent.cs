@@ -93,8 +93,6 @@ public class SemanticKernelExpressionAgent
     {
         _currentExpression = null;
         
-        var attempts = new List<ExpressionAttempt>();
-        
         // Build initial context with variables (Agent can get them via GetExternalVariables tool)
         var contextMessage = BuildContextMessage();
         
