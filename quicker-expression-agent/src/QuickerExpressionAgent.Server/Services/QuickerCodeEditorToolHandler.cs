@@ -13,7 +13,7 @@ public class QuickerCodeEditorToolHandler : IExpressionAgentToolHandler
 {
     private readonly IntPtr _windowHandle;
     private readonly QuickerServerClientConnector _connector;
-    private readonly string _wrapperId;
+    private readonly string _handlerId;
 
     private IQuickerService Service => _connector.ServiceClient;
 
@@ -27,8 +27,8 @@ public class QuickerCodeEditorToolHandler : IExpressionAgentToolHandler
         _windowHandle = windowHandle;
         _connector = connector ?? throw new ArgumentNullException(nameof(connector));
         
-        // Initialize wrapper ID in constructor
-        _wrapperId = Service.GetCodeWrapperIdAsync(_windowHandle.ToInt64().ToString()).Result;
+        // Initialize handler ID in constructor
+        _handlerId = Service.GetCodeWrapperIdAsync(_windowHandle.ToInt64().ToString()).Result;
     }
 
     /// <summary>
@@ -36,8 +36,8 @@ public class QuickerCodeEditorToolHandler : IExpressionAgentToolHandler
     /// </summary>
     public string Expression
     {
-        get => Service.GetExpressionAndVariablesForWrapperAsync(_wrapperId).Result.Expression ?? string.Empty;
-        set => Service.SetExpressionForWrapperAsync(_wrapperId, value).Wait();
+        get => Service.GetExpressionAndVariablesForWrapperAsync(_handlerId).Result.Code ?? string.Empty;
+        set => Service.SetExpressionForWrapperAsync(_handlerId, value).Wait();
     }
 
     /// <summary>
@@ -46,18 +46,18 @@ public class QuickerCodeEditorToolHandler : IExpressionAgentToolHandler
     public void SetVariable(VariableClass variable)
     {
         if (variable == null) throw new ArgumentNullException(nameof(variable));
-        Service.SetVariableForWrapperAsync(_wrapperId, variable).Wait();
+        Service.SetVariableForWrapperAsync(_handlerId, variable).Wait();
     }
 
     /// <summary>
     /// Get a specific variable by name
     /// </summary>
-    public VariableClass? GetVariable(string name) => Service.GetVariableForWrapperAsync(_wrapperId, name).Result;
+    public VariableClass? GetVariable(string name) => Service.GetVariableForWrapperAsync(_handlerId, name).Result;
 
     /// <summary>
     /// Get all variables
     /// </summary>
-    public List<VariableClass> GetAllVariables() => Service.GetExpressionAndVariablesForWrapperAsync(_wrapperId).Result.Variables ?? new List<VariableClass>();
+    public List<VariableClass> GetAllVariables() => Service.GetExpressionAndVariablesForWrapperAsync(_handlerId).Result.VariableList ?? new List<VariableClass>();
 
     /// <summary>
     /// Test an expression for syntax and execution
@@ -72,7 +72,7 @@ public class QuickerCodeEditorToolHandler : IExpressionAgentToolHandler
             Code = expression,
             VariableList = variables ?? new List<VariableClass>()
         };
-        return await Service.TestExpressionForWrapperAsync(_wrapperId, request);
+        return await Service.TestExpressionForWrapperAsync(_handlerId, request);
     }
 
     /// <summary>
