@@ -34,15 +34,15 @@ public class VariableClass
 /// <summary>
 /// Service interface for expression execution in Quicker
 /// 
-/// NOTE: This interface uses List&lt;VariableClass&gt; instead of arrays or other collection types.
+/// NOTE: This interface uses <c>List&lt;VariableClass&gt;</c> instead of arrays or other collection types.
 /// This is due to a known limitation/bug in H.Ipc generator which has issues with:
-/// - Generic List&lt;T&gt; types in some scenarios
-/// - Array types (VariableClass[]) 
-/// - IList&lt;T&gt; or other collection interfaces
+/// - Generic <c>List&lt;T&gt;</c> types in some scenarios
+/// - Array types (<c>VariableClass[]</c>) 
+/// - <c>IList&lt;T&gt;</c> or other collection interfaces
 /// 
-/// While List&lt;VariableClass&gt; may cause compilation warnings with H.Ipc generator,
+/// While <c>List&lt;VariableClass&gt;</c> may cause compilation warnings with H.Ipc generator,
 /// it is the most compatible type that works with the current H.Ipc implementation.
-/// If you encounter generator errors, consider using arrays or IList&lt;T&gt; as alternatives,
+/// If you encounter generator errors, consider using arrays or <c>IList&lt;T&gt;</c> as alternatives,
 /// but be aware they may also have issues with the H.Ipc generator.
 /// </summary>
 public interface IQuickerService
