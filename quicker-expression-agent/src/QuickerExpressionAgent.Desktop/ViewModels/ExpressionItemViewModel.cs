@@ -66,16 +66,16 @@ public partial class ExpressionItemViewModel : ObservableObject
     private bool _isExecuting = false;
 
     /// <summary>
-    /// Roslyn service for executing expressions (injected from outside)
+    /// Expression executor for executing expressions (injected from outside)
     /// </summary>
-    public IRoslynExpressionService? RoslynService { get; set; }
+    public IExpressionExecutor? Executor { get; set; }
 
     [RelayCommand]
     private async System.Threading.Tasks.Task ExecuteAsync()
     {
-        if (RoslynService == null)
+        if (Executor == null)
         {
-            SetExecutionResult(false, null, "Roslyn 服务未初始化");
+            SetExecutionResult(false, null, "表达式执行器未初始化");
             return;
         }
 
@@ -92,7 +92,7 @@ public partial class ExpressionItemViewModel : ObservableObject
             var variableClassList = VariableList.Select(v => v.ToVariableClass()).ToList();
 
             // Execute expression
-            var result = await RoslynService.ExecuteExpressionAsync(Expression, variableClassList);
+            var result = await Executor.ExecuteExpressionAsync(Expression, variableClassList);
 
             if (result.Success)
             {

@@ -20,11 +20,8 @@ public static class ServiceCollectionExtensions
         // Configuration
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         
-        // Kernel
-        services.AddSingleton<IKernelService, KernelService>();
-        
-        // Roslyn service
-        services.AddSingleton<IRoslynExpressionService, RoslynExpressionService>();
+        // Expression executor
+        services.AddSingleton<IExpressionExecutor, ExpressionExecutor>();
         
         // Quicker service connector (connects to .Quicker project via pipe)
         // Must be registered before QuickerExpressionService as it's a dependency
@@ -38,29 +35,15 @@ public static class ServiceCollectionExtensions
         // Tool handler
         services.AddSingleton<IExpressionAgentToolHandler, ServerToolHandler>();
         
-        // Plugin (registered after tool handler)
+        // Agent (registered after kernel and tool handler)
         services.AddSingleton(serviceProvider =>
         {
-            var toolHandler = serviceProvider.GetRequiredService<IExpressionAgentToolHandler>();
-            var roslynService = serviceProvider.GetRequiredService<IRoslynExpressionService>();
-            var plugin = new ExpressionAgentPlugin(toolHandler, roslynService);
-            
-            // Register plugin to kernel
-            var kernel = serviceProvider.GetRequiredService<IKernelService>().Kernel;
-            var kernelPlugin = KernelPluginFactory.CreateFromObject(plugin, "ExpressionAgent");
-            kernel.Plugins.Add(kernelPlugin);
-            
-            return plugin;
-        });
-        
-        // Agent (registered after kernel and plugin)
-        services.AddSingleton(serviceProvider =>
-        {
-            var kernel = serviceProvider.GetRequiredService<IKernelService>().Kernel;
-            var roslynService = serviceProvider.GetRequiredService<IRoslynExpressionService>();
+            var configurationService = serviceProvider.GetRequiredService<IConfigurationService>();
+            var kernel = KernelService.GetKernel(configurationService);
+            var executor = serviceProvider.GetRequiredService<IExpressionExecutor>();
             var toolHandler = serviceProvider.GetRequiredService<IExpressionAgentToolHandler>();
             
-            return new Agent.SemanticKernelExpressionAgent(kernel, roslynService, toolHandler);
+            return new Agent.ExpressionAgent(kernel, executor, toolHandler);
         });
         
         // Logging

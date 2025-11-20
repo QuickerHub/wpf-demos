@@ -2,32 +2,24 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DynamicData;
 using DynamicData.Binding;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Text.Json;
-using System.Threading;
 using System.Windows.Media;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels
 {
     public partial class MainWindowViewModel : ObservableObject, IExpressionAgentToolHandler
     {
-        private readonly SemanticKernelExpressionAgent _semanticKernelAgent;
-        private readonly RoslynExpressionService _roslynService;
+        private readonly ExpressionAgent _semanticKernelAgent;
+        private readonly ExpressionExecutor _executor;
         private readonly ILogger<MainWindowViewModel> _logger;
 
-        // Throttle for auto-execution
-        private DateTime _lastAutoExecutionTime = DateTime.MinValue;
+        // Cancellation token for auto-execution
         private System.Threading.CancellationTokenSource? _autoExecutionCancellationTokenSource;
 
         // Chat messages and input
@@ -63,14 +55,14 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
 
         public MainWindowViewModel(
-            IKernelService kernelService,
-            RoslynExpressionService roslynService,
+            IConfigurationService configurationService,
+            ExpressionExecutor executor,
             ILogger<MainWindowViewModel> logger)
         {
             _logger = logger;
-            _roslynService = roslynService;
-            _semanticKernelAgent = new SemanticKernelExpressionAgent(kernelService.Kernel, _roslynService, this);
-
+            _executor = executor;
+            var kernel = KernelService.GetKernel(configurationService);
+            _semanticKernelAgent = new ExpressionAgent(kernel, _executor, this);
 
             StatusText = "已就绪，可以开始生成表达式";
 
@@ -83,6 +75,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 .Throttle(TimeSpan.FromMilliseconds(200))
                 .ObserveOnDispatcher()
                 .Subscribe(_ => ChatScrollToBottomRequested?.Invoke(this, EventArgs.Empty));
+
+            // Monitor variable value changes using DynamicData
+            VariableList
+                .ToObservableChangeSet()
+                .MergeMany(variable => variable.WhenPropertyChanged(v => v.ValueText, notifyOnInitialValue: false))
+                .Throttle(TimeSpan.FromMilliseconds(500))
+                .Subscribe(_ => ExecuteExpressionInternalAsync().ConfigureAwait(false));
 
             // Initialize chat with welcome message
             AddChatMessage(ChatMessageType.Assistant, "Agent 已就绪，等待您的指令...");
@@ -122,7 +121,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             try
             {
                 // Streaming callback - append content to assistant message (like demo project)
-                SemanticKernelExpressionAgent.AgentStreamingCallback? streamingCallback = (stepType, partialContent, isComplete) =>
+                ExpressionAgent.AgentStreamingCallback? streamingCallback = (stepType, partialContent, isComplete) =>
                 {
                     if (!string.IsNullOrEmpty(partialContent))
                     {
@@ -137,7 +136,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 };
 
                 // Progress callback for tool calls (optional, can be used for tool call display)
-                SemanticKernelExpressionAgent.AgentProgressCallback? progressCallback = null;
+                ExpressionAgent.AgentProgressCallback? progressCallback = null;
 
                 // Agent will call tools (SetExpression, TestExpression, etc.) to complete the work
                 // Agent can get existing variables via GetExternalVariables tool
@@ -173,20 +172,20 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
         /// <summary>
         /// Internal method to execute expression (can be called from command or auto-execution)
+        /// Automatically cancels previous execution if called again
         /// </summary>
         private async System.Threading.Tasks.Task ExecuteExpressionInternalAsync()
         {
+            // Cancel previous pending execution
+            _autoExecutionCancellationTokenSource?.Cancel();
+            _autoExecutionCancellationTokenSource?.Dispose();
+            _autoExecutionCancellationTokenSource = new System.Threading.CancellationTokenSource();
+            var cancellationToken = _autoExecutionCancellationTokenSource.Token;
+
             if (string.IsNullOrWhiteSpace(Expression))
             {
                 ExecutionResult = "没有可执行的表达式";
                 ResultForeground = Brushes.Orange;
-                return;
-            }
-
-            if (_roslynService == null)
-            {
-                ExecutionResult = "Roslyn 服务未初始化";
-                ResultForeground = Brushes.Red;
                 return;
             }
 
@@ -199,11 +198,17 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             try
             {
+                // Check if cancelled before execution
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Convert variable list to VariableClass list
                 var variableClassList = VariableList.Select(v => v.ToVariableClass()).ToList();
 
                 // Execute expression
-                var result = await _roslynService.ExecuteExpressionAsync(Expression, variableClassList);
+                var result = await _executor.ExecuteExpressionAsync(Expression, variableClassList);
+                
+                // Check if cancelled after execution
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (result.Success)
                 {
@@ -227,130 +232,16 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     }
                 }
             }
+            catch (System.Threading.Tasks.TaskCanceledException)
+            {
+                // Cancelled by new execution, ignore silently
+            }
             catch (System.Exception ex)
             {
                 ExecutionResult = $"✗ 发生异常: {ex.Message}";
                 ResultForeground = Brushes.Red;
                 StatusText = "发生错误";
                 _logger?.LogError(ex, "Error executing expression");
-            }
-            finally
-            {
-                IsGenerating = false;
-            }
-        }
-
-        /// <summary>
-        /// Update variable list, preserving existing variable values if they already exist
-        /// </summary>
-        private void UpdateVariableList(List<VariableClass> newVariables)
-        {
-            // Unsubscribe from old variables
-            foreach (var variable in VariableList)
-            {
-                variable.ValueChanged -= OnVariableValueChanged;
-            }
-
-            // Create a dictionary of existing variables by name for quick lookup
-            // Also store their original default values for comparison
-            var existingVariables = VariableList.ToDictionary(v => v.VarName, StringComparer.OrdinalIgnoreCase);
-            var existingVariableDefaults = VariableList.ToDictionary(
-                v => v.VarName,
-                v => v.ToVariableClass().DefaultValue,
-                StringComparer.OrdinalIgnoreCase);
-
-            // Clear the list and rebuild it
-            VariableList.Clear();
-
-            foreach (var newVariable in newVariables)
-            {
-                VariableItemViewModel variableViewModel;
-
-                // Check if variable already exists
-                if (existingVariables.TryGetValue(newVariable.VarName, out var existingVar))
-                {
-                    // Variable exists - check if type changed
-                    if (existingVar.VarType != newVariable.VarType)
-                    {
-                        // Type changed, create new ViewModel with new type and default value
-                        variableViewModel = new VariableItemViewModel(newVariable);
-                    }
-                    else
-                    {
-                        // Type unchanged, keep existing ViewModel but update default if user hasn't modified it
-                        variableViewModel = existingVar;
-
-                        // Get old default value
-                        existingVariableDefaults.TryGetValue(newVariable.VarName, out var oldDefaultValue);
-
-                        // Update default value if user hasn't modified it
-                        variableViewModel.UpdateDefaultValueIfUnchanged(newVariable, oldDefaultValue);
-                    }
-                }
-                else
-                {
-                    // New variable, create new ViewModel with default value
-                    variableViewModel = new VariableItemViewModel(newVariable);
-                }
-
-                // Subscribe to value changes for auto-execution
-                variableViewModel.ValueChanged += OnVariableValueChanged;
-                VariableList.Add(variableViewModel);
-            }
-        }
-
-        /// <summary>
-        /// Handle variable value change - auto-execute expression with throttle
-        /// </summary>
-        private async void OnVariableValueChanged(object? sender, EventArgs e)
-        {
-            // Only auto-execute if there's a parsed expression
-            if (string.IsNullOrWhiteSpace(Expression))
-            {
-                return;
-            }
-
-            if (_roslynService == null)
-            {
-                return;
-            }
-
-            // Cancel previous pending execution
-            _autoExecutionCancellationTokenSource?.Cancel();
-            _autoExecutionCancellationTokenSource?.Dispose();
-            _autoExecutionCancellationTokenSource = new System.Threading.CancellationTokenSource();
-            var cancellationToken = _autoExecutionCancellationTokenSource.Token;
-
-            // Throttle: check if enough time has passed since last execution
-            var timeSinceLastExecution = (DateTime.Now - _lastAutoExecutionTime).TotalMilliseconds;
-            if (timeSinceLastExecution < 500)
-            {
-                // Wait for the remaining time
-                var waitTime = 500 - (int)timeSinceLastExecution;
-                try
-                {
-                    await System.Threading.Tasks.Task.Delay(waitTime, cancellationToken);
-                }
-                catch (System.Threading.Tasks.TaskCanceledException)
-                {
-                    // Cancelled by new change, exit
-                    return;
-                }
-            }
-
-            // Check if still valid (user might have changed expression or cancelled)
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(Expression) && _roslynService != null)
-            {
-                // Update last execution time
-                _lastAutoExecutionTime = DateTime.Now;
-
-                // Execute expression with updated variable values (without blocking UI)
-                await ExecuteExpressionInternalAsync();
             }
         }
 
@@ -419,18 +310,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     // Update existing variable
                     try
                     {
-                        // Update variable type if changed
-                        if (existingVariable.VarType != variable.VarType)
-                        {
-                            existingVariable.VarType = variable.VarType;
-                            existingVariable.IsListType = variable.VarType == VariableType.ListString;
-                            existingVariable.IsDictionaryType = variable.VarType == VariableType.Dictionary;
-                        }
-
-                        // Convert DefaultValue to string representation using VariableItemViewModel's conversion logic
-                        // Use the same logic as VariableItemViewModel constructor
-                        string valueText = ConvertValueToString(variable.DefaultValue, variable.VarType);
-                        existingVariable.ValueText = valueText;
+                        existingVariable.VarType = variable.VarType;
+                        // Update default value using VariableItemViewModel's method
+                        existingVariable.SetDefaultValue(variable.DefaultValue);
                     }
                     catch (Exception)
                     {
@@ -439,77 +321,15 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 }
                 else
                 {
-                    // Create new variable
-                    // Use the provided DefaultValue directly, or get default if null
-                    object? defaultVal = variable.DefaultValue;
-                    if (defaultVal == null)
-                    {
-                        defaultVal = variable.VarType.GetDefaultValue();
-                    }
+                    // Create new variable (SetDefaultValue handles null values)
+                    var variableViewModel = new VariableItemViewModel(variable.VarName, variable.VarType, variable.DefaultValue);
 
-                    // Create variable view model
-                    var variableViewModel = new VariableItemViewModel(
-                        new VariableClass
-                        {
-                            VarName = variable.VarName,
-                            VarType = variable.VarType,
-                            DefaultValue = defaultVal
-                        });
-
-                    // Subscribe to value changes for auto-execution
-                    variableViewModel.ValueChanged += OnVariableValueChanged;
-
-                    // Add to variable list
+                    // Add to variable list (DynamicData automatically monitors ValueText changes)
                     VariableList.Add(variableViewModel);
                 }
             });
         }
 
-        /// <summary>
-        /// Convert value to string representation (same logic as VariableItemViewModel)
-        /// </summary>
-        private string ConvertValueToString(object? value, VariableType varType)
-        {
-            if (value == null)
-            {
-                return string.Empty;
-            }
-
-            if (varType == VariableType.ListString)
-            {
-                if (value is System.Collections.IEnumerable enumerable)
-                {
-                    var items = enumerable.Cast<object>().Select(item => item?.ToString() ?? "").ToList();
-                    return string.Join("\n", items);
-                }
-                return string.Empty;
-            }
-
-            if (varType == VariableType.Dictionary)
-            {
-                if (value is System.Collections.IDictionary dict)
-                {
-                    // Convert Dictionary to JSON format
-                    var jsonDict = new Dictionary<string, object?>();
-                    foreach (System.Collections.DictionaryEntry entry in dict)
-                    {
-                        jsonDict[entry.Key?.ToString() ?? ""] = entry.Value;
-                    }
-                    return System.Text.Json.JsonSerializer.Serialize(jsonDict, new System.Text.Json.JsonSerializerOptions
-                    {
-                        WriteIndented = true
-                    });
-                }
-                return "{}";
-            }
-
-            if (value is System.Text.Json.JsonElement jsonElement)
-            {
-                return jsonElement.GetRawText();
-            }
-
-            return value.ToString() ?? string.Empty;
-        }
 
         /// <summary>
         /// Get a specific variable by name
@@ -557,36 +377,27 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             var baseName = "var";
             var counter = 1;
             var varName = $"{baseName}{counter}";
-            
+
             // Find a unique name
             while (VariableList.Any(v => string.Equals(v.VarName, varName, StringComparison.OrdinalIgnoreCase)))
             {
                 counter++;
                 varName = $"{baseName}{counter}";
             }
-            
+
             // Create new variable with default type (String)
-            var newVariable = new VariableItemViewModel(
-                new VariableClass
-                {
-                    VarName = varName,
-                    VarType = VariableType.String,
-                    DefaultValue = string.Empty
-                });
-            
-            // Subscribe to value changes for auto-execution
-            newVariable.ValueChanged += OnVariableValueChanged;
-            
-            // Add to variable list
+            var newVariable = new VariableItemViewModel(varName, VariableType.String, string.Empty);
+
+            // Add to variable list (DynamicData automatically monitors ValueText changes)
             VariableList.Add(newVariable);
         }
-        
+
         /// <summary>
         /// Test an expression for syntax and execution
         /// </summary>
         public async Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null)
         {
-            if (_roslynService == null)
+            if (_executor == null)
             {
                 return new ExpressionResult
                 {
@@ -608,8 +419,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             {
                 // If variables not provided, get current variables from UI
                 var variablesToUse = variables ?? VariableList.Select(v => v.ToVariableClass()).ToList();
-                
-                var result = await _roslynService.ExecuteExpressionAsync(
+
+                var result = await _executor.ExecuteExpressionAsync(
                     expression,
                     variablesToUse);
 
@@ -620,7 +431,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     {
                         // Create ExpressionItemViewModel for display
                         var expressionItem = new ExpressionItemViewModel();
-                        expressionItem.RoslynService = _roslynService; // Inject Roslyn service for execution
+                        expressionItem.Executor = _executor; // Inject executor for execution
                         expressionItem.Initialize(result.UsedVariables, expression);
                         expressionItem.SetExecutionResult(true, result.Value);
 
@@ -632,7 +443,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     {
                         // Create ExpressionItemViewModel for display even on failure
                         var expressionItem = new ExpressionItemViewModel();
-                        expressionItem.RoslynService = _roslynService; // Inject Roslyn service for execution
+                        expressionItem.Executor = _executor; // Inject executor for execution
                         expressionItem.Initialize(result.UsedVariables, expression);
                         expressionItem.SetExecutionResult(false, null, result.Error);
 

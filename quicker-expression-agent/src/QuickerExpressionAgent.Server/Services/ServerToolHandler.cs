@@ -7,13 +7,13 @@ namespace QuickerExpressionAgent.Server.Services;
 /// </summary>
 public class ServerToolHandler : IExpressionAgentToolHandler
 {
-    private readonly IRoslynExpressionService _roslynService;
+    private readonly IExpressionExecutor _executor;
     private readonly List<VariableClass> _variables;
     private readonly object _variablesLock = new object();
     
-    public ServerToolHandler(IRoslynExpressionService roslynService)
+    public ServerToolHandler(IExpressionExecutor executor)
     {
-        _roslynService = roslynService ?? throw new ArgumentNullException(nameof(roslynService));
+        _executor = executor ?? throw new ArgumentNullException(nameof(executor));
         _variables = new List<VariableClass>();
     }
     
@@ -80,8 +80,8 @@ public class ServerToolHandler : IExpressionAgentToolHandler
             // Use provided variables, or fall back to current variables
             List<VariableClass> variablesToUse = variables ?? GetAllVariables();
             
-            // Execute expression using Roslyn service
-            var result = await _roslynService.ExecuteExpressionAsync(expression, variablesToUse);
+            // Execute expression using executor
+            var result = await _executor.ExecuteExpressionAsync(expression, variablesToUse);
             
             return result;
         }

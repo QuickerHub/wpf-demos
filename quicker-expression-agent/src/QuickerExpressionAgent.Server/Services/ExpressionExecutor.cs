@@ -32,7 +32,7 @@ public enum VariableAccessMode
 /// Service for executing C# expressions using Roslyn scripting
 /// Variables are provided via dictionary and are directly accessible in scripts by name
 /// </summary>
-public class RoslynExpressionService : IRoslynExpressionService
+public class ExpressionExecutor : IExpressionExecutor
 {
     private readonly ScriptOptions _scriptOptions;
     private readonly VariableTypeFormatterFactory _formatterFactory;
@@ -42,7 +42,7 @@ public class RoslynExpressionService : IRoslynExpressionService
     private readonly Dictionary<string, Type> _globalsTypeCache = new();
     private readonly object _cacheLock = new object();
 
-    public RoslynExpressionService(VariableAccessMode accessMode = VariableAccessMode.TypeCasting)
+    public ExpressionExecutor(VariableAccessMode accessMode = VariableAccessMode.TypeCasting)
     {
         // Initialize script options with necessary references
         // Add all necessary assemblies for common .NET types

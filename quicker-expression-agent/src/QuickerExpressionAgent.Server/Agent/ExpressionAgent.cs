@@ -12,12 +12,20 @@ namespace QuickerExpressionAgent.Server.Agent;
 /// <summary>
 /// Expression Agent using Semantic Kernel's official ChatCompletionAgent framework
 /// </summary>
-public class SemanticKernelExpressionAgent
+public class ExpressionAgent : IToolHandlerProvider
 {
     private readonly Kernel _kernel;
     private readonly ChatCompletionAgent _agent;
-    private readonly IRoslynExpressionService _roslynService;
-    private readonly IExpressionAgentToolHandler? _toolHandler;
+    
+    /// <summary>
+    /// Expression executor for executing expressions (can be modified at runtime)
+    /// </summary>
+    public IExpressionExecutor Executor { get; set; }
+    
+    /// <summary>
+    /// Gets the current tool handler (can be modified at runtime)
+    /// </summary>
+    public IExpressionAgentToolHandler ToolHandler { get; set; }
     
     // Current state
     private string? _currentExpression;
@@ -57,17 +65,17 @@ public class SemanticKernelExpressionAgent
         public Dictionary<string, string>? ToolArguments { get; set; }
     }
 
-    public SemanticKernelExpressionAgent(Kernel kernel, IRoslynExpressionService? roslynService = null, IExpressionAgentToolHandler? toolHandler = null)
+    public ExpressionAgent(Kernel kernel, IExpressionExecutor executor, IExpressionAgentToolHandler? toolHandler = null)
     {
         _kernel = kernel;
-        _roslynService = roslynService ?? new RoslynExpressionService();
-        _toolHandler = toolHandler;
+        Executor = executor;
+        ToolHandler = toolHandler!;
         
         // Add plugin to kernel if tool handler is available
-        // The agent framework will automatically expose these as tools
-        if (_toolHandler != null)
+        // Pass this as IToolHandlerProvider so plugin can access the tool handler
+        if (toolHandler != null)
         {
-            var plugin = new ExpressionAgentPlugin(_toolHandler, _roslynService);
+            var plugin = new ExpressionAgentPlugin(this);
             _kernel.Plugins.AddFromObject(plugin, "ExpressionAgent");
         }
         

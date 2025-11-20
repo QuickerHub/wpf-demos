@@ -20,12 +20,22 @@ public partial class VariableItemViewModel : ObservableObject
 
     [ObservableProperty]
     private string _valueText = string.Empty;
-
+    
+    /// <summary>
+    /// Default value text (for storing the original default value)
+    /// </summary>
     [ObservableProperty]
-    private bool _isListType = false;
+    private string _defaultValueText = string.Empty;
 
-    [ObservableProperty]
-    private bool _isDictionaryType = false;
+    /// <summary>
+    /// Whether this is a list type (computed from VarType)
+    /// </summary>
+    public bool IsListType => VarType == VariableType.ListString;
+
+    /// <summary>
+    /// Whether this is a dictionary type (computed from VarType)
+    /// </summary>
+    public bool IsDictionaryType => VarType == VariableType.Dictionary;
 
     /// <summary>
     /// Event triggered when value text changes
@@ -36,44 +46,86 @@ public partial class VariableItemViewModel : ObservableObject
     {
     }
 
+    /// <summary>
+    /// Constructor with three parameters
+    /// </summary>
+    public VariableItemViewModel(string varName, VariableType varType, object? defaultValue)
+    {
+        VarName = varName;
+        VarType = varType;
+        
+        // Use SetDefaultValue to handle null values and get default for type
+        SetDefaultValue(defaultValue);
+        
+        // Notify property changes for computed properties
+        OnPropertyChanged(nameof(IsListType));
+        OnPropertyChanged(nameof(IsDictionaryType));
+    }
+
+    /// <summary>
+    /// Constructor with VariableClass
+    /// </summary>
     public VariableItemViewModel(VariableClass variable)
     {
         VarName = variable.VarName;
         VarType = variable.VarType;
-        IsListType = variable.VarType == VariableType.ListString;
-        IsDictionaryType = variable.VarType == VariableType.Dictionary;
-
+        
         // Convert default value to string representation
-        ValueText = ConvertValueToString(variable.DefaultValue, variable.VarType);
+        var defaultValueText = ConvertValueToString(variable.DefaultValue, variable.VarType);
+        DefaultValueText = defaultValueText;
+        ValueText = defaultValueText;
+        
+        // Notify property changes for computed properties
+        OnPropertyChanged(nameof(IsListType));
+        OnPropertyChanged(nameof(IsDictionaryType));
     }
 
     /// <summary>
     /// Update default value from a VariableClass (used when regenerating expressions)
-    /// Only updates if the current value matches the old default value (user hasn't modified it)
+    /// Only updates if the current value matches the stored default value (user hasn't modified it)
     /// </summary>
-    public void UpdateDefaultValueIfUnchanged(VariableClass newVariable, object? oldDefaultValue)
+    public void UpdateDefaultValueIfUnchanged(VariableClass newVariable)
     {
-        // Check if current value matches the old default value
-        var currentValue = ConvertStringToValue();
-        var oldDefaultValueStr = ConvertValueToString(oldDefaultValue, VarType);
-        var currentValueStr = ConvertValueToString(currentValue, VarType);
-
-        // If current value matches old default, update to new default
-        if (currentValueStr == oldDefaultValueStr ||
-            (currentValue == null && oldDefaultValue == null) ||
-            (currentValue != null && currentValue.Equals(oldDefaultValue)))
+        // If current value matches stored default value, update to new default
+        if (ValueText == DefaultValueText)
         {
             // User hasn't modified the value, update to new default
-            ValueText = ConvertValueToString(newVariable.DefaultValue, newVariable.VarType);
+            SetDefaultValue(newVariable.DefaultValue);
         }
         // Otherwise, keep user's modified value
     }
 
+    partial void OnVarTypeChanged(VariableType value)
+    {
+        // Notify property changes for computed properties when VarType changes
+        OnPropertyChanged(nameof(IsListType));
+        OnPropertyChanged(nameof(IsDictionaryType));
+    }
+    
     partial void OnValueTextChanged(string value)
     {
         // Trigger value changed event when value text changes
         ValueChanged?.Invoke(this, EventArgs.Empty);
     }
+    
+    /// <summary>
+    /// Set default value and update DefaultValueText
+    /// If defaultValue is null, uses the default value for the current VarType
+    /// </summary>
+    public void SetDefaultValue(object? defaultValue)
+    {
+        // If defaultValue is null, get default value for the type
+        var actualValue = defaultValue ?? VarType.GetDefaultValue();
+        
+        // Convert default value to string representation
+        DefaultValueText = ConvertValueToString(actualValue, VarType);
+        ValueText = DefaultValueText;
+    }
+    
+    /// <summary>
+    /// Get default value text (convenience method)
+    /// </summary>
+    public string GetDefaultValueText() => DefaultValueText;
 
     /// <summary>
     /// Convert value to string for display/editing

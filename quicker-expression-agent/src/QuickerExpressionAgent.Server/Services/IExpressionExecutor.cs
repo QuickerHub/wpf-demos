@@ -5,7 +5,7 @@ namespace QuickerExpressionAgent.Server.Services;
 /// <summary>
 /// Service interface for executing C# expressions using Roslyn
 /// </summary>
-public interface IRoslynExpressionService
+public interface IExpressionExecutor
 {
     /// <summary>
     /// Execute a C# expression using Roslyn scripting

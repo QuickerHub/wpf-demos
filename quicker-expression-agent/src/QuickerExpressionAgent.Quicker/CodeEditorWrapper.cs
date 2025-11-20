@@ -248,7 +248,7 @@ public class CodeEditorWrapper : IExpressionAgentToolHandler
         return new ExpressionResult
         {
             Success = false,
-            Error = "Expression testing not yet implemented in CodeEditorWrapper. Use RoslynExpressionService for testing."
+            Error = "Expression testing not yet implemented in CodeEditorWrapper. Use ExpressionExecutor for testing."
         };
     }
 

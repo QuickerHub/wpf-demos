@@ -17,11 +17,8 @@ public static class ServiceCollectionExtensions
         // Configuration
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         
-        // Kernel
-        services.AddSingleton<IKernelService, KernelService>();
-        
-        // Roslyn service
-        services.AddSingleton<RoslynExpressionService>();
+        // Expression executor
+        services.AddSingleton<ExpressionExecutor>();
         
         // Logging
         services.AddLogging(builder =>

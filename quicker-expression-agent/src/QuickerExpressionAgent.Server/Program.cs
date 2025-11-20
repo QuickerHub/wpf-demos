@@ -30,8 +30,8 @@ class Program
             await host.StartAsync();
 
             // Get services from DI
-            var agent = host.Services.GetRequiredService<SemanticKernelExpressionAgent>();
-            var roslynService = host.Services.GetRequiredService<IRoslynExpressionService>();
+            var agent = host.Services.GetRequiredService<ExpressionAgent>();
+            var executor = host.Services.GetRequiredService<IExpressionExecutor>();
 
             // Parse command line arguments
             bool runTests = args.Contains("-t") || args.Contains("--test");
@@ -39,7 +39,7 @@ class Program
             if (runTests)
             {
                 // Run expression tests
-                await TestRoslynServiceAsync(roslynService, logger);
+                await TestExpressionExecutorAsync(executor, logger);
             }
             else
             {
@@ -64,7 +64,7 @@ class Program
     /// <summary>
     /// Run interactive expression dialog
     /// </summary>
-    private static async Task RunExpressionDialogAsync(SemanticKernelExpressionAgent agent, ILogger logger)
+    private static async Task RunExpressionDialogAsync(ExpressionAgent agent, ILogger logger)
     {
         Console.WriteLine("=== Quicker Expression Agent ===");
         Console.WriteLine("Enter natural language descriptions to generate C# expressions.");
@@ -151,7 +151,7 @@ class Program
         }
     }
 
-    private static async Task RunInteractiveModeAsync(SemanticKernelExpressionAgent agent, ILogger logger)
+    private static async Task RunInteractiveModeAsync(ExpressionAgent agent, ILogger logger)
     {
         Console.WriteLine("Quicker Expression Agent - Interactive Mode");
         Console.WriteLine("Enter natural language descriptions to generate C# expressions.");
@@ -173,7 +173,7 @@ class Program
         }
     }
 
-    private static async Task GenerateExpressionAsync(SemanticKernelExpressionAgent agent, string description, ILogger logger)
+    private static async Task GenerateExpressionAsync(ExpressionAgent agent, string description, ILogger logger)
     {
         try
         {
@@ -206,7 +206,7 @@ class Program
     /// Generate expression with direct console output using agent (no callbacks, prints directly to console)
     /// </summary>
     private static async Task GenerateExpressionWithConsoleOutputAsync(
-        SemanticKernelExpressionAgent agent,
+        ExpressionAgent agent,
         string naturalLanguage,
         ILogger logger,
         CancellationToken cancellationToken = default)
@@ -227,11 +227,11 @@ class Program
     }
 
     /// <summary>
-    /// Test Roslyn expression execution service
+    /// Test expression executor
     /// </summary>
-    private static async Task TestRoslynServiceAsync(IRoslynExpressionService roslynService, ILogger logger)
+    private static async Task TestExpressionExecutorAsync(IExpressionExecutor executor, ILogger logger)
     {
-        Console.WriteLine("=== Roslyn Expression Service Test ===\n");
+        Console.WriteLine("=== Expression Executor Test ===\n");
         
         // Test cases
         var testCases = new[]
@@ -375,7 +375,7 @@ distance += Math.Abs(str1.Length - str2.Length);
             
             try
             {
-                var result = await roslynService.ExecuteExpressionAsync(testCase.Code, testCase.Variables);
+                var result = await executor.ExecuteExpressionAsync(testCase.Code, testCase.Variables);
                 
                 if (result.Success)
                 {

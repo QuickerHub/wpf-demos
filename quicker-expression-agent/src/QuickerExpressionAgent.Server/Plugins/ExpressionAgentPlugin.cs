@@ -37,21 +37,24 @@ public class ExpressionAgentPlugin
         "Dictionary uses object {\"key\":\"value\"}, Object uses any JSON value. " +
         "Example: [{\"VarName\":\"userName\",\"VarType\":\"String\",\"DefaultValue\":\"John\"},{\"VarName\":\"age\",\"VarType\":\"Int\",\"DefaultValue\":25}]";
     
-    private readonly IExpressionAgentToolHandler _toolHandler;
-    private readonly IRoslynExpressionService? _roslynService;
+    private readonly IToolHandlerProvider _toolHandlerProvider;
 
-    public ExpressionAgentPlugin(IExpressionAgentToolHandler toolHandler, IRoslynExpressionService? roslynService = null)
+    public ExpressionAgentPlugin(IToolHandlerProvider toolHandlerProvider)
     {
-        _toolHandler = toolHandler;
-        _roslynService = roslynService;
+        _toolHandlerProvider = toolHandlerProvider ?? throw new ArgumentNullException(nameof(toolHandlerProvider));
     }
+    
+    /// <summary>
+    /// Gets the current tool handler from the provider
+    /// </summary>
+    private IExpressionAgentToolHandler ToolHandler => _toolHandlerProvider.ToolHandler;
 
 
     [KernelFunction]
     [Description($"Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {{variableName}} format. {ExpressionFormatDescription} Returns a formatted string with variable names and types only (no default values).")]
     public string GetExternalVariables()
     {
-        var variables = _toolHandler.GetAllVariables();
+        var variables = ToolHandler.GetAllVariables();
         
         if (!variables.Any())
         {
@@ -83,7 +86,7 @@ public class ExpressionAgentPlugin
         try
         {
             // Check if variable already exists
-            var existing = _toolHandler.GetVariable(name);
+            var existing = ToolHandler.GetVariable(name);
             bool isNew = existing == null;
             
             // Create VariableClass and set variable
@@ -94,7 +97,7 @@ public class ExpressionAgentPlugin
                 DefaultValue = defaultValue
             };
             
-            _toolHandler.SetVariable(variable);
+            ToolHandler.SetVariable(variable);
             
             if (isNew)
             {
@@ -116,7 +119,7 @@ public class ExpressionAgentPlugin
     public VariableClass? GetVariable(
     [Description("Name of the variable to retrieve")] string variableName)
     {
-        return _toolHandler.GetVariable(variableName);
+        return ToolHandler.GetVariable(variableName);
     }
     
     [KernelFunction]
@@ -131,7 +134,7 @@ public class ExpressionAgentPlugin
         }
 
         // Get existing variable to preserve its type
-        var existing = _toolHandler.GetVariable(name);
+        var existing = ToolHandler.GetVariable(name);
         if (existing == null)
         {
             return $"Error: Variable '{name}' not found. Use CreateVariable to create it first.";
@@ -148,7 +151,7 @@ public class ExpressionAgentPlugin
             DefaultValue = convertedValue
         };
         
-        _toolHandler.SetVariable(variable);
+        ToolHandler.SetVariable(variable);
         return $"Variable '{name}' default value set successfully.";
     }
 
@@ -156,8 +159,8 @@ public class ExpressionAgentPlugin
     [Description("Get the current expression and variables as a formatted string description. This provides a human-readable summary of the current expression code and all external variables with their types (without default values). Use this when you need to understand the current state before modifying the expression. To get a specific variable's default value, use GetVariable method.")]
     public string GetCurrentExpressionDescription()
     {
-        var expression = _toolHandler.Expression;
-        var variables = _toolHandler.GetAllVariables();
+        var expression = ToolHandler.Expression;
+        var variables = ToolHandler.GetAllVariables();
 
         if (string.IsNullOrWhiteSpace(expression) && !variables.Any())
         {
@@ -202,11 +205,6 @@ public class ExpressionAgentPlugin
         [Description($"Expression to test. {ExpressionFormatDescription}")] string expression,
         [Description($"Optional list of variables with default values. {VariableListJsonFormatDescription} Variables must already exist (created via CreateVariable). This allows setting temporary default values for testing without modifying UI variables.")] List<VariableClass>? variables = null)
     {
-        if (_roslynService == null)
-        {
-            return "Error: Roslyn service not available. Cannot test expression.";
-        }
-
         if (string.IsNullOrWhiteSpace(expression))
         {
             return "Error: Expression cannot be empty.";
@@ -215,7 +213,7 @@ public class ExpressionAgentPlugin
         try
         {
             // Get all existing variables from tool handler
-            var existingVariables = _toolHandler.GetAllVariables();
+            var existingVariables = ToolHandler.GetAllVariables();
             
             // Build variable list: start with all external variables, then override with provided values if provided
             var variablesToUse = existingVariables.Select(v => new VariableClass
@@ -255,7 +253,7 @@ public class ExpressionAgentPlugin
             }
             
             // Use tool handler's TestExpression
-            var result = await _toolHandler.TestExpression(expression, variablesToUse);
+            var result = await ToolHandler.TestExpression(expression, variablesToUse);
 
             if (result.Success)
             {
@@ -385,7 +383,7 @@ public class ExpressionAgentPlugin
         try
         {
             // Update expression
-            _toolHandler.Expression = expression;
+            ToolHandler.Expression = expression;
             return "Expression set successfully.";
         }
         catch (Exception ex)
