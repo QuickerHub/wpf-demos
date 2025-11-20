@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using QuickerExpressionAgent.Common;
@@ -13,21 +14,25 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        // Configure services using DI
-        var services = new ServiceCollection();
-        services.AddServerServices();
-        
-        // Build service provider
-        using var serviceProvider = services.BuildServiceProvider();
-        
-        var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+        // Create host to run IHostedService
+        var host = Host.CreateDefaultBuilder(args)
+            .ConfigureServices(services =>
+            {
+                services.AddServerServices();
+            })
+            .Build();
+
+        var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
         try
         {
+            // Start hosted services (including QuickerServerClientConnector)
+            await host.StartAsync();
+
             // Get services from DI
-            var agent = serviceProvider.GetRequiredService<SemanticKernelExpressionAgent>();
-            var roslynService = serviceProvider.GetRequiredService<IRoslynExpressionService>();
-            
+            var agent = host.Services.GetRequiredService<SemanticKernelExpressionAgent>();
+            var roslynService = host.Services.GetRequiredService<IRoslynExpressionService>();
+
             // Parse command line arguments
             bool runTests = args.Contains("-t") || args.Contains("--test");
             
@@ -41,11 +46,18 @@ class Program
                 // Default: run expression dialog
                 await RunExpressionDialogAsync(agent, logger);
             }
+
+            // Stop hosted services
+            await host.StopAsync();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Fatal error occurred");
             Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            host.Dispose();
         }
     }
 

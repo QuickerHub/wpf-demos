@@ -33,6 +33,17 @@ public class VariableClass
 
 /// <summary>
 /// Service interface for expression execution in Quicker
+/// 
+/// NOTE: This interface uses List&lt;VariableClass&gt; instead of arrays or other collection types.
+/// This is due to a known limitation/bug in H.Ipc generator which has issues with:
+/// - Generic List&lt;T&gt; types in some scenarios
+/// - Array types (VariableClass[]) 
+/// - IList&lt;T&gt; or other collection interfaces
+/// 
+/// While List&lt;VariableClass&gt; may cause compilation warnings with H.Ipc generator,
+/// it is the most compatible type that works with the current H.Ipc implementation.
+/// If you encounter generator errors, consider using arrays or IList&lt;T&gt; as alternatives,
+/// but be aware they may also have issues with the H.Ipc generator.
 /// </summary>
 public interface IQuickerService
 {
@@ -88,11 +99,18 @@ public interface IQuickerService
 /// <summary>
 /// Expression request (used for both execution and setting)
 /// Expression uses {varname} format, which will be replaced with actual variable names during execution
+/// 
+/// NOTE: VariableList uses List&lt;VariableClass&gt; despite known H.Ipc generator issues.
+/// This is because alternative types (arrays, IList&lt;T&gt;) also have problems with the generator.
 /// </summary>
 public class ExpressionRequest
 {
     public string Code { get; set; } = string.Empty;
     
+    /// <summary>
+    /// List of variables for the expression.
+    /// Uses List&lt;VariableClass&gt; due to H.Ipc generator limitations with other collection types.
+    /// </summary>
     public List<VariableClass> VariableList { get; set; } = new();
 }
 
@@ -107,6 +125,10 @@ public class ExpressionResult
     
     public string Error { get; set; } = string.Empty;
     
+    /// <summary>
+    /// List of variables used in the expression execution.
+    /// Uses List&lt;VariableClass&gt; due to H.Ipc generator limitations with other collection types.
+    /// </summary>
     public List<VariableClass> UsedVariables { get; set; } = [];
 }
 
@@ -117,6 +139,10 @@ public class ExpressionAndVariables
 {
     public string Expression { get; set; } = string.Empty;
     
+    /// <summary>
+    /// List of variables for the code editor wrapper.
+    /// Uses List&lt;VariableClass&gt; due to H.Ipc generator limitations with other collection types.
+    /// </summary>
     public List<VariableClass> Variables { get; set; } = new();
 }
 

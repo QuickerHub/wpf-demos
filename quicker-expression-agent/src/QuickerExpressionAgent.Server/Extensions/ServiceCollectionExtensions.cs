@@ -28,7 +28,9 @@ public static class ServiceCollectionExtensions
         
         // Quicker service connector (connects to .Quicker project via pipe)
         // Must be registered before QuickerExpressionService as it's a dependency
+        // Register as singleton and hosted service (use same instance)
         services.AddSingleton<QuickerServerClientConnector>();
+        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<QuickerServerClientConnector>());
         
         // Quicker expression service (connects to .Quicker project via pipe)
         services.AddSingleton<IQuickerExpressionService, QuickerExpressionService>();
