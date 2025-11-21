@@ -131,7 +131,29 @@ public class ExpressionResult
 {
     public bool Success { get; set; }
     
+    /// <summary>
+    /// Original object value (for local use, not serialized over JsonRpc)
+    /// This field is ignored during JSON serialization to avoid serialization issues
+    /// </summary>
+#if NET472
+    [Newtonsoft.Json.JsonIgnore]
+#else
+    [System.Text.Json.Serialization.JsonIgnore]
+#endif
     public object? Value { get; set; }
+
+    /// <summary>
+    /// Value stored as JSON string for reliable serialization over JsonRpc
+    /// This field is used when serializing for IPC communication
+    /// </summary>
+    public string? ValueJson { get; set; }
+    
+    /// <summary>
+    /// C# type name of the Value (e.g., "List`1[System.String]", "Dictionary`2[System.String,System.Object]")
+    /// Used for deserialization to know the correct type
+    /// Format: Generic type names use backtick notation (e.g., List`1, Dictionary`2)
+    /// </summary>
+    public string? ValueType { get; set; }
     
     public string Error { get; set; } = string.Empty;
     
@@ -139,6 +161,81 @@ public class ExpressionResult
     /// List of variables used in the expression execution.
     /// </summary>
     public List<VariableClass> UsedVariables { get; set; } = [];
+
+    /// <summary>
+    /// Default constructor (for deserialization)
+    /// </summary>
+    public ExpressionResult()
+    {
+    }
+
+    /// <summary>
+    /// Constructor for successful result with value
+    /// </summary>
+    /// <param name="value">The result value</param>
+    /// <param name="usedVariables">List of variables used in the expression execution</param>
+    public ExpressionResult(object? value, List<VariableClass>? usedVariables = null)
+    {
+        Success = true;
+        Error = string.Empty;
+        UsedVariables = usedVariables ?? [];
+        
+        if (value == null)
+        {
+            Value = null;
+            ValueJson = null;
+            ValueType = null;
+        }
+        else
+        {
+            // Store original object for local use
+            Value = value;
+            // Serialize to JSON string for IPC communication
+            ValueJson = value.ToJson(indented: false);
+            // Use GetType().ToString() to get the type name directly (e.g., "System.Collections.Generic.List`1[System.String]")
+            ValueType = value.GetType().ToString();
+        }
+    }
+
+    /// <summary>
+    /// Get the value (returns Value if available, otherwise deserializes from ValueJson)
+    /// </summary>
+    public T? GetValue<T>()
+    {
+        // If Value is available and matches the requested type, return it directly
+        if (Value != null && Value is T typedValue)
+        {
+            return typedValue;
+        }
+        
+        // Otherwise, deserialize from JSON string
+        if (string.IsNullOrWhiteSpace(ValueJson))
+        {
+            return default;
+        }
+        return ValueJson.FromJson<T>();
+    }
+}
+
+/// <summary>
+/// Expression execution error result
+/// </summary>
+public class ExpressionResultError : ExpressionResult
+{
+    /// <summary>
+    /// Constructor for failed result with error message
+    /// </summary>
+    /// <param name="error">The error message</param>
+    /// <param name="usedVariables">List of variables used in the expression execution</param>
+    public ExpressionResultError(string error, List<VariableClass>? usedVariables = null)
+    {
+        Success = false;
+        Error = error ?? string.Empty;
+        Value = null;
+        ValueJson = null;
+        ValueType = null;
+        UsedVariables = usedVariables ?? [];
+    }
 }
 
 
