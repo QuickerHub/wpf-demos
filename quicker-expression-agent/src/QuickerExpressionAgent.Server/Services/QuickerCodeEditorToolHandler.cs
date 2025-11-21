@@ -91,7 +91,7 @@ public class QuickerCodeEditorToolHandler : IExpressionAgentToolHandler
     public async Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
     {
         if (string.IsNullOrWhiteSpace(expression))
-            return new ExpressionResult { Success = false, Error = "Expression cannot be empty." };
+            return new ExpressionResultError("Expression cannot be empty.");
         
         var request = new ExpressionRequest
         {

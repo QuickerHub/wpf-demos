@@ -6,6 +6,7 @@ using Microsoft.SemanticKernel;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Extensions;
+using QuickerExpressionAgent.Server.Plugins;
 using QuickerExpressionAgent.Server.Services;
 
 namespace QuickerExpressionAgent.Server;
@@ -50,8 +51,14 @@ class Program
 
             // Parse command line arguments
             bool runTests = args.Contains("-t") || args.Contains("--test");
+            bool testPlugin = args.Contains("-p") || args.Contains("--test-plugin");
             
-            if (runTests)
+            if (testPlugin)
+            {
+                // Test plugin parameter conversion
+                await TestPluginParameterConversionAsync(logger);
+            }
+            else if (runTests)
             {
                 // Run expression tests
                 await TestExpressionExecutorAsync(executor, logger);
@@ -406,7 +413,10 @@ distance += Math.Abs(str1.Length - str2.Length);
                 
                 if (result.Success)
                 {
-                    Console.WriteLine($"✓ Success: {result.Value} (Type: {result.Value?.GetType().Name ?? "null"})");
+                    // Use ValueJson for display (Value is JsonIgnore, not serialized)
+                    var valueStr = string.IsNullOrWhiteSpace(result.ValueJson) ? "null" : result.ValueJson;
+                    var typeStr = string.IsNullOrWhiteSpace(result.ValueType) ? "unknown" : result.ValueType;
+                    Console.WriteLine($"✓ Success: {valueStr} (Type: {typeStr})");
                     successCount++;
                 }
                 else
@@ -427,6 +437,180 @@ distance += Math.Abs(str1.Length - str2.Length);
         Console.WriteLine($"Success: {successCount}");
         Console.WriteLine($"Failed: {failCount}");
         Console.WriteLine($"Success Rate: {(successCount * 100.0 / testCases.Length):F1}%");
+    }
+
+    /// <summary>
+    /// Test plugin parameter conversion (simulating SemanticKernel behavior)
+    /// </summary>
+    private static async Task TestPluginParameterConversionAsync(ILogger logger)
+    {
+        Console.WriteLine("=== Plugin Parameter Conversion Test ===\n");
+        
+        try
+        {
+            // Simulate the JSON that SemanticKernel would send
+            var jsonArguments = """
+                {
+                    "expression": "{dict}.Where(kv => kv.Key.StartsWith(\"var\")).ToDictionary(kv => kv.Key, kv => kv.Value)",
+                    "variables": [
+                        {
+                            "VarName": "dict",
+                            "VarType": "Dictionary",
+                            "DefaultValue": {
+                                "varName": "John",
+                                "varAge": 25,
+                                "otherKey": "value",
+                                "varCity": "Beijing"
+                            }
+                        }
+                    ]
+                }
+                """;
+            
+            Console.WriteLine("Original JSON Arguments:");
+            Console.WriteLine(jsonArguments);
+            Console.WriteLine();
+            
+            // Parse JSON to simulate SemanticKernel deserialization
+            using var jsonDoc = JsonDocument.Parse(jsonArguments);
+            var root = jsonDoc.RootElement;
+            
+            var expression = root.GetProperty("expression").GetString() ?? string.Empty;
+            var variablesElement = root.GetProperty("variables");
+            
+            // Deserialize variables (simulating how SemanticKernel would deserialize)
+            var variables = new List<Plugins.VariableClassWithObjectValue>();
+            foreach (var varElement in variablesElement.EnumerateArray())
+            {
+                var varName = varElement.GetProperty("VarName").GetString() ?? string.Empty;
+                var varTypeStr = varElement.GetProperty("VarType").GetString() ?? "String";
+                var varType = Enum.Parse<VariableType>(varTypeStr, ignoreCase: true);
+                
+                // Get DefaultValue as JsonElement (this is how SemanticKernel would pass it)
+                var defaultValueElement = varElement.GetProperty("DefaultValue");
+                
+                var variable = new Plugins.VariableClassWithObjectValue
+                {
+                    VarName = varName,
+                    VarType = varType,
+                    DefaultValue = defaultValueElement // JsonElement
+                };
+                
+                variables.Add(variable);
+            }
+            
+            Console.WriteLine("Deserialized Variables:");
+            foreach (var variable in variables)
+            {
+                Console.WriteLine($"  VarName: {variable.VarName}");
+                Console.WriteLine($"  VarType: {variable.VarType}");
+                Console.WriteLine($"  DefaultValue Type: {variable.DefaultValue?.GetType().Name ?? "null"}");
+                if (variable.DefaultValue is JsonElement jsonElement)
+                {
+                    Console.WriteLine($"  DefaultValue (JsonElement): {jsonElement.GetRawText()}");
+                }
+                else
+                {
+                    Console.WriteLine($"  DefaultValue: {variable.DefaultValue}");
+                }
+            }
+            Console.WriteLine();
+            
+            // Convert to VariableClass
+            Console.WriteLine("Converting to VariableClass:");
+            var convertedVariables = variables.Select(v => v.ToVariableClass()).ToList();
+            foreach (var variable in convertedVariables)
+            {
+                Console.WriteLine($"  VarName: {variable.VarName}");
+                Console.WriteLine($"  VarType: {variable.VarType}");
+                Console.WriteLine($"  DefaultValue (string): {variable.DefaultValue}");
+                
+                // Test GetDefaultValue
+                var deserializedValue = variable.GetDefaultValue();
+                Console.WriteLine($"  Deserialized Value Type: {deserializedValue?.GetType().Name ?? "null"}");
+                if (deserializedValue is Dictionary<string, object> dict)
+                {
+                    Console.WriteLine($"  Deserialized Value: {string.Join(", ", dict.Select(kv => $"{kv.Key}={kv.Value}"))}");
+                }
+                else
+                {
+                    Console.WriteLine($"  Deserialized Value: {deserializedValue}");
+                }
+            }
+            Console.WriteLine();
+            
+            // Test with ExpressionAgentPlugin
+            Console.WriteLine("Testing with ExpressionAgentPlugin:");
+            var serviceProvider = new ServiceCollection()
+                .AddServerServices()
+                .BuildServiceProvider();
+            
+            // Create a mock IToolHandlerProvider
+            var toolHandler = serviceProvider.GetRequiredService<IExpressionAgentToolHandler>();
+            var toolHandlerProvider = new MockToolHandlerProvider(toolHandler);
+            
+            var plugin = new Plugins.ExpressionAgentPlugin(toolHandlerProvider);
+            
+            // Create the dict variable first
+            var dictVar = new VariableClass
+            {
+                VarName = "dict",
+                VarType = VariableType.Dictionary
+            };
+            dictVar.SetDefaultValue(new Dictionary<string, object>());
+            
+            // Set variable
+            toolHandler.SetVariable(dictVar);
+            
+            // Convert variables to List<object> (SemanticKernel will pass List<object>)
+            // Each variable will be passed as an object (could be JsonElement, Dictionary, etc.)
+            List<object>? variablesList = null;
+            if (variables != null && variables.Count > 0)
+            {
+                variablesList = new List<object>();
+                foreach (var variable in variables)
+                {
+                    // Convert VariableClassWithObjectValue to JsonElement (simulating SemanticKernel behavior)
+                    var jsonString = JsonSerializer.Serialize(new
+                    {
+                        variable.VarName,
+                        VarType = variable.VarType.ToString(),
+                        variable.DefaultValue
+                    });
+                    using var varJsonDoc = JsonDocument.Parse(jsonString);
+                    variablesList.Add(varJsonDoc.RootElement.Clone()); // Clone to avoid disposal issues
+                }
+            }
+            
+            // Now test TestExpression
+            var result = await plugin.TestExpressionAsync(expression, variablesList);
+            
+            Console.WriteLine("TestExpression Result:");
+            Console.WriteLine(result);
+            
+            Console.WriteLine("\n=== Test Completed ===");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in plugin parameter conversion test");
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    /// <summary>
+    /// Mock IToolHandlerProvider for testing
+    /// </summary>
+    private class MockToolHandlerProvider : Services.IToolHandlerProvider
+    {
+        private readonly IExpressionAgentToolHandler _toolHandler;
+        
+        public MockToolHandlerProvider(IExpressionAgentToolHandler toolHandler)
+        {
+            _toolHandler = toolHandler;
+        }
+        
+        public IExpressionAgentToolHandler ToolHandler => _toolHandler;
     }
 
     /// <summary>

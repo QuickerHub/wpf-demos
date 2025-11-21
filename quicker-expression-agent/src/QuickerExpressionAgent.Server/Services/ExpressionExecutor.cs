@@ -74,11 +74,7 @@ public class ExpressionExecutor : IExpressionExecutor
         {
             if (string.IsNullOrWhiteSpace(code))
             {
-                return new ExpressionResult
-                {
-                    Success = false,
-                    Error = "Expression code cannot be empty."
-                };
+                return new ExpressionResultError("Expression code cannot be empty.");
             }
 
             // Debug: Log the input
@@ -145,11 +141,7 @@ public class ExpressionExecutor : IExpressionExecutor
             {
                 var errors = string.Join("\n", diagnostics.Select(d => d.GetMessage()));
                 Console.WriteLine($"[Roslyn Debug] Compilation error: {errors}");
-                return new ExpressionResult
-                {
-                    Success = false,
-                    Error = $"Compilation errors:\n{errors}"
-                };
+                return new ExpressionResultError($"Compilation errors:\n{errors}");
             }
             
             // Run the script with globals
@@ -176,21 +168,12 @@ public class ExpressionExecutor : IExpressionExecutor
                 }
             }
             
-            return new ExpressionResult
-            {
-                Success = true,
-                Value = returnValue,
-                UsedVariables = usedVariables
-            };
+            return new ExpressionResult(returnValue, usedVariables);
         }
         catch (CompilationErrorException ex)
         {
             var errors = string.Join("\n", ex.Diagnostics.Select(d => d.GetMessage()));
-            return new ExpressionResult
-            {
-                Success = false,
-                Error = $"Compilation error: {errors}",
-            };
+            return new ExpressionResultError($"Compilation error: {errors}");
         }
         catch (Exception ex)
         {
@@ -202,11 +185,7 @@ public class ExpressionExecutor : IExpressionExecutor
             }
             errorDetails += $"Stack Trace:\n{ex.StackTrace}";
             
-            return new ExpressionResult
-            {
-                Success = false,
-                Error = errorDetails
-            };
+            return new ExpressionResultError(errorDetails);
         }
     }
     

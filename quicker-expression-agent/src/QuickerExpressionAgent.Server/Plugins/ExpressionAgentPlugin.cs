@@ -11,6 +11,34 @@ using QuickerExpressionAgent.Server.Services;
 namespace QuickerExpressionAgent.Server.Plugins;
 
 /// <summary>
+/// Variable class with object DefaultValue for AI agent input
+/// This allows AI to pass object values directly without JSON string conversion
+/// </summary>
+public class VariableClassWithObjectValue
+{
+    public string VarName { get; set; } = string.Empty;
+    public VariableType VarType { get; set; } = VariableType.String;
+    public object? DefaultValue { get; set; }
+    
+    /// <summary>
+    /// Convert to VariableClass with string DefaultValue
+    /// </summary>
+    public VariableClass ToVariableClass()
+    {
+        var variable = new VariableClass
+        {
+            VarName = VarName,
+            VarType = VarType
+        };
+        
+        // VariableClass.SetDefaultValue will handle type conversion and serialization
+        variable.SetDefaultValue(DefaultValue);
+        
+        return variable;
+    }
+}
+
+/// <summary>
 /// Plugin for Expression Agent tools - provides tools for creating variables, modifying expressions, and testing
 /// </summary>
 public class ExpressionAgentPlugin
@@ -40,6 +68,14 @@ public class ExpressionAgentPlugin
         "DateTime uses ISO8601 string, ListString uses array of strings [\"item1\",\"item2\"], " +
         "Dictionary uses object {\"key\":\"value\"}, Object uses any JSON value. " +
         "Example: [{\"VarName\":\"userName\",\"VarType\":\"String\",\"DefaultValue\":\"John\"},{\"VarName\":\"age\",\"VarType\":\"Int\",\"DefaultValue\":25}]";
+    
+    /// <summary>
+    /// Description of the JSON format for List&lt;VariableClassWithObjectValue&gt; (for TestExpression)
+    /// </summary>
+    private const string VariableClassWithObjectValueFormatDescription = 
+        "JSON array format: [{\"VarName\":\"string\",\"VarType\":\"String|Int|Double|Bool|DateTime|ListString|Dictionary|Object\",\"DefaultValue\":value},...]. " +
+        "DefaultValue can be any JSON value matching the VarType (string, number, boolean, array, object). " +
+        "Variables must already exist (created via CreateVariable). This allows setting temporary default values for testing without modifying UI variables.";
     
     /// <summary>
     /// Description of variable naming convention
@@ -216,9 +252,9 @@ public class ExpressionAgentPlugin
 
     [KernelFunction]
     [Description($"Test an expression with optional variable default values. {ExpressionFormatDescription} The variables must already exist (created via CreateVariable). If variables parameter is not provided, uses the current UI variable default values.")]
-    public async Task<string> TestExpression(
+    public async Task<string> TestExpressionAsync(
         [Description($"Expression to test. {ExpressionFormatDescription}")] string expression,
-        [Description($"Optional list of variables with default values. {VariableListJsonFormatDescription} Variables must already exist (created via CreateVariable). This allows setting temporary default values for testing without modifying UI variables.")] List<VariableClass>? variables = null)
+        [Description($"Optional list of variables with default values. {VariableClassWithObjectValueFormatDescription}")] List<object>? variables = null)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
@@ -227,76 +263,84 @@ public class ExpressionAgentPlugin
 
         try
         {
-            // Get all existing variables from tool handler
-            var existingVariables = ToolHandler.GetAllVariables();
-            
-            // Build variable list: start with all external variables, then override with provided values if provided
-            var variablesToUse = existingVariables.Select(v => new VariableClass
-            {
-                VarName = v.VarName,
-                VarType = v.VarType,
-                DefaultValue = v.DefaultValue // Already a string, just copy
-            }).ToList();
-            
-            // Override default values with provided values if provided
+            // Convert List<object> to List<VariableClass>
+            // Serialize to JSON and deserialize directly to VariableClassWithObjectValue, then convert
+            List<VariableClass>? convertedVariables = null;
             if (variables != null && variables.Count > 0)
             {
-                // Check if all variables in list exist
-                var missingVariables = variables
-                    .Where(v => !existingVariables.Any(existing => 
-                        string.Equals(existing.VarName, v.VarName, StringComparison.OrdinalIgnoreCase)))
-                    .Select(v => v.VarName)
-                    .ToList();
-
-                if (missingVariables.Any())
+                try
                 {
-                    return $"Error: The following variables do not exist and must be created first using CreateVariable: {string.Join(", ", missingVariables)}";
-                }
-                
-                // Override default values with provided values
-                foreach (var variable in variables)
-                {
-                    var variableToUpdate = variablesToUse.FirstOrDefault(v => 
-                        string.Equals(v.VarName, variable.VarName, StringComparison.OrdinalIgnoreCase));
+                    // Serialize List<object> to JSON string
+                    var jsonString = JsonSerializer.Serialize(variables);
                     
-                    if (variableToUpdate != null)
+                    // Deserialize directly to List<VariableClassWithObjectValue>
+                    var variableList = JsonSerializer.Deserialize<List<VariableClassWithObjectValue>>(jsonString);
+                    
+                    if (variableList == null)
                     {
-                        // Convert value to correct type, handling JsonElement if present
-                        var convertedValue = ConvertValueToVariableType(variable.GetDefaultValue(), variableToUpdate.VarType);
-                        variableToUpdate.SetDefaultValue(convertedValue);
+                        return "Error: Failed to deserialize variables from JSON.";
                     }
+                    
+                    // Convert VariableClassWithObjectValue to VariableClass
+                    convertedVariables = variableList.Select(v => v.ToVariableClass()).ToList();
+                }
+                catch (JsonException ex)
+                {
+                    return $"Error: Invalid JSON format for variables parameter. {ex.Message}";
+                }
+                catch (Exception ex)
+                {
+                    return $"Error: Failed to parse variables parameter. {ex.Message}";
                 }
             }
             
-            // Use tool handler's TestExpression
-            var result = await ToolHandler.TestExpressionAsync(expression, variablesToUse);
+            // Use tool handler's TestExpression - it will handle variable merging internally
+            var result = await ToolHandler.TestExpressionAsync(expression, convertedVariables);
 
+            // Defensive check: ensure result is not null
+            if (result == null)
+            {
+                return "Error: TestExpressionAsync returned null result.";
+            }
+
+            var response = new StringBuilder();
+            
             if (result.Success)
             {
-                var resultJson = JsonSerializer.Serialize(result.Value, new JsonSerializerOptions { WriteIndented = true });
-                return $"Expression executed successfully. Result: {resultJson}";
+                var resultJson = string.IsNullOrWhiteSpace(result.ValueJson) ? "null" : result.ValueJson;
+                var valueType = string.IsNullOrWhiteSpace(result.ValueType) ? "" : $" (Type: {result.ValueType})";
+                response.AppendLine($"Success: {resultJson}{valueType}");
             }
             else
             {
-                // Check if error indicates missing variables
                 var errorMessage = result.Error ?? "Unknown error";
-                if (errorMessage.Contains("does not exist") || (errorMessage.Contains("The name") && errorMessage.Contains("does not exist in the current context")))
-                {
-                    // Try to extract variable name from error message
-                    var missingVarMatch = Regex.Match(errorMessage, @"(?:The name '|')([a-zA-Z_][a-zA-Z0-9_]*)'? does not exist");
-                    if (missingVarMatch.Success && missingVarMatch.Groups.Count > 1)
-                    {
-                        var missingVar = missingVarMatch.Groups[1].Value;
-                        return $"Error: Missing variable '{missingVar}' required by the expression. Please create this variable first using CreateVariable method. Full error: {errorMessage}";
-                    }
-                }
-                
-                return $"Expression execution failed. Error: {errorMessage}";
+                response.AppendLine($"Error: {errorMessage}");
             }
+            
+            // Add used variables information (name and type only)
+            if (result.UsedVariables != null && result.UsedVariables.Count > 0)
+            {
+                response.AppendLine($"Used Variables ({result.UsedVariables.Count}):");
+                foreach (var usedVar in result.UsedVariables)
+                {
+                    response.AppendLine($"  - {usedVar.VarName} ({usedVar.VarType})");
+                }
+            }
+            
+            var responseText = response.ToString();
+            
+            // Ensure we always return something - this should never happen, but just in case
+            if (string.IsNullOrWhiteSpace(responseText))
+            {
+                return $"Error: Empty response from TestExpression. Success={result.Success}, Error={result.Error ?? "null"}, ValueJson={result.ValueJson ?? "null"}, ValueType={result.ValueType ?? "null"}";
+            }
+            
+            return responseText;
         }
         catch (Exception ex)
         {
-                return $"Error testing expression: {ex.Message}";
+            // Include stack trace for debugging
+            return $"Error: {ex.Message}\nStack trace: {ex.StackTrace}";
         }
     }
 

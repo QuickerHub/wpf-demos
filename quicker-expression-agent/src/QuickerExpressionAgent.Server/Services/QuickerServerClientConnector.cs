@@ -145,7 +145,8 @@ public class QuickerServerClientConnector : IHostedService
                 using var cts = new CancellationTokenSource(5000);
                 await _pipeStream.ConnectAsync(cts.Token);
 
-                // Create JsonRpc and attach proxy
+                // Create JsonRpc - it will automatically respect [JsonIgnore] attributes
+                // StreamJsonRpc uses System.Text.Json which respects [System.Text.Json.Serialization.JsonIgnore]
                 _jsonRpc = new JsonRpc(_pipeStream, _pipeStream);
                 _service = _jsonRpc.Attach<IQuickerService>();
                 _jsonRpc.StartListening();
