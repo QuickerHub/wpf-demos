@@ -3,12 +3,17 @@
     <IncludeAssemblies>
       Microsoft.Extensions*
       QuickerExpressionAgent.Common*
-      H.*
       System.Text.Json*
-      MessagePack*
-      NamedPipeServerStream.NetFrameworkVersion*
       System.Text.Encodings.Web*
+      StreamJsonRpc*
+      Nerdbank.Streams*
+      System.Security.AccessControl*
+      System.Security.Principal.Windows*
+      MessagePack*
       Microsoft.NET.StringTools*
+      Microsoft.Win32.Registry*
+      Microsoft.VisualStudio.Validation*
+      Microsoft.VisualStudio.Threading*
     </IncludeAssemblies>
   </Costura>
 </Weavers>

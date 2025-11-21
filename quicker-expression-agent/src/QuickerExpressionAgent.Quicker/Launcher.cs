@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using QuickerExpressionAgent.Common;
 using log4net;
 
 namespace QuickerExpressionAgent.Quicker;
@@ -41,12 +42,17 @@ public static class Launcher
             services.AddSingleton<ApplicationLauncher>();
             services.AddSingleton<ExpressionAgentToolHandlerService>();
             services.AddSingleton<QuickerServiceImplementation>();
+            // Register IQuickerService interface
+            services.AddSingleton<IQuickerService>(s => s.GetRequiredService<QuickerServiceImplementation>());
             // Register as singleton and hosted service
             services.AddSingleton<QuickerServiceServer>();
             services.AddHostedService(s => s.GetRequiredService<QuickerServiceServer>());
             // Register MainWindow and ViewModel
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<MainWindow>();
+            // Register Test Window and ViewModel
+            services.AddTransient<ViewModels.QuickerServiceTestViewModel>();
+            services.AddTransient<QuickerServiceTestWindow>();
         })
         .Build();
 

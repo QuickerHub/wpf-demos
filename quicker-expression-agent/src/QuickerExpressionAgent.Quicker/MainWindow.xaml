@@ -43,7 +43,20 @@
 
         <!--  Main Content  -->
         <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Button
+                Grid.Row="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="10"
+                Padding="10,5"
+                Command="{Binding ViewModel.OpenTestWindowCommand}"
+                Content="测试窗口" />
             <TextBlock
+                Grid.Row="1"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 FontSize="24"

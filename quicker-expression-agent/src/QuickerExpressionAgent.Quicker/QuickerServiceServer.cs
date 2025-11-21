@@ -1,16 +1,18 @@
 using System;
+using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using H.Pipes;
+using StreamJsonRpc;
 using QuickerExpressionAgent.Common;
 
 namespace QuickerExpressionAgent.Quicker;
 
 /// <summary>
-/// Server that hosts the IQuickerService implementation via named pipe using H.Ipc
+/// Server that hosts the IQuickerService implementation via named pipe using StreamJsonRpc
 /// This server runs in the .Quicker project and provides services to agent.exe
+/// Uses StreamJsonRpc for JSON-RPC 2.0 protocol communication
 /// </summary>
 public class QuickerServiceServer : IHostedService
 {
@@ -18,7 +20,8 @@ public class QuickerServiceServer : IHostedService
     private readonly ILogger<QuickerServiceServer> _logger;
     private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly string _serverName;
-    private PipeServer<string>? _server;
+    private NamedPipeServerStream? _pipeStream;
+    private JsonRpc? _jsonRpc;
     private bool _isClientConnected;
 
     public event EventHandler<bool>? ConnectionStatusChanged;
@@ -52,46 +55,85 @@ public class QuickerServiceServer : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _server = PipeHelper.GetServer(_serverName);
-        
-        _server.ClientConnected += (sender, args) =>
-        {
-            _logger.LogInformation("Client connected to expression service server");
-            IsClientConnected = true;
-        };
-        
-        _server.ClientDisconnected += (sender, args) =>
-        {
-            _logger.LogInformation("Client disconnected from expression service server");
-            IsClientConnected = false;
-        };
-        
-        _serviceImplementation.Initialize(_server);
-        
         // Start server in background to avoid blocking IHostedService.StartAsync
         _ = Task.Run(async () =>
         {
             try
             {
-                await _server.StartAsync();
-                _logger.LogInformation("Expression service server started on pipe: {PipeName}", _serverName);
+                await StartServerAsync(_cancellationTokenSource.Token);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to start expression service server");
             }
         }, _cancellationTokenSource.Token);
+        
+        await Task.CompletedTask;
+    }
+
+    private async Task StartServerAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Create named pipe server
+                _pipeStream = new NamedPipeServerStream(
+                    _serverName,
+                    PipeDirection.InOut,
+                    NamedPipeServerStream.MaxAllowedServerInstances,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
+
+                _logger.LogInformation("Expression service server ready, waiting for client connection on pipe: {PipeName}", _serverName);
+                
+                // Wait for client connection (no timeout, wait indefinitely)
+                await _pipeStream.WaitForConnectionAsync(cancellationToken);
+                
+                _logger.LogInformation("Client connected to expression service server");
+                IsClientConnected = true;
+
+                // Create JsonRpc and attach service implementation
+                _jsonRpc = new JsonRpc(_pipeStream, _pipeStream);
+                _jsonRpc.AddLocalRpcTarget(_serviceImplementation);
+                _jsonRpc.StartListening();
+
+                // Wait for disconnection
+                await _jsonRpc.Completion;
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in expression service server");
+            }
+            finally
+            {
+                IsClientConnected = false;
+                _jsonRpc?.Dispose();
+                _pipeStream?.Dispose();
+                _jsonRpc = null;
+                _pipeStream = null;
+            }
+
+            // Wait a bit before accepting next connection
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000, cancellationToken);
+            }
+        }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _cancellationTokenSource.Cancel();
         
-        if (_server != null)
-        {
-            await _server.DisposeAsync();
-        }
+        _jsonRpc?.Dispose();
+        _pipeStream?.Dispose();
         
         _logger.LogInformation("Expression service server stopped");
+        await Task.CompletedTask;
     }
 }

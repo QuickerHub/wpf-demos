@@ -36,7 +36,7 @@ public class ExpressionAgentToolHandlerService
             throw new ArgumentNullException(nameof(handler));
         }
 
-        var wrapperId = handler is CodeEditorWrapper codeWrapper ? codeWrapper.WrapperId : StandaloneHandlerId;
+        var wrapperId = handler is CodeEditorExpressionToolHandler codeWrapper ? codeWrapper.WrapperId : StandaloneHandlerId;
         _handlers[wrapperId] = handler;
     }
 
@@ -68,7 +68,7 @@ public class ExpressionAgentToolHandlerService
             return; // Don't unregister standalone handler
         }
 
-        var wrapperId = handler is CodeEditorWrapper codeWrapper ? codeWrapper.WrapperId : null;
+        var wrapperId = handler is CodeEditorExpressionToolHandler codeWrapper ? codeWrapper.WrapperId : null;
         if (wrapperId != null)
         {
             Unregister(wrapperId);
@@ -107,14 +107,14 @@ public class ExpressionAgentToolHandlerService
             // Check if wrapper already exists
             foreach (var existingHandler in _handlers.Values)
             {
-                if (existingHandler is CodeEditorWrapper codeWrapper && codeWrapper.WindowHandle == windowHandle)
+                if (existingHandler is CodeEditorExpressionToolHandler codeWrapper && codeWrapper.WindowHandle == windowHandle)
                 {
                     return codeWrapper;
                 }
             }
 
             // Create new wrapper with existing window
-            var wrapper = new CodeEditorWrapper();
+            var wrapper = new CodeEditorExpressionToolHandler();
             Register(wrapper);
             return wrapper;
         }
@@ -151,7 +151,7 @@ public class ExpressionAgentToolHandlerService
 
         foreach (var handler in _handlers.Values)
         {
-            if (handler is CodeEditorWrapper codeWrapper)
+            if (handler is CodeEditorExpressionToolHandler codeWrapper)
             {
                 try
                 {

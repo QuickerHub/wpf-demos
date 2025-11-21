@@ -83,7 +83,7 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
     /// <param name="expression">Expression to test</param>
     /// <param name="variables">Optional list of variables with default values (uses current variables if null)</param>
     /// <returns>Expression execution result</returns>
-    public Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null)
+    public Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
@@ -198,17 +198,19 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
     /// <returns>Converted value</returns>
     private object ConvertVariableToValue(VariableClass variable)
     {
+        // Get deserialized value from string
+        var defaultValue = variable.GetDefaultValue();
         return variable.VarType switch
         {
-            VariableType.String => variable.DefaultValue?.ToString() ?? string.Empty,
-            VariableType.Int => Convert.ToInt32(variable.DefaultValue ?? 0),
-            VariableType.Double => Convert.ToDouble(variable.DefaultValue ?? 0.0),
-            VariableType.Bool => Convert.ToBoolean(variable.DefaultValue ?? false),
-            VariableType.DateTime => variable.DefaultValue is DateTime dt ? dt : DateTime.Now,
-            VariableType.ListString => variable.DefaultValue ?? new List<string>(),
-            VariableType.Dictionary => variable.DefaultValue ?? new Dictionary<string, object>(),
-            VariableType.Object => variable.DefaultValue ?? new object(),
-            _ => variable.DefaultValue ?? new object()
+            VariableType.String => defaultValue?.ToString() ?? string.Empty,
+            VariableType.Int => Convert.ToInt32(defaultValue ?? 0),
+            VariableType.Double => Convert.ToDouble(defaultValue ?? 0.0),
+            VariableType.Bool => Convert.ToBoolean(defaultValue ?? false),
+            VariableType.DateTime => defaultValue is DateTime dt ? dt : DateTime.Now,
+            VariableType.ListString => defaultValue ?? new List<string>(),
+            VariableType.Dictionary => defaultValue ?? new Dictionary<string, object>(),
+            VariableType.Object => defaultValue ?? new object(),
+            _ => defaultValue ?? new object()
         };
     }
 
