@@ -131,7 +131,7 @@ public class ExpressionResult
 {
     public bool Success { get; set; }
     
-    public object Value { get; set; } = new();
+    public object? Value { get; set; }
     
     public string Error { get; set; } = string.Empty;
     

@@ -73,9 +73,7 @@ public static class VariableTypeExtensions
             VariableType.Double => double.Parse(value),
             VariableType.Bool => bool.Parse(value),
             VariableType.DateTime => DateTime.Parse(value),
-            VariableType.ListString => value.Split(new[] { '\r', '\n' }, StringSplitOptions.None)
-                .Select(line => line.TrimEnd())
-                .ToList(),
+            VariableType.ListString => TryParseListString(value),
             VariableType.Dictionary => TryParseDictionary(value),
             VariableType.Object => value,
             _ => value
@@ -95,6 +93,48 @@ public static class VariableTypeExtensions
         {
             return varType.GetDefaultValue();
         }
+    }
+
+    /// <summary>
+    /// Try to parse ListString from string
+    /// First attempts JSON array format, then falls back to newline-separated format
+    /// </summary>
+    private static List<string> TryParseListString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new List<string>();
+        }
+
+        // First, try to parse as JSON array
+        try
+        {
+            var trimmedValue = value.Trim();
+            if (trimmedValue.StartsWith("[") && trimmedValue.EndsWith("]"))
+            {
+                var jsonDoc = JsonDocument.Parse(trimmedValue);
+                if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    var list = new List<string>();
+                    foreach (var element in jsonDoc.RootElement.EnumerateArray())
+                    {
+                        list.Add(element.ValueKind == JsonValueKind.String 
+                            ? element.GetString() ?? string.Empty 
+                            : element.ToString());
+                    }
+                    return list;
+                }
+            }
+        }
+        catch
+        {
+            // JSON parsing failed, fall through to newline-separated format
+        }
+
+        // Fall back to newline-separated format
+        return value.Split(new[] { '\r', '\n' }, StringSplitOptions.None)
+            .Select(line => line.TrimEnd())
+            .ToList();
     }
 
     /// <summary>
