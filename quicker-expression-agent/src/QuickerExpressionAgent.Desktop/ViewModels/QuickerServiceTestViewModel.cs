@@ -6,9 +6,6 @@ using QuickerExpressionAgent.Server.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Unicode;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -44,9 +41,20 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [ObservableProperty]
         private string _testVariableValue = "testValue";
 
+        [ObservableProperty]
+        private VariableType _selectedVariableType = VariableType.String;
+
+        [ObservableProperty]
+        private List<VariableClass> _testVariables = new();
+
+        [ObservableProperty]
+        private string _testVariablesJson = string.Empty;
+
         public bool CanTest => IsConnected && !IsConnecting;
 
         public bool HasCodeEditorHandler => !string.IsNullOrEmpty(HandlerId) && HandlerId != "standalone";
+
+        public Array VariableTypes => Enum.GetValues(typeof(VariableType));
 
         partial void OnIsConnectedChanged(bool value)
         {
@@ -218,7 +226,31 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             try
             {
                 var result = await _connector.ServiceClient.GetExpressionAndVariablesForWrapperAsync(HandlerId);
-                TestResult = $"表达式: {result.Code}\n变量数量: {result.VariableList?.Count ?? 0}";
+                
+                object variablesList;
+                if (result.VariableList != null && result.VariableList.Count > 0)
+                {
+                    variablesList = result.VariableList.Select(v => new
+                    {
+                        v.VarName,
+                        v.VarType,
+                        DefaultValue = v.DefaultValue,
+                        DeserializedValue = v.GetDefaultValue()
+                    }).ToList();
+                }
+                else
+                {
+                    variablesList = new List<object>();
+                }
+                
+                var resultObj = new
+                {
+                    Expression = result.Code ?? string.Empty,
+                    VariableCount = result.VariableList?.Count ?? 0,
+                    Variables = variablesList
+                };
+                
+                TestResult = resultObj.ToJson();
             }
             catch (Exception ex)
             {
@@ -329,17 +361,62 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 var variable = new VariableClass
                 {
                     VarName = TestVariableName,
-                    VarType = VariableType.String,
-                    DefaultValue = TestVariableValue
+                    VarType = SelectedVariableType
                 };
+                variable.SetDefaultValue(ParseVariableValue(TestVariableValue, SelectedVariableType));
 
                 await _connector.ServiceClient.SetVariableForWrapperAsync(HandlerId, variable);
-                TestResult = "变量设置成功";
+                TestResult = $"变量设置成功: {variable.VarName} ({variable.VarType}) = {variable.DefaultValue}";
             }
             catch (Exception ex)
             {
                 TestResult = $"错误: {ex.Message}";
                 _logger?.LogError(ex, "Error setting variable");
+            }
+            finally
+            {
+                IsConnecting = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task TestGetAllVariablesAsync()
+        {
+            if (!_connector.IsConnected)
+            {
+                TestResult = "未连接";
+                return;
+            }
+
+            if (!HasCodeEditorHandler)
+            {
+                TestResult = "请先调用 GetOrCreateCodeEditorAsync 获取 Code Editor Handler ID";
+                return;
+            }
+
+            IsConnecting = true;
+            TestResult = "获取中...";
+
+            try
+            {
+                var result = await _connector.ServiceClient.GetExpressionAndVariablesForWrapperAsync(HandlerId);
+                var variables = result.VariableList ?? new List<VariableClass>();
+                
+                var variablesObj = variables.Select(v => new
+                {
+                    v.VarName,
+                    v.VarType,
+                    DefaultValue = v.DefaultValue,
+                    DeserializedValue = v.GetDefaultValue()
+                }).ToList();
+                
+                TestResult = variablesObj.ToJson();
+                TestVariables = variables;
+            }
+            catch (Exception ex)
+            {
+                TestResult = $"错误: {ex.Message}";
+                _logger?.LogError(ex, "Error getting all variables");
             }
             finally
             {
@@ -367,14 +444,30 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             try
             {
+                List<VariableClass>? variables = null;
+                
+                // Parse test variables from JSON if provided
+                if (!string.IsNullOrWhiteSpace(TestVariablesJson))
+                {
+                    try
+                    {
+                        variables = TestVariablesJson.FromJson<List<VariableClass>>();
+                    }
+                    catch (Exception ex)
+                    {
+                        TestResult = $"解析测试变量 JSON 失败: {ex.Message}";
+                        return;
+                    }
+                }
+                
                 var request = new ExpressionRequest
                 {
                     Code = TestExpression,
-                    VariableList = new List<VariableClass>()
+                    VariableList = variables ?? []
                 };
 
                 var result = await _connector.ServiceClient.TestExpressionForWrapperAsync(HandlerId, request);
-                TestResult = FormatResult(result);
+                TestResult = result.ToJson();
             }
             catch (Exception ex)
             {
@@ -387,24 +480,50 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
         }
 
-        private string FormatResult(ExpressionResult result)
+        [RelayCommand]
+        private void LoadTestVariablesFromJson()
         {
-            var jsonOptions = new JsonSerializerOptions
+            if (string.IsNullOrWhiteSpace(TestVariablesJson))
             {
-                WriteIndented = true,
-                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) // Support Chinese characters
-            };
+                TestResult = "请输入测试变量的 JSON";
+                return;
+            }
 
-            var usedVars = result.UsedVariables?.Select(v => new { v.VarName, v.VarType }).ToList();
-            var resultObj = new
+            try
             {
-                Success = result.Success,
-                Value = result.Value?.ToString() ?? "null",
-                Error = result.Error,
-                UsedVariables = usedVars != null ? (object)usedVars : new List<object>()
-            };
+                TestVariables = TestVariablesJson.FromJson<List<VariableClass>>() ?? new List<VariableClass>();
+                TestResult = $"成功加载 {TestVariables.Count} 个测试变量";
+            }
+            catch (Exception ex)
+            {
+                TestResult = $"解析 JSON 失败: {ex.Message}";
+            }
+        }
 
-            return JsonSerializer.Serialize(resultObj, jsonOptions);
+        [RelayCommand]
+        private void ExportVariablesToJson()
+        {
+            if (TestVariables.Count == 0)
+            {
+                TestResult = "没有可导出的变量";
+                return;
+            }
+
+            try
+            {
+                TestVariablesJson = TestVariables.ToJson();
+                TestResult = $"成功导出 {TestVariables.Count} 个变量到 JSON";
+            }
+            catch (Exception ex)
+            {
+                TestResult = $"导出失败: {ex.Message}";
+            }
+        }
+
+        private object? ParseVariableValue(string value, VariableType varType)
+        {
+            // Use existing ConvertValueFromStringSafe extension method
+            return varType.ConvertValueFromStringSafe(value);
         }
     }
 }

@@ -405,20 +405,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         {
             if (_executor == null)
             {
-                return new ExpressionResult
-                {
-                    Success = false,
-                    Error = "Roslyn service not available"
-                };
+                return new ExpressionResultError("Roslyn service not available");
             }
 
             if (string.IsNullOrEmpty(expression))
             {
-                return new ExpressionResult
-                {
-                    Success = false,
-                    Error = "Expression cannot be empty."
-                };
+                return new ExpressionResultError("Expression cannot be empty.");
             }
 
             try
@@ -463,11 +455,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
             catch (Exception ex)
             {
-                return new ExpressionResult
-                {
-                    Success = false,
-                    Error = $"Error testing expression: {ex.Message}"
-                };
+                return new ExpressionResultError($"Error testing expression: {ex.Message}");
             }
         }
 
