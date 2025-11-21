@@ -346,7 +346,7 @@ public class ExpressionAgent : IToolHandlerProvider
         }
         
         var varList = string.Join("\n", _variables.Select(v => 
-            $"- {v.VarName} ({v.VarType}): {v.DefaultValue}"));
+            $"- {v.VarName} ({v.VarType}): {v.GetDefaultValue()}"));
         
         return $"Existing variables (do not recreate these):\n{varList}";
     }

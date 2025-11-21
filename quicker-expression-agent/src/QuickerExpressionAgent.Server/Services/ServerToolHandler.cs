@@ -64,7 +64,7 @@ public class ServerToolHandler : IExpressionAgentToolHandler
         }
     }
     
-    public async Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null)
+    public async Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {

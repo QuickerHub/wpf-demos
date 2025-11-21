@@ -137,15 +137,16 @@ public static class ExpressionParser
                 var varValue = property.GetValue(result);
                 var varType = property.PropertyType.ConvertToVariableType();
                 
-                variableList.Add(new VariableClass
+                var variable = new VariableClass
                 {
                     VarName = varName,
-                    VarType = varType,
-                    DefaultValue = varValue ?? varType.GetDefaultValue()
-                });
+                    VarType = varType
+                };
+                variable.SetDefaultValue(varValue ?? varType.GetDefaultValue());
+                variableList.Add(variable);
             }
             
-            Console.WriteLine($"[ExpressionParser] Extracted {variableList.Count} variables: {string.Join(", ", variableList.Select(v => $"{v.VarName}={v.DefaultValue}"))}");
+            Console.WriteLine($"[ExpressionParser] Extracted {variableList.Count} variables: {string.Join(", ", variableList.Select(v => $"{v.VarName}={v.GetDefaultValue()}"))}");
         }
         catch (Exception ex)
         {

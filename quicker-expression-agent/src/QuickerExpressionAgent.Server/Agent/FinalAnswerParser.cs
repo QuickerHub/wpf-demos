@@ -86,9 +86,9 @@ public static class FinalAnswerParser
                                     var variable = new VariableClass
                                     {
                                         VarName = varName,
-                                        VarType = varType,
-                                        DefaultValue = convertedValue
+                                        VarType = varType
                                     };
+                                    variable.SetDefaultValue(convertedValue);
                                     result.Variables.Add(variable);
                                 }
                             }
@@ -190,9 +190,9 @@ public static class FinalAnswerParser
                                         var variable = new VariableClass
                                         {
                                             VarName = varName,
-                                            VarType = varType,
-                                            DefaultValue = convertedValue
+                                            VarType = varType
                                         };
+                                        variable.SetDefaultValue(convertedValue);
                                         result.Variables.Add(variable);
                                     }
                                 }
@@ -260,9 +260,9 @@ public static class FinalAnswerParser
                                     var variable = new VariableClass
                                     {
                                         VarName = varName,
-                                        VarType = varType,
-                                        DefaultValue = varType.GetDefaultValue(defaultValue)
+                                        VarType = varType
                                     };
+                                    variable.SetDefaultValue(varType.GetDefaultValue(defaultValue));
                                     result.Variables.Add(variable);
                                 }
                             }

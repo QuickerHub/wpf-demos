@@ -12,6 +12,20 @@ namespace QuickerExpressionAgent.Server;
 
 class Program
 {
+    /// <summary>
+    /// Helper method to create VariableClass for testing
+    /// </summary>
+    private static VariableClass CreateTestVariable(string name, VariableType type, object? defaultValue)
+    {
+        var variable = new VariableClass
+        {
+            VarName = name,
+            VarType = type
+        };
+        variable.SetDefaultValue(defaultValue);
+        return variable;
+    }
+
     static async Task Main(string[] args)
     {
         // Create host to run IHostedService
@@ -32,6 +46,7 @@ class Program
             // Get services from DI
             var agent = host.Services.GetRequiredService<ExpressionAgent>();
             var executor = host.Services.GetRequiredService<IExpressionExecutor>();
+            var connector = host.Services.GetRequiredService<QuickerServerClientConnector>();
 
             // Parse command line arguments
             bool runTests = args.Contains("-t") || args.Contains("--test");
@@ -43,6 +58,18 @@ class Program
             }
             else
             {
+                // Create or use existing Quicker Code Editor handler
+                var toolHandler = await CreateOrGetQuickerCodeEditorHandlerAsync(connector, logger);
+                if (toolHandler != null)
+                {
+                    agent.ToolHandler = toolHandler;
+                    logger.LogInformation("Using Quicker Code Editor handler with window handle: {WindowHandle}", toolHandler.WindowHandle);
+                }
+                else
+                {
+                    logger.LogWarning("No Quicker Code Editor handler available, using default handler");
+                }
+
                 // Default: run expression dialog
                 await RunExpressionDialogAsync(agent, logger);
             }
@@ -261,8 +288,8 @@ random.Next(1, 101)",
                 Code = "name + \" is \" + age + \" years old\"",
                 Variables = new List<VariableClass>
                 {
-                    new VariableClass { VarName = "name", VarType = VariableType.String, DefaultValue = "Alice" },
-                    new VariableClass { VarName = "age", VarType = VariableType.Int, DefaultValue = 25 }
+                    CreateTestVariable("name", VariableType.String, "Alice"),
+                    CreateTestVariable("age", VariableType.Int, 25)
                 }
             },
             new
@@ -284,8 +311,8 @@ list.Where(x => x > 2).Sum()",
                 Code = "{name} + \" is \" + {age}",
                 Variables = new List<VariableClass>
                 {
-                    new VariableClass { VarName = "name", VarType = VariableType.String, DefaultValue = "John" },
-                    new VariableClass { VarName = "age", VarType = VariableType.Int, DefaultValue = 25 }
+                    CreateTestVariable("name", VariableType.String, "John"),
+                    CreateTestVariable("age", VariableType.Int, 25)
                 }
             },
             new
@@ -302,7 +329,7 @@ list.Sum()",
 prefix + {value}",
                 Variables = new List<VariableClass>
                 {
-                    new VariableClass { VarName = "value", VarType = VariableType.Int, DefaultValue = 42 }
+                    CreateTestVariable("value", VariableType.Int, 42)
                 }
             },
             new
@@ -370,7 +397,7 @@ distance += Math.Abs(str1.Length - str2.Length);
             Console.WriteLine($"Code: {testCase.Code.Replace("\n", "\\n")}");
             if (testCase.Variables.Any())
             {
-                Console.WriteLine($"Variables: {string.Join(", ", testCase.Variables.Select(v => $"{v.VarName}={v.DefaultValue}"))}");
+                Console.WriteLine($"Variables: {string.Join(", ", testCase.Variables.Select(v => $"{v.VarName}={v.GetDefaultValue()}"))}");
             }
             
             try
@@ -400,6 +427,62 @@ distance += Math.Abs(str1.Length - str2.Length);
         Console.WriteLine($"Success: {successCount}");
         Console.WriteLine($"Failed: {failCount}");
         Console.WriteLine($"Success Rate: {(successCount * 100.0 / testCases.Length):F1}%");
+    }
+
+    /// <summary>
+    /// Create or get Quicker Code Editor handler
+    /// Prompts user for window handle or uses default
+    /// </summary>
+    private static async Task<QuickerCodeEditorToolHandler?> CreateOrGetQuickerCodeEditorHandlerAsync(
+        QuickerServerClientConnector connector,
+        ILogger logger)
+    {
+        try
+        {
+            // Wait for connection to be established
+            var connected = await connector.WaitConnectAsync(TimeSpan.FromSeconds(10));
+
+            if (!connected)
+            {
+                logger.LogWarning("Quicker service not connected, cannot create Code Editor handler");
+                Console.WriteLine("Warning: Quicker service is not connected. Please ensure the Quicker application is running.");
+                return null;
+            }
+
+            // Use GetOrCreateCodeEditorAsync to get or create Code Editor
+            try
+            {
+                Console.WriteLine("\n=== Quicker Code Editor Handler Setup ===");
+                Console.WriteLine("Getting or creating Code Editor window...");
+                
+                var handlerId = await connector.ServiceClient.GetOrCreateCodeEditorAsync();
+                
+                if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                {
+                    logger.LogWarning("Failed to get or create Code Editor, got handler ID: {HandlerId}", handlerId);
+                    Console.WriteLine("Warning: Failed to get or create Code Editor window.");
+                    return null;
+                }
+
+                // Create handler using handlerId
+                var handler = new QuickerCodeEditorToolHandler(handlerId, connector);
+                logger.LogInformation("Successfully created Quicker Code Editor handler with handler ID: {HandlerId}", handlerId);
+                Console.WriteLine($"✓ Successfully connected to Code Editor window (Handler ID: {handlerId})");
+                return handler;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to get or create Code Editor handler");
+                Console.WriteLine($"Error: {ex.Message}");
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in CreateOrGetQuickerCodeEditorHandlerAsync");
+            Console.WriteLine($"Error: {ex.Message}");
+            return null;
+        }
     }
 }
 

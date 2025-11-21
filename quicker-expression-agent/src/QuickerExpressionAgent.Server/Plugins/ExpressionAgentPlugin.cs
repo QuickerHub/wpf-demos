@@ -93,9 +93,10 @@ public class ExpressionAgentPlugin
             var variable = new VariableClass
             {
                 VarName = name,
-                VarType = varType,
-                DefaultValue = defaultValue
+                VarType = varType
             };
+            // Serialize object to string
+            variable.SetDefaultValue(defaultValue);
             
             ToolHandler.SetVariable(variable);
             
@@ -147,9 +148,10 @@ public class ExpressionAgentPlugin
         var variable = new VariableClass
         {
             VarName = name,
-            VarType = existing.VarType,
-            DefaultValue = convertedValue
+            VarType = existing.VarType
         };
+        // Serialize object to string
+        variable.SetDefaultValue(convertedValue);
         
         ToolHandler.SetVariable(variable);
         return $"Variable '{name}' default value set successfully.";
@@ -220,7 +222,7 @@ public class ExpressionAgentPlugin
             {
                 VarName = v.VarName,
                 VarType = v.VarType,
-                DefaultValue = v.DefaultValue
+                DefaultValue = v.DefaultValue // Already a string, just copy
             }).ToList();
             
             // Override default values with provided values if provided
@@ -247,13 +249,14 @@ public class ExpressionAgentPlugin
                     if (variableToUpdate != null)
                     {
                         // Convert value to correct type, handling JsonElement if present
-                        variableToUpdate.DefaultValue = ConvertValueToVariableType(variable.DefaultValue, variableToUpdate.VarType);
+                        var convertedValue = ConvertValueToVariableType(variable.GetDefaultValue(), variableToUpdate.VarType);
+                        variableToUpdate.SetDefaultValue(convertedValue);
                     }
                 }
             }
             
             // Use tool handler's TestExpression
-            var result = await ToolHandler.TestExpression(expression, variablesToUse);
+            var result = await ToolHandler.TestExpressionAsync(expression, variablesToUse);
 
             if (result.Success)
             {

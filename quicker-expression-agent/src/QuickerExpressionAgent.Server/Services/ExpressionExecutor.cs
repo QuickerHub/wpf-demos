@@ -165,12 +165,13 @@ public class ExpressionExecutor : IExpressionExecutor
                     if (variables.TryGetValue(varName, out var varValue))
                     {
                         var varType = varValue?.GetType() ?? typeof(object);
-                        usedVariables.Add(new VariableClass
+                        var variable = new VariableClass
                         {
                             VarName = varName,
-                            VarType = varType.ConvertToVariableType(),
-                            DefaultValue = varValue
-                        });
+                            VarType = varType.ConvertToVariableType()
+                        };
+                        variable.SetDefaultValue(varValue);
+                        usedVariables.Add(variable);
                     }
                 }
             }
@@ -562,10 +563,8 @@ public class ExpressionExecutor : IExpressionExecutor
         var variableMap = new Dictionary<string, VariableClass>();
         foreach (var variable in variableList)
         {
-            // Use formatter's ParseValue method to convert DefaultValue to correct type
-            // This handles JsonElement, string, and other object types
-            var formatter = _formatterFactory.GetFormatter(variable.VarType);
-            var convertedValue = formatter.ParseValue(variable.DefaultValue);
+            // Get deserialized value from string
+            var convertedValue = variable.GetDefaultValue();
             
             variablesDict[variable.VarName] = convertedValue ?? variable.VarType.GetDefaultValue();
             variableMap[variable.VarName] = variable;
