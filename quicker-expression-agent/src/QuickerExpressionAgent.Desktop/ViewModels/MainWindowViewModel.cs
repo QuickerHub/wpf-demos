@@ -317,8 +317,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     try
                     {
                         existingVariable.VarType = variable.VarType;
-                        // Update default value using VariableItemViewModel's method
-                        existingVariable.SetDefaultValue(variable.GetDefaultValue());
+                        // Direct string assignment, no conversion needed
+                        existingVariable.SetDefaultValue(variable.DefaultValue);
                     }
                     catch (Exception)
                     {
@@ -327,8 +327,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 }
                 else
                 {
-                    // Create new variable (SetDefaultValue handles null values)
-                    var variableViewModel = new VariableItemViewModel(variable.VarName, variable.VarType, variable.GetDefaultValue());
+                    // Create new variable using VariableClass constructor (directly uses string DefaultValue)
+                    var variableViewModel = new VariableItemViewModel(variable);
 
                     // Add to variable list (DynamicData automatically monitors ValueText changes)
                     VariableList.Add(variableViewModel);
