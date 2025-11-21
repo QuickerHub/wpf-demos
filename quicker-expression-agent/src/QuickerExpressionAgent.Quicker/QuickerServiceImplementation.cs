@@ -150,13 +150,7 @@ public class QuickerServiceImplementation : IQuickerService
 
     public Task<ExpressionResult> TestExpressionForWrapperAsync(string handlerId, ExpressionRequest request)
     {
-        return Task.Run(async () =>
-        {
-            return await Application.Current.Dispatcher.InvokeAsync(async () =>
-            {
-                return await GetHandler(handlerId).TestExpressionAsync(request.Code, request.VariableList);
-            }).Task;
-        }).Unwrap();
+        return GetHandler(handlerId).TestExpressionAsync(request.Code, request.VariableList);
     }
 
     #endregion

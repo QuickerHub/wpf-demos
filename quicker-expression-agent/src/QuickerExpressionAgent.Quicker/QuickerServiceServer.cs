@@ -93,7 +93,8 @@ public class QuickerServiceServer : IHostedService
                 _logger.LogInformation("Client connected to expression service server");
                 IsClientConnected = true;
 
-                // Create JsonRpc and attach service implementation
+                // Create JsonRpc - it will automatically respect [JsonIgnore] attributes
+                // StreamJsonRpc uses System.Text.Json which respects [System.Text.Json.Serialization.JsonIgnore]
                 _jsonRpc = new JsonRpc(_pipeStream, _pipeStream);
                 _jsonRpc.AddLocalRpcTarget(_serviceImplementation);
                 _jsonRpc.StartListening();

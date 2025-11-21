@@ -325,7 +325,7 @@ public partial class QuickerServiceTestViewModel : ObservableObject
             };
 
             var result = await _service.TestExpressionForWrapperAsync(HandlerId, request);
-            TestResult = FormatResult(result);
+            TestResult = result.ToJson();
         }
         catch (Exception ex)
         {
@@ -383,18 +383,5 @@ public partial class QuickerServiceTestViewModel : ObservableObject
         return varType.ConvertValueFromStringSafe(value);
     }
 
-    private string FormatResult(ExpressionResult result)
-    {
-        var usedVars = result.UsedVariables?.Select(v => new { v.VarName, v.VarType }).ToList();
-        var resultObj = new
-        {
-            Success = result.Success,
-            Value = result.Value?.ToString() ?? "null",
-            Error = result.Error,
-            UsedVariables = usedVars != null ? (object)usedVars : new List<object>()
-        };
-
-        return resultObj.ToJson();
-    }
 }
 

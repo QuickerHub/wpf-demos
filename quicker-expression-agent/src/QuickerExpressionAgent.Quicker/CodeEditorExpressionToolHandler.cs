@@ -136,11 +136,7 @@ public class CodeEditorExpressionToolHandler : IExpressionAgentToolHandler
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
-            return new ExpressionResult
-            {
-                Success = false,
-                Error = "Expression cannot be empty."
-            };
+            return new ExpressionResultError("Expression cannot be empty.");
         }
 
         // Merge variables: GetAllVariables() first, then override with provided variables
@@ -174,21 +170,11 @@ public class CodeEditorExpressionToolHandler : IExpressionAgentToolHandler
             // Execute expression
             object result = _wrapper.EvalContext.Execute(code, variablesValueDict);
 
-            return new ExpressionResult
-            {
-                Success = true,
-                Value = result,
-                UsedVariables = usedVariables
-            };
+            return new ExpressionResult(result, usedVariables);
         }
         catch (Exception ex)
         {
-            return new ExpressionResult
-            {
-                Success = false,
-                Error = ex.Message,
-                UsedVariables = []
-            };
+            return new ExpressionResultError(ex.Message);
         }
     }
 

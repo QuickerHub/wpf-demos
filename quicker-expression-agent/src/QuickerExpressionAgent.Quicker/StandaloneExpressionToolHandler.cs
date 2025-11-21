@@ -87,11 +87,7 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
     {
         if (string.IsNullOrWhiteSpace(expression))
         {
-            return Task.FromResult(new ExpressionResult
-            {
-                Success = false,
-                Error = "Expression cannot be null or empty"
-            });
+            return Task.FromResult<ExpressionResult>(new ExpressionResultError("Expression cannot be null or empty"));
         }
 
         try
@@ -135,33 +131,17 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
             }
             catch (Exception ex)
             {
-                return Task.FromResult(new ExpressionResult
-                {
-                    Success = false,
-                    Error = ex.Message,
-                    Value = null
-                });
+                return Task.FromResult<ExpressionResult>(new ExpressionResultError(ex.Message));
             }
 
             // Extract used variables from expression
             var usedVariables = ExtractUsedVariables(expression, varsToUse);
 
-            return Task.FromResult(new ExpressionResult
-            {
-                Success = true,
-                Value = result,
-                Error = string.Empty,
-                UsedVariables = usedVariables
-            });
+            return Task.FromResult(new ExpressionResult(result, usedVariables));
         }
         catch (Exception ex)
         {
-            return Task.FromResult(new ExpressionResult
-            {
-                Success = false,
-                Error = ex.Message,
-                Value = null
-            });
+            return Task.FromResult<ExpressionResult>(new ExpressionResultError(ex.Message));
         }
     }
 
