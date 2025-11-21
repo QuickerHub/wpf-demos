@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Linq;
 
 namespace QuickerExpressionAgent.Common;
 
@@ -144,14 +145,14 @@ public static class VariableTypeExtensions
     {
         return varType switch
         {
-            VariableType.String => jsonElement.ValueKind == JsonValueKind.String 
-                ? jsonElement.GetString() ?? string.Empty 
+            VariableType.String => jsonElement.ValueKind == JsonValueKind.String
+                ? jsonElement.GetString() ?? string.Empty
                 : jsonElement.ToString(),
-            VariableType.Int => jsonElement.ValueKind == JsonValueKind.Number 
+            VariableType.Int => jsonElement.ValueKind == JsonValueKind.Number
                 ? (jsonElement.TryGetInt32(out var intVal) ? intVal : (int)jsonElement.GetDouble())
                 : 0,
-            VariableType.Double => jsonElement.ValueKind == JsonValueKind.Number 
-                ? jsonElement.GetDouble() 
+            VariableType.Double => jsonElement.ValueKind == JsonValueKind.Number
+                ? jsonElement.GetDouble()
                 : 0.0,
             VariableType.Bool => jsonElement.ValueKind == JsonValueKind.True || jsonElement.ValueKind == JsonValueKind.False
                 ? jsonElement.GetBoolean()
@@ -166,7 +167,7 @@ public static class VariableTypeExtensions
                 : new List<string>(),
             VariableType.Dictionary => jsonElement.ValueKind == JsonValueKind.Object
                 ? jsonElement.EnumerateObject().ToDictionary(
-                    p => p.Name, 
+                    p => p.Name,
                     p => ConvertJsonElementToObject(p.Value))
                 : new Dictionary<string, object>(),
             VariableType.Object => ConvertJsonElementToObject(jsonElement),
@@ -238,7 +239,7 @@ public static class VariableTypeExtensions
     private static VariableType MatchTypeName(string typeName)
     {
         var lower = typeName.ToLowerInvariant();
-        
+
         // Remove namespace prefix if present
         var simpleName = lower.Contains('.') ? lower.Substring(lower.LastIndexOf('.') + 1) : lower;
 
@@ -281,5 +282,32 @@ public static class VariableTypeExtensions
     private static bool IsObjectType(string typeName) =>
         typeName.Equals("object", StringComparison.OrdinalIgnoreCase) ||
         typeName.Equals("System.Object", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Convert value to string representation based on VariableType
+    /// This is a generic method that can be used by both .Common and .Quicker projects
+    /// </summary>
+    public static string ConvertValueToString(this VariableType varType, object? value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        return varType switch
+        {
+            VariableType.String => value.ToString() ?? string.Empty,
+            VariableType.Int => value is int intVal ? intVal.ToString() : (value is long longVal ? longVal.ToString() : "0"),
+            VariableType.Double => value is double doubleVal ? doubleVal.ToString() : (value is float floatVal ? floatVal.ToString() : (value is decimal decimalVal ? decimalVal.ToString() : "0.0")),
+            VariableType.Bool => value is bool boolVal ? boolVal.ToString().ToLower() : "false",
+            VariableType.DateTime => value is DateTime dateVal ? dateVal.ToString() : DateTime.MinValue.ToString(),
+            VariableType.ListString => value is System.Collections.IEnumerable enumerable && !(value is string)
+                ? string.Join("\n", enumerable.Cast<object>().Select(item => item?.ToString() ?? ""))
+                : string.Empty,
+            VariableType.Dictionary => JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }),
+            VariableType.Object => value.ToString() ?? string.Empty,
+            _ => value.ToString() ?? string.Empty
+        };
+    }
 }
 

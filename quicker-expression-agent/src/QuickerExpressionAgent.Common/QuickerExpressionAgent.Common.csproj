@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFrameworks>net8.0;net472</TargetFrameworks>
@@ -15,8 +15,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="H.Ipc" Version="1.0.1" />
-		<PackageReference Include="MessagePack" Version="3.1.1" />
+		<PackageReference Include="StreamJsonRpc" Version="2.18.44" />
 	</ItemGroup>
 
 </Project>
