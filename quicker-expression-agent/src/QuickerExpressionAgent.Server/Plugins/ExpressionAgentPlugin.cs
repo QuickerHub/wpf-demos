@@ -17,14 +17,18 @@ public class ExpressionAgentPlugin
 {
     /// <summary>
     /// Description of the expression format with {variableName} syntax for external variables
+    /// Think of {variableName} as function parameters (inputs) and the expression as the function body.
     /// </summary>
     private const string ExpressionFormatDescription = 
         "C# code with {variableName} format. " +
-        "The expression is pure C# code that can be executed directly. " +
+        "Think of it like a function: {variableName} is like function parameters (inputs), and the expression is the function body. " +
+        "The expression is pure C# code that can be executed directly and computes a result (like a function return value) or performs an action (void function). " +
         "To reference external variables (input variables), use {variableName} format, e.g., {userName}, {age}, {items}. " +
         "During execution, {variableName} will be replaced with the actual variable name for parsing. " +
         "Example: \"Hello, \" + {userName} + \"!\" will become \"Hello, \" + userName + \"!\" after replacement. " +
-        "**IMPORTANT: You CANNOT assign values to {variableName} variables. For example, {varname} = value is NOT allowed.**";
+        "**CRITICAL: {variableName} is like a function parameter - you CANNOT assign to it directly. For example, {varname} = value is NOT allowed and will NOT work.** " +
+        "**Exception: For reference types (Dictionary, List, Object), you CAN modify properties/members, e.g., {dict}[\"key\"] = value or {list}.Add(item).** " +
+        "**The expression should compute and return a result directly, NOT assign to variables. Example CORRECT: {inputDict}.Where(...).ToDictionary(...). Example WRONG: {outputDict} = {inputDict}.Where(...).ToDictionary(...).**";
     
     /// <summary>
     /// Description of the JSON format for List&lt;VariableClass&gt;
@@ -36,6 +40,12 @@ public class ExpressionAgentPlugin
         "DateTime uses ISO8601 string, ListString uses array of strings [\"item1\",\"item2\"], " +
         "Dictionary uses object {\"key\":\"value\"}, Object uses any JSON value. " +
         "Example: [{\"VarName\":\"userName\",\"VarType\":\"String\",\"DefaultValue\":\"John\"},{\"VarName\":\"age\",\"VarType\":\"Int\",\"DefaultValue\":25}]";
+    
+    /// <summary>
+    /// Description of variable naming convention
+    /// </summary>
+    private const string VariableNamingConventionDescription = 
+        "Use concise, short names (e.g., text, list, dict, num, flag, date). Use numbered suffixes for multiple variables of the same type (e.g., text1, text2, list1, list2).";
     
     private readonly IToolHandlerProvider _toolHandlerProvider;
 
@@ -72,7 +82,7 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description("Create or update a single variable. If a variable already exists, it will be updated. Variable types: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object.")]
+    [Description("Create or update a single variable. If a variable already exists, it will be updated. Variable types: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object. " + VariableNamingConventionDescription)]
     public string CreateVariable(
         [Description("Variable name")] string name,
         [Description("Variable type: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object")] VariableType varType,
@@ -89,14 +99,17 @@ public class ExpressionAgentPlugin
             var existing = ToolHandler.GetVariable(name);
             bool isNew = existing == null;
             
+            // Convert defaultValue to correct type, handling JsonElement if present
+            var convertedValue = ConvertValueToVariableType(defaultValue, varType);
+            
             // Create VariableClass and set variable
             var variable = new VariableClass
             {
                 VarName = name,
                 VarType = varType
             };
-            // Serialize object to string
-            variable.SetDefaultValue(defaultValue);
+            // Serialize object to string (after conversion)
+            variable.SetDefaultValue(convertedValue);
             
             ToolHandler.SetVariable(variable);
             
@@ -291,8 +304,14 @@ public class ExpressionAgentPlugin
     /// Convert a value to the correct type for the given VariableType
     /// Handles JsonElement conversion if the value is a JsonElement
     /// </summary>
-    private object ConvertValueToVariableType(object value, VariableType varType)
+    private object? ConvertValueToVariableType(object? value, VariableType varType)
     {
+        // Handle null value
+        if (value == null)
+        {
+            return null;
+        }
+        
         // If value is JsonElement, use ConvertValueFromJson
         if (value is JsonElement jsonElement)
         {
@@ -300,15 +319,11 @@ public class ExpressionAgentPlugin
         }
         
         // If value is already the correct type, return as-is
-        var valueType = value?.GetType();
-        if (valueType != null)
+        var valueType = value.GetType();
+        var expectedType = GetExpectedType(varType);
+        if (expectedType != null && expectedType.IsAssignableFrom(valueType))
         {
-            // Check if the value type matches the expected type
-            var expectedType = GetExpectedType(varType);
-            if (expectedType != null && expectedType.IsAssignableFrom(valueType))
-            {
-                return value;
-            }
+            return value;
         }
         
         // Try to convert using string representation

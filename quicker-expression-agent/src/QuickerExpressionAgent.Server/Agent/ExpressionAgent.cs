@@ -305,6 +305,12 @@ public class ExpressionAgent : IToolHandlerProvider
             7. **Fix errors** - If the test fails, modify the expression or adjust variables, then repeat step 6
             8. **Output final result** - Once the expression executes successfully, call SetExpression with the final working expression. Variables should be created/updated separately using CreateVariable method before calling SetExpression.
             
+            ## Expression Model (Function Analogy):
+            Think of an expression as a function:
+            - **{variableName}** is like a function parameter: `function(var variableName)` - it's an INPUT parameter
+            - **The expression body** is like the function body - it contains the computation logic
+            - **The expression result** is like the function return value - it's what the expression evaluates to
+            
             ## Expression Format:
             - Expression is **pure C# code** - standard C# syntax that can be executed directly
             - **CRITICAL: Use {variableName} format to get input variables** - This is the ONLY way to reference external variables (input variables) in expressions
@@ -316,17 +322,37 @@ public class ExpressionAgent : IToolHandlerProvider
             - Prefer LINQ expressions over verbose loops
             - Write concise code
             
-            ## Variable Reference Rules:
-            - **To get input from external variables, you MUST use {variableName} format**
-            - **IMPORTANT: You CANNOT assign values to {variableName} variables. For example, {varname} = value is NOT allowed.**
+            ## Variable Reference Rules ({variableName} as Function Parameters):
+            - **{variableName} is like a function parameter - it's an INPUT, not a variable you can assign to**
+            - **You CANNOT assign values to {variableName} directly. For example, {varname} = value is NOT allowed and will NOT work.**
+            - **Direct assignment to {variableName} is useless** - it's like trying to assign to a function parameter, which doesn't affect the original variable
+            - **Exception: For reference types (like Dictionary, List, Object), you CAN modify properties/members** - e.g., `{dict}["key"] = value` or `{list}.Add(item)` will work because you're modifying the object's properties, not reassigning the parameter
             - If you need to use a variable named "userName", write it as **{userName}** in the expression
             - Example expression: `"Hello, " + {userName} + "!"`
             - During execution, {userName} will be replaced with userName, making it valid C#: `"Hello, " + userName + "!"`
             - **DO NOT** declare variables that are external inputs - use {variableName} format instead
             - **DO NOT** use variable names directly without curly braces for external variables
             
+            ## Expression Return Value (Function Body):
+            - **The expression is like a function body** - it computes and returns a result
+            - **The expression result is automatically returned** - you don't need to explicitly return it
+            - **DO NOT write assignment statements like {outputVar} = {inputVar}.Where(...).ToDictionary(...)**
+            - **INSTEAD, write the computation directly: {inputVar}.Where(...).ToDictionary(...)**
+            - The result of the expression will be automatically returned and used by Quicker
+            - **An expression can return a value (like a function)** or return void (like an action)
+            - Example CORRECT (returns value): `{inputDictionary}.Where(kv => kv.Key.StartsWith("var")).ToDictionary(kv => kv.Key, kv => kv.Value)`
+            - Example CORRECT (void/action): `{list}.Clear()` or `{dict}.Remove("key")`
+            - Example WRONG: `{outputDictionary} = {inputDictionary}.Where(...).ToDictionary(...)` - This will NOT work! Direct assignment to {variableName} is useless.
+            
             ## Variable Types:
             Supported variable types are STRICTLY limited to: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object
+            
+            ## Variable Naming Convention:
+            When creating new variables, use **concise, short names**:
+            - Keep variable names short and simple (e.g., `text`, `list`, `dict`, `num`, `flag`, `date`)
+            - Use numbered suffixes when creating multiple variables of the same type (e.g., `text1`, `text2`, `list1`, `list2`)
+            - Prefer type-based abbreviations or short descriptive names
+            - Examples: `text`, `list1`, `dict`, `num`, `flag`, `date`, `obj`
             
             ## Important:
             - Always test expressions before calling SetExpression
