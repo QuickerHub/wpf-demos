@@ -193,25 +193,16 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
 
     /// <summary>
     /// Convert VariableClass to actual value based on variable type
+    /// GetDefaultValue() already returns the correct type, just handle null case
     /// </summary>
     /// <param name="variable">Variable information</param>
     /// <returns>Converted value</returns>
     private object ConvertVariableToValue(VariableClass variable)
     {
-        // Get deserialized value from string
-        var defaultValue = variable.GetDefaultValue();
-        return variable.VarType switch
-        {
-            VariableType.String => defaultValue?.ToString() ?? string.Empty,
-            VariableType.Int => Convert.ToInt32(defaultValue ?? 0),
-            VariableType.Double => Convert.ToDouble(defaultValue ?? 0.0),
-            VariableType.Bool => Convert.ToBoolean(defaultValue ?? false),
-            VariableType.DateTime => defaultValue is DateTime dt ? dt : DateTime.Now,
-            VariableType.ListString => defaultValue ?? new List<string>(),
-            VariableType.Dictionary => defaultValue ?? new Dictionary<string, object>(),
-            VariableType.Object => defaultValue ?? new object(),
-            _ => defaultValue ?? new object()
-        };
+        // GetDefaultValue() already handles deserialization and returns correct type
+        var value = variable.GetDefaultValue();
+        // Return default value for type if null
+        return value ?? variable.VarType.GetDefaultValue();
     }
 
     /// <summary>

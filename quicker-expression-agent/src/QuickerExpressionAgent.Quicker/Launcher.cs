@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
 using log4net;
+using Microsoft.VisualStudio.Threading;
 
 namespace QuickerExpressionAgent.Quicker;
 
@@ -154,7 +155,10 @@ public static class Launcher
                 });
 
                 // QuickerServiceServer will stop automatically as a hosted service
-                _host.StopAsync().GetAwaiter().GetResult();
+                _ = Task.Run(async () =>
+                {
+                    await _host.StopAsync();
+                });
                 _status = LauncherStatus.Stopped;
                 _log.Info("Launcher stopped successfully");
             }
@@ -186,10 +190,9 @@ public static class Launcher
     {
 
         Start();
-
         // Use BeginInvoke to avoid blocking the caller
         // Don't wait for Start() to complete - show window immediately
-        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
+        _ = Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
         {
             // If window exists and is not closed, activate it
             if (_mainWindow != null && _mainWindow.IsLoaded)

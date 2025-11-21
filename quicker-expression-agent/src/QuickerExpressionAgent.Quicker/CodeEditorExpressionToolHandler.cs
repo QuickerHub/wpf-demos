@@ -199,14 +199,11 @@ public class CodeEditorExpressionToolHandler : IExpressionAgentToolHandler
     /// </summary>
     private ActionVariable ConvertToActionVariable(VariableClass variable)
     {
-        var varType = ConvertToVarType(variable.VarType);
-        // Get deserialized value and convert to string
-        var defaultValue = variable.GetDefaultValue();
         return new ActionVariable
         {
             Key = variable.VarName,
-            Type = varType,
-            DefaultValue = ConvertDefaultValueToString(defaultValue, varType),
+            Type = ConvertToVarType(variable.VarType),
+            DefaultValue = variable.DefaultValue, // Direct string assignment, no conversion needed
             Desc = ""
         };
     }
@@ -264,21 +261,6 @@ public class CodeEditorExpressionToolHandler : IExpressionAgentToolHandler
             _ => VariableType.String // Default fallback
         };
     }
-
-    /// <summary>
-    /// Convert default value to string representation based on VarType
-    /// Uses the generic method from .Common project
-    /// </summary>
-    private string ConvertDefaultValueToString(object? defaultValue, VarType varType)
-    {
-        // Convert value to correct type first using Quicker's VariableHelper
-        defaultValue = VariableHelper.ConvertToType(varType, defaultValue);
-
-        // Convert VarType to VariableType and use the generic extension method from .Common
-        var variableType = ConvertToVariableType(varType);
-        return variableType.ConvertValueToString(defaultValue);
-    }
-
 
     #endregion
 }

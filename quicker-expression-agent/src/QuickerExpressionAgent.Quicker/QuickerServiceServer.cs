@@ -99,7 +99,8 @@ public class QuickerServiceServer : IHostedService
                 _jsonRpc.StartListening();
 
                 // Wait for disconnection
-                await _jsonRpc.Completion;
+                // Use ConfigureAwait(false) to avoid deadlock in async context
+                await _jsonRpc.Completion.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

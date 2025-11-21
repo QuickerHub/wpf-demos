@@ -29,7 +29,7 @@ public class CodeEditorWrapper
 {
     public CodeEditorWindow TheWindow { get; }
     private readonly ListBox _theVarListBox;
-    private readonly FullyObservableCollection<ExpressionInputParam> _variableList;
+    private readonly FullyObservableCollection<ExpressionInputParam> _variableList = null!; // Initialized in constructor
     private readonly List<ActionVariable> _sourceVarList;
     private readonly TextEditor _textEditor;
     private readonly ContextMenu _theListBoxMenu;
@@ -65,7 +65,8 @@ public class CodeEditorWrapper
 
         #region ForListBox
         _theVarListBox = (ListBox)TheWindow.FindName("LbVariables");
-        _variableList = (FullyObservableCollection<ExpressionInputParam>)_theVarListBox.ItemsSource;
+        _variableList = (FullyObservableCollection<ExpressionInputParam>?)_theVarListBox.ItemsSource 
+            ?? new FullyObservableCollection<ExpressionInputParam>();
 
         if (existingWindow != null)
         {
