@@ -16,10 +16,10 @@ namespace QuickerExpressionAgent.Desktop
     {
         public MainWindowViewModel ViewModel { get; }
 
-        public MainWindow(ServiceProvider serviceProvider)
+        public MainWindow(MainWindowViewModel vm)
         {
             InitializeComponent();
-            ViewModel = serviceProvider.GetRequiredService<MainWindowViewModel>();
+            ViewModel = vm;
             DataContext = this; // Set DataContext to this, not ViewModel (following WPF coding standards)
             
             // Subscribe to chat messages collection changes for auto-scroll

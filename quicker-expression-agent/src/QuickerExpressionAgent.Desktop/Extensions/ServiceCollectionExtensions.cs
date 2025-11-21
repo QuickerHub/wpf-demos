@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QuickerExpressionAgent.Desktop.ViewModels;
 using QuickerExpressionAgent.Server.Services;
 
 namespace QuickerExpressionAgent.Desktop.Extensions;
@@ -20,11 +21,23 @@ public static class ServiceCollectionExtensions
         // Expression executor
         services.AddSingleton<ExpressionExecutor>();
         
+        // Quicker service connector (reuse from Server project)
+        services.AddSingleton<QuickerServerClientConnector>();
+        services.AddHostedService(provider => provider.GetRequiredService<QuickerServerClientConnector>());
+
         // Logging
         services.AddLogging(builder =>
         {
             builder.AddConsole().SetMinimumLevel(LogLevel.Warning);
         });
+        
+        // Register ViewModels
+        services.AddTransient<MainWindowViewModel>();
+        services.AddTransient<QuickerServiceTestViewModel>();
+        
+        // Register Windows
+        services.AddTransient<MainWindow>();
+        services.AddTransient<QuickerServiceTestWindow>();
         
         return services;
     }

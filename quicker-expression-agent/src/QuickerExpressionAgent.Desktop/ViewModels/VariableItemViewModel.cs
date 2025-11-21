@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels;
 
@@ -70,10 +71,18 @@ public partial class VariableItemViewModel : ObservableObject
         VarName = variable.VarName;
         VarType = variable.VarType;
         
-        // Convert default value to string representation
-        var defaultValueText = ConvertValueToString(variable.DefaultValue, variable.VarType);
-        DefaultValueText = defaultValueText;
-        ValueText = defaultValueText;
+        // DefaultValue is already a string, use it directly
+        // If empty, use the default value for the type
+        if (string.IsNullOrEmpty(variable.DefaultValue))
+        {
+            var defaultValue = VarType.GetDefaultValue();
+            DefaultValueText = VarType.ConvertValueToString(defaultValue);
+        }
+        else
+        {
+            DefaultValueText = variable.DefaultValue;
+        }
+        ValueText = DefaultValueText;
         
         // Notify property changes for computed properties
         OnPropertyChanged(nameof(IsListType));
@@ -90,6 +99,7 @@ public partial class VariableItemViewModel : ObservableObject
         if (ValueText == DefaultValueText)
         {
             // User hasn't modified the value, update to new default
+            // DefaultValue is already a string, use SetDefaultValue(string) overload
             SetDefaultValue(newVariable.DefaultValue);
         }
         // Otherwise, keep user's modified value
@@ -117,8 +127,25 @@ public partial class VariableItemViewModel : ObservableObject
         // If defaultValue is null, get default value for the type
         var actualValue = defaultValue ?? VarType.GetDefaultValue();
         
-        // Convert default value to string representation
-        DefaultValueText = ConvertValueToString(actualValue, VarType);
+        // Convert default value to string representation using extension method
+        DefaultValueText = VarType.ConvertValueToString(actualValue);
+        ValueText = DefaultValueText;
+    }
+    
+    /// <summary>
+    /// Set default value from string (optimized for VariableClass.DefaultValue which is already string)
+    /// </summary>
+    public void SetDefaultValue(string? defaultValue)
+    {
+        if (string.IsNullOrEmpty(defaultValue))
+        {
+            var defaultValueObj = VarType.GetDefaultValue();
+            DefaultValueText = VarType.ConvertValueToString(defaultValueObj);
+        }
+        else
+        {
+            DefaultValueText = defaultValue;
+        }
         ValueText = DefaultValueText;
     }
     
@@ -127,46 +154,6 @@ public partial class VariableItemViewModel : ObservableObject
     /// </summary>
     public string GetDefaultValueText() => DefaultValueText;
 
-    /// <summary>
-    /// Convert value to string for display/editing
-    /// </summary>
-    private string ConvertValueToString(object? value, VariableType varType)
-    {
-        if (value == null)
-        {
-            return string.Empty;
-        }
-
-        if (varType == VariableType.ListString)
-        {
-            if (value is System.Collections.IEnumerable enumerable)
-            {
-                var items = enumerable.Cast<object>().Select(item => item?.ToString() ?? "").ToList();
-                return string.Join("\n", items);
-            }
-            return string.Empty;
-        }
-
-        if (varType == VariableType.Dictionary)
-        {
-            if (value is System.Collections.IDictionary dict)
-            {
-                // Convert Dictionary to JSON format
-                var jsonDict = new Dictionary<string, object?>();
-                foreach (System.Collections.DictionaryEntry entry in dict)
-                {
-                    jsonDict[entry.Key?.ToString() ?? ""] = entry.Value;
-                }
-                return JsonSerializer.Serialize(jsonDict, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
-                });
-            }
-            return "{}";
-        }
-
-        return value.ToString() ?? string.Empty;
-    }
 
     /// <summary>
     /// Convert string back to object value
@@ -290,12 +277,13 @@ public partial class VariableItemViewModel : ObservableObject
     /// </summary>
     public VariableClass ToVariableClass()
     {
-        return new VariableClass
+        var variable = new VariableClass
         {
             VarName = VarName,
-            VarType = VarType,
-            DefaultValue = ConvertStringToValue() ?? new object()
+            VarType = VarType
         };
+        variable.SetDefaultValue(ConvertStringToValue());
+        return variable;
     }
 }
 

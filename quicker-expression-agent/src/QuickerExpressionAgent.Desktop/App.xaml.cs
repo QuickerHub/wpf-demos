@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using QuickerExpressionAgent.Desktop.Extensions;
 using QuickerExpressionAgent.Desktop.ViewModels;
 
@@ -10,30 +11,35 @@ namespace QuickerExpressionAgent.Desktop
     /// </summary>
     public partial class App : Application
     {
-        private ServiceProvider? _serviceProvider;
+        private IHost? _host;
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // Configure services
-            var services = new ServiceCollection();
-            services.AddDesktopServices();
-            
-            // Register ViewModels
-            services.AddTransient<MainWindowViewModel>();
-            
-            // Build service provider
-            _serviceProvider = services.BuildServiceProvider();
-            
+            // Build host using Host Builder pattern
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureServices((context, services) =>
+                {
+                    services.AddDesktopServices();
+                })
+                .Build();
+
+            // Start hosted services
+            await _host.StartAsync();
+
             // Create and show main window
-            var mainWindow = new MainWindow(_serviceProvider);
+            var mainWindow = _host.Services.GetRequiredService<MainWindow>();
             mainWindow.Show();
         }
 
-        protected override void OnExit(ExitEventArgs e)
+        protected override async void OnExit(ExitEventArgs e)
         {
-            _serviceProvider?.Dispose();
+            if (_host != null)
+            {
+                await _host.StopAsync();
+                _host.Dispose();
+            }
             base.OnExit(e);
         }
     }

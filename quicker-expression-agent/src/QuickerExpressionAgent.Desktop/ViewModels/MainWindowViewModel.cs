@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Agent;
@@ -9,7 +10,9 @@ using QuickerExpressionAgent.Server.Services;
 using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Media;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels
 {
@@ -53,14 +56,17 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [ObservableProperty]
         private Brush _resultForeground = Brushes.Black;
 
+        private readonly IServiceProvider _serviceProvider;
 
         public MainWindowViewModel(
             IConfigurationService configurationService,
             ExpressionExecutor executor,
-            ILogger<MainWindowViewModel> logger)
+            ILogger<MainWindowViewModel> logger,
+            IServiceProvider serviceProvider)
         {
             _logger = logger;
             _executor = executor;
+            _serviceProvider = serviceProvider;
             var kernel = KernelService.GetKernel(configurationService);
             _semanticKernelAgent = new ExpressionAgent(kernel, _executor, this);
 
@@ -312,7 +318,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     {
                         existingVariable.VarType = variable.VarType;
                         // Update default value using VariableItemViewModel's method
-                        existingVariable.SetDefaultValue(variable.DefaultValue);
+                        existingVariable.SetDefaultValue(variable.GetDefaultValue());
                     }
                     catch (Exception)
                     {
@@ -322,7 +328,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 else
                 {
                     // Create new variable (SetDefaultValue handles null values)
-                    var variableViewModel = new VariableItemViewModel(variable.VarName, variable.VarType, variable.DefaultValue);
+                    var variableViewModel = new VariableItemViewModel(variable.VarName, variable.VarType, variable.GetDefaultValue());
 
                     // Add to variable list (DynamicData automatically monitors ValueText changes)
                     VariableList.Add(variableViewModel);
@@ -395,7 +401,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         /// <summary>
         /// Test an expression for syntax and execution
         /// </summary>
-        public async Task<ExpressionResult> TestExpression(string expression, List<VariableClass>? variables = null)
+        public async Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
         {
             if (_executor == null)
             {
@@ -466,6 +472,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         #endregion
+
+        [RelayCommand]
+        private void OpenTestWindow()
+        {
+            var testWindow = _serviceProvider.GetRequiredService<QuickerServiceTestWindow>();
+            testWindow.Show();
+        }
     }
 
 }
