@@ -4,6 +4,7 @@ using DynamicData;
 using DynamicData.Binding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop;
 using QuickerExpressionAgent.Server.Agent;
@@ -21,6 +22,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private readonly ExpressionAgent _semanticKernelAgent;
         private readonly ExpressionExecutor _executor;
         private readonly ILogger<MainWindowViewModel> _logger;
+        
+        // Chat history managed by caller
+        private readonly ChatHistory _chatHistory = new();
 
         // Cancellation token for auto-execution
         private System.Threading.CancellationTokenSource? _autoExecutionCancellationTokenSource;
@@ -149,6 +153,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 // No need to process result - tools have already updated the UI
                 await _semanticKernelAgent.GenerateExpressionAsync(
                     text,
+                    _chatHistory,
                     progressCallback: progressCallback,
                     streamingCallback: streamingCallback,
                     cancellationToken: CancellationToken.None);
@@ -273,13 +278,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             try
             {
-                // Try to serialize as JSON
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                };
-                return JsonSerializer.Serialize(value, options);
+                return value.ToJson(indented: true);
             }
             catch
             {

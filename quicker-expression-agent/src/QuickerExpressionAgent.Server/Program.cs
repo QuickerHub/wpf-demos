@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Extensions;
@@ -117,7 +118,8 @@ class Program
 
             try
             {
-                await agent.GenerateExpressionWithConsoleOutputAsync(userInput);
+                var chatHistory = new ChatHistory();
+                await agent.GenerateExpressionWithConsoleOutputAsync(userInput, chatHistory);
                 Console.WriteLine();
             }
             catch (Exception ex)
@@ -165,12 +167,8 @@ class Program
                     });
                 }
             }
-            
-            var json = tools.ToJson(new JsonSerializerOptions 
-            { 
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
+
+            var json = tools.ToJson(true);
             
             Console.WriteLine("\n=== Available Tools/Functions ===");
             Console.WriteLine(json);
@@ -213,8 +211,10 @@ class Program
         {
             logger.LogInformation("Generating expression for: {Description}", description);
 
+            var chatHistory = new ChatHistory();
             await agent.GenerateExpressionAsync(
                 description,
+                chatHistory,
                 progressCallback: (step, content) =>
                 {
                     Console.WriteLine($"[{step.Type}] {content}");
@@ -249,7 +249,8 @@ class Program
         {
             logger.LogInformation("Generating expression for: {Description}", naturalLanguage);
             
-            await agent.GenerateExpressionWithConsoleOutputAsync(naturalLanguage, cancellationToken);
+            var chatHistory = new ChatHistory();
+            await agent.GenerateExpressionWithConsoleOutputAsync(naturalLanguage, chatHistory, cancellationToken);
             
             Console.WriteLine("\nExpression generation completed.");
         }

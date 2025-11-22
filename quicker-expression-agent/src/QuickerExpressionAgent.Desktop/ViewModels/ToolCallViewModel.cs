@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using QuickerExpressionAgent.Common;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -154,12 +155,7 @@ public partial class ToolCallViewModel : ObservableObject
         {
             // Try to parse and format as JSON
             using var doc = JsonDocument.Parse(json);
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // Allow all characters without escaping
-            };
-            return JsonSerializer.Serialize(doc.RootElement, options);
+            return doc.RootElement.ToJson(indented: true);
         }
         catch
         {

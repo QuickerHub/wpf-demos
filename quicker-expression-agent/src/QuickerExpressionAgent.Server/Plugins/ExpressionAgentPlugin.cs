@@ -3,10 +3,8 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using Microsoft.SemanticKernel;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Services;
@@ -20,7 +18,10 @@ namespace QuickerExpressionAgent.Server.Plugins;
 public class VariableClassWithObjectValue
 {
     public string VarName { get; set; } = string.Empty;
+    
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public VariableType VarType { get; set; } = VariableType.String;
+    
     public object? DefaultValue { get; set; }
     
     /// <summary>
@@ -34,8 +35,17 @@ public class VariableClassWithObjectValue
             VarType = VarType
         };
         
+        // Handle JsonElement from JSON deserialization
+        // When deserializing to object?, numbers become JsonElement
+        object? valueToSet = DefaultValue;
+        if (DefaultValue is System.Text.Json.JsonElement jsonElement)
+        {
+            // Convert JsonElement to appropriate .NET type based on VarType
+            valueToSet = VarType.ConvertValueFromJson(jsonElement);
+        }
+        
         // VariableClass.SetDefaultValue will handle type conversion and serialization
-        variable.SetDefaultValue(DefaultValue);
+        variable.SetDefaultValue(valueToSet);
         
         return variable;
     }
@@ -61,7 +71,7 @@ public class ExpressionAgentPlugin
         
         **CRITICAL: {variableName} is like a function parameter - you CANNOT assign to it directly. For example, {varname} = value is NOT allowed and will NOT work.**
         **Exception: For reference types (Dictionary, List, Object), you CAN modify properties/members, e.g., {dict}["key"] = value or {list}.Add(item).**
-        **The expression should compute and return a result directly, NOT assign to variables. Example CORRECT: {inputDict}.Where(...).ToDictionary(...). Example WRONG: {outputDict} = {inputDict}.Where(...).ToDictionary(...).**
+        **The expression should compute and return a result directly, NOT assign to variables. Example CORRECT: {inputDict}["key"] or {list}.Count. Example WRONG: {outputDict} = {inputDict} or {var} = value.**
         
         The following namespaces are already registered and available (you can directly use types from these namespaces without fully qualified names):
         
@@ -291,86 +301,136 @@ public class ExpressionAgentPlugin
 
         try
         {
-            // Convert List<object> to List<VariableClass>
-            // Serialize to JSON and deserialize directly to VariableClassWithObjectValue, then convert
-            List<VariableClass>? convertedVariables = null;
-            if (variables != null && variables.Count > 0)
+            var convertedVariables = ConvertVariablesFromObjectList(variables, out var conversionError);
+            if (conversionError != null)
             {
-                try
-                {
-                    // Serialize List<object> to JSON string
-                    var jsonString = variables.ToJson();
-                    
-                    // Configure JsonSerializerOptions to handle enum as string
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        Converters = { new JsonStringEnumConverter() }
-                    };
-                    
-                    // Deserialize directly to List<VariableClassWithObjectValue>
-                    var variableList = jsonString.FromJson<List<VariableClassWithObjectValue>>(options);
-                    
-                    if (variableList == null)
-                    {
-                        return "Error: Failed to deserialize variables from JSON.";
-                    }
-                    
-                    // Convert VariableClassWithObjectValue to VariableClass
-                    convertedVariables = variableList.Select(v => v.ToVariableClass()).ToList();
-                }
-                catch (JsonException ex)
-                {
-                    return $"Error: Invalid JSON format for variables parameter. {ex.Message}";
-                }
-                catch (Exception ex)
-                {
-                    return $"Error: Failed to parse variables parameter. {ex.Message}";
-                }
+                return conversionError;
             }
             
-            // Use tool handler's TestExpression - it will handle variable merging internally
             var result = await ToolHandler.TestExpressionAsync(expression, convertedVariables);
-
-            // Defensive check: ensure result is not null
             if (result == null)
             {
                 return "Error: TestExpressionAsync returned null result.";
             }
 
-            // Format output based on result type
             if (!result.Success)
             {
-                // Error case: output Error: {error}
                 return $"Error: {result.Error}";
             }
-            else
-            {
-                // Success case: automatically set the expression
-                ToolHandler.Expression = expression;
-                
-                // Success case: output Result: ... and UsedVar: {name1},{name2},{name3}...
-                var resultValue = result.ValueJson ?? "null";
-                var usedVarNames = result.UsedVariables != null && result.UsedVariables.Count > 0
-                    ? string.Join(",", result.UsedVariables.Select(v => v.VarName))
-                    : "";
-                
-                var output = new StringBuilder();
-                output.AppendLine($"Result: {resultValue}");
-                if (!string.IsNullOrEmpty(usedVarNames))
-                {
-                    output.AppendLine($"Input Variables: {usedVarNames}");
-                }
-                output.AppendLine("Expression set successfully.");
-                
-                return output.ToString().TrimEnd();
-            }
+
+            // Success case: automatically set the expression
+            ToolHandler.Expression = expression;
+            return FormatTestResult(result, includeSetMessage: true);
         }
         catch (Exception ex)
         {
-            // Include stack trace for debugging
             return $"Error: {ex.Message}\nStack trace: {ex.StackTrace}";
         }
+    }
+
+    [KernelFunction]
+    [RequiresUnreferencedCode("JSON serialization requires unreferenced code")]
+    [RequiresDynamicCode("JSON serialization requires dynamic code generation")]
+    [Description($"Test the current expression with different variable values. This method uses the current expression (set via {nameof(SetExpression)} or {nameof(TestExpressionAsync)}) and only requires you to provide variable definitions. This is useful for testing the same expression with different input values without repeating the expression. {VariableClassWithObjectValueFormatDescription}")]
+    public async Task<string> TestWithVariablesAsync(
+        [Description($"List of variables with default values to use for testing. {VariableClassWithObjectValueFormatDescription}")] List<object>? variables = null)
+    {
+        var expression = ToolHandler.Expression;
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return "Error: No expression is currently set. Use SetExpression or TestExpressionAsync to set an expression first.";
+        }
+
+        try
+        {
+            var convertedVariables = ConvertVariablesFromObjectList(variables, out var conversionError);
+            if (conversionError != null)
+            {
+                return conversionError;
+            }
+            
+            var result = await ToolHandler.TestExpressionAsync(expression, convertedVariables);
+            if (result == null)
+            {
+                return "Error: TestExpressionAsync returned null result.";
+            }
+
+            if (!result.Success)
+            {
+                return $"Error: {result.Error}";
+            }
+
+            return FormatTestResult(result, includeSetMessage: false);
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}\nStack trace: {ex.StackTrace}";
+        }
+    }
+
+    /// <summary>
+    /// Convert List&lt;object&gt; to List&lt;VariableClass&gt;
+    /// </summary>
+    /// <param name="variables">List of objects representing variables</param>
+    /// <param name="error">Output parameter for error message if conversion fails</param>
+    /// <returns>Converted list of VariableClass, or null if conversion failed</returns>
+    private List<VariableClass>? ConvertVariablesFromObjectList(List<object>? variables, out string? error)
+    {
+        error = null;
+        
+        if (variables == null || variables.Count == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var jsonString = variables.ToJson();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var variableList = jsonString.FromJson<List<VariableClassWithObjectValue>>(options);
+            
+            if (variableList == null)
+            {
+                error = "Error: Failed to deserialize variables from JSON.";
+                return null;
+            }
+            
+            return variableList.Select(v => v.ToVariableClass()).ToList();
+        }
+        catch (JsonException ex)
+        {
+            error = $"Error: Invalid JSON format for variables parameter. {ex.Message}";
+            return null;
+        }
+        catch (Exception ex)
+        {
+            error = $"Error: Failed to parse variables parameter. {ex.Message}";
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Format test result as string
+    /// </summary>
+    private string FormatTestResult(ExpressionResult result, bool includeSetMessage)
+    {
+        var resultValue = result.ValueJson ?? "null";
+        var usedVarNames = result.UsedVariables != null && result.UsedVariables.Count > 0
+            ? string.Join(",", result.UsedVariables.Select(v => v.VarName))
+            : "";
+        
+        var output = new StringBuilder();
+        output.AppendLine($"Result: {resultValue}");
+        if (!string.IsNullOrEmpty(usedVarNames))
+        {
+            output.AppendLine($"Input Variables: {usedVarNames}");
+        }
+        if (includeSetMessage)
+        {
+            output.AppendLine("Expression set successfully.");
+        }
+        
+        return output.ToString().TrimEnd();
     }
 
     /// <summary>
@@ -379,90 +439,21 @@ public class ExpressionAgentPlugin
     /// </summary>
     private object? ConvertValueToVariableType(object? value, VariableType varType)
     {
-        // Handle null value
         if (value == null)
         {
             return null;
         }
         
-        // If value is JsonElement, use ConvertValueFromJson
         if (value is JsonElement jsonElement)
         {
             return varType.ConvertValueFromJson(jsonElement);
         }
         
-        // If value is already the correct type, return as-is
-        var valueType = value.GetType();
-        var expectedType = GetExpectedType(varType);
-        if (expectedType != null && expectedType.IsAssignableFrom(valueType))
-        {
-            return value;
-        }
-        
-        // Try to convert using string representation
-        try
-        {
-            return varType.ConvertValueFromString(value.ToString());
-        }
-        catch
-        {
-            // If conversion fails, return default for the type
-            return varType.GetDefaultValue();
-        }
-    }
-    
-    /// <summary>
-    /// Get the expected .NET type for a VariableType
-    /// </summary>
-    private Type? GetExpectedType(VariableType varType)
-    {
-        return varType switch
-        {
-            VariableType.String => typeof(string),
-            VariableType.Int => typeof(int),
-            VariableType.Double => typeof(double),
-            VariableType.Bool => typeof(bool),
-            VariableType.DateTime => typeof(DateTime),
-            VariableType.ListString => typeof(List<string>),
-            VariableType.Dictionary => typeof(Dictionary<string, object>),
-            VariableType.Object => typeof(object),
-            _ => typeof(object)
-        };
-    }
-
-    /// <summary>
-    /// Extract variable names from expression (format: {varname})
-    /// </summary>
-    private List<string> ExtractVariableNamesFromExpression(string expression)
-    {
-        var variableNames = new List<string>();
-        
-        if (string.IsNullOrWhiteSpace(expression))
-        {
-            return variableNames;
-        }
-        
-        // Match {varname} pattern
-        var pattern = @"\{([a-zA-Z_][a-zA-Z0-9_]*)\}";
-        var matches = Regex.Matches(expression, pattern);
-        
-        foreach (Match match in matches)
-        {
-            if (match.Groups.Count > 1)
-            {
-                var varName = match.Groups[1].Value;
-                if (!variableNames.Contains(varName, StringComparer.OrdinalIgnoreCase))
-                {
-                    variableNames.Add(varName);
-                }
-            }
-        }
-        
-        return variableNames;
+        return varType.ConvertValueFromStringSafe(value.ToString());
     }
 
     [KernelFunction]
-    [Description($"Set the final expression. {ExpressionFormatShortDescription} **Note: {nameof(TestExpressionAsync)} automatically sets the expression after successful testing, so you typically don't need to call this method separately. Only use this method if you need to set an expression without testing it first.**")]
+    [Description($"Set the final expression. {ExpressionFormatShortDescription} You can use this method to set an expression directly, or use {nameof(TestExpressionAsync)} which automatically sets the expression after successful testing.")]
     public string SetExpression(
         [Description($"Final expression code. {ExpressionFormatShortDescription}")] string expression)
     {
@@ -484,4 +475,5 @@ public class ExpressionAgentPlugin
     }
 
 }
+
 

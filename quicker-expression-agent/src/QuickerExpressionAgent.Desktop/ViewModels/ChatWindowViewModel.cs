@@ -4,6 +4,7 @@ using DynamicData;
 using DynamicData.Binding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
@@ -24,6 +25,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private readonly ILogger<ChatWindowViewModel> _logger;
         private readonly ServerToolHandler _defaultToolHandler;
         private QuickerCodeEditorToolHandler? _quickerToolHandler;
+        
+        // Chat history managed by caller
+        private readonly ChatHistory _chatHistory = new();
 
         // Chat messages and input
         [ObservableProperty]
@@ -223,7 +227,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             {
                 // Use GenerateExpressionAsStreamAsync to get stream items
                 // Ensure UI updates happen on UI thread
-                await foreach (var item in _agent.GenerateExpressionAsStreamAsync(text))
+                await foreach (var item in _agent.GenerateExpressionAsStreamAsync(text, _chatHistory))
                 {
                     // Update UI on UI thread
                     RunOnUIThread(() =>
@@ -360,8 +364,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         {
             try
             {
-                int tokenCount = _agent.EstimateTokenCount();
-                int messageCount = _agent.GetChatHistoryCount();
+                int tokenCount = _agent.EstimateTokenCount(_chatHistory);
+                int messageCount = _agent.GetChatHistoryCount(_chatHistory);
                 TokenUsageText = $"Token: {tokenCount:N0} | Messages: {messageCount}";
             }
             catch

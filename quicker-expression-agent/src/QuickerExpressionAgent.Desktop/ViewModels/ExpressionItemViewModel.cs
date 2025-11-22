@@ -186,9 +186,7 @@ public partial class ExpressionItemViewModel : ObservableObject
         {
             try
             {
-                ExecutionResult = System.Text.Json.JsonSerializer.Serialize(
-                    result,
-                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                ExecutionResult = result.ToJson(indented: true);
                 ExecutionError = string.Empty;
             }
             catch (Exception ex)

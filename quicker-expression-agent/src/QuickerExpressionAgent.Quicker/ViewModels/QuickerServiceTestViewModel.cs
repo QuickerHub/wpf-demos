@@ -143,7 +143,7 @@ public partial class QuickerServiceTestViewModel : ObservableObject
                 Variables = variablesList
             };
             
-            TestResult = resultObj.ToJson();
+            TestResult = resultObj.ToJson(indented: true);
         }
         catch (Exception ex)
         {
@@ -275,7 +275,7 @@ public partial class QuickerServiceTestViewModel : ObservableObject
                 DeserializedValue = v.GetDefaultValue()
             }).ToList();
             
-            TestResult = variablesObj.ToJson();
+            TestResult = variablesObj.ToJson(indented: true);
             TestVariables = variables;
         }
         catch (Exception ex)
@@ -325,7 +325,7 @@ public partial class QuickerServiceTestViewModel : ObservableObject
             };
 
             var result = await _service.TestExpressionForWrapperAsync(HandlerId, request);
-            TestResult = result.ToJson();
+            TestResult = result.ToJson(indented: true);
         }
         catch (Exception ex)
         {
@@ -368,7 +368,7 @@ public partial class QuickerServiceTestViewModel : ObservableObject
 
         try
         {
-            TestVariablesJson = TestVariables.ToJson();
+            TestVariablesJson = TestVariables.ToJson(indented: true);
             TestResult = $"成功导出 {TestVariables.Count} 个变量到 JSON";
         }
         catch (Exception ex)

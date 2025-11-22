@@ -35,9 +35,6 @@ public partial class ExpressionAgent : IToolHandlerProvider
     private string? _currentExpression;
     private List<VariableClass> _variables = new();
 
-    // Persistent chat history for conversation memory
-    private readonly ChatHistory _chatHistory = new();
-
     // Token encoder for precise token counting
     private readonly GptEncoding _tokenEncoder;
 
@@ -141,41 +138,65 @@ public partial class ExpressionAgent : IToolHandlerProvider
     }
 
     /// <summary>
-    /// Generate expression using Semantic Kernel's ChatCompletionAgent
+    /// Prepare chat history and execution settings for agent execution
     /// </summary>
-    public async Task GenerateExpressionAsync(
+    private (IChatCompletionService chatCompletion, OpenAIPromptExecutionSettings executionSettings) PrepareChatHistory(
         string naturalLanguage,
-        AgentProgressCallback? progressCallback = null,
-        AgentStreamingCallback? streamingCallback = null,
-        CancellationToken cancellationToken = default)
+        ChatHistory chatHistory,
+        bool includeSystemInstructions = false)
     {
         _currentExpression = null;
 
         // Build initial context with variables (Agent can get them via GetExternalVariables tool)
         var contextMessage = BuildContextMessage();
 
-        progressCallback?.Invoke(
-            new AgentStep { Type = AgentStepType.Thought, Content = "Starting agent..." },
-            "开始处理用户请求");
-
-        // Initialize chat history on first use (add system instructions once)
-        if (_chatHistory.Count == 0 && !string.IsNullOrEmpty(contextMessage))
+        // Initialize chat history on first use
+        if (chatHistory.Count == 0)
         {
-            _chatHistory.AddSystemMessage(contextMessage);
+            if (includeSystemInstructions)
+            {
+                var systemInstructions = BuildSystemInstructions();
+                if (!string.IsNullOrEmpty(systemInstructions))
+                {
+                    chatHistory.AddSystemMessage(systemInstructions);
+                }
+            }
+            if (!string.IsNullOrEmpty(contextMessage))
+            {
+                chatHistory.AddSystemMessage(contextMessage);
+            }
         }
 
-        // Add user request to persistent chat history
-        _chatHistory.AddUserMessage(naturalLanguage);
+        // Add user request to chat history
+        chatHistory.AddUserMessage(naturalLanguage);
 
         // Get chat completion service from kernel
         var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
 
         // Configure execution settings to auto-invoke kernel functions
-        // This will automatically execute tool calls and add results to chat history
         var executionSettings = new OpenAIPromptExecutionSettings
         {
             ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
         };
+
+        return (chatCompletion, executionSettings);
+    }
+
+    /// <summary>
+    /// Generate expression using Semantic Kernel's ChatCompletionAgent
+    /// </summary>
+    public async Task GenerateExpressionAsync(
+        string naturalLanguage,
+        ChatHistory chatHistory,
+        AgentProgressCallback? progressCallback = null,
+        AgentStreamingCallback? streamingCallback = null,
+        CancellationToken cancellationToken = default)
+    {
+        progressCallback?.Invoke(
+            new AgentStep { Type = AgentStepType.Thought, Content = "Starting agent..." },
+            "开始处理用户请求");
+
+        var (chatCompletion, executionSettings) = PrepareChatHistory(naturalLanguage, chatHistory);
 
         try
         {
@@ -184,7 +205,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
 
             // Stream response from chat completion service
             await foreach (var streamingContent in chatCompletion.GetStreamingChatMessageContentsAsync(
-                _chatHistory,
+                chatHistory,
                 executionSettings: executionSettings,
                 _kernel,
                 cancellationToken))
@@ -234,33 +255,13 @@ public partial class ExpressionAgent : IToolHandlerProvider
     /// </summary>
     public async IAsyncEnumerable<StreamItem> GenerateExpressionAsStreamAsync(
         string naturalLanguage,
+        ChatHistory chatHistory,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        _currentExpression = null;
-
-        // Build initial context with variables (Agent can get them via GetExternalVariables tool)
-        var contextMessage = BuildContextMessage();
-
-        // Initialize chat history on first use (add system instructions once)
-        if (_chatHistory.Count == 0 && !string.IsNullOrEmpty(contextMessage))
-        {
-            _chatHistory.AddSystemMessage(contextMessage);
-        }
-
-        // Add user request to persistent chat history
-        _chatHistory.AddUserMessage(naturalLanguage);
-
-        // Get chat completion service from kernel
-        var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
-
-        // Configure execution settings to auto-invoke kernel functions
-        var executionSettings = new OpenAIPromptExecutionSettings
-        {
-            ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
-        };
+        var (chatCompletion, executionSettings) = PrepareChatHistory(naturalLanguage, chatHistory);
 
         // Track the last processed message count to detect new tool call results
-        int lastMessageCount = _chatHistory.Count;
+        int lastMessageCount = chatHistory.Count;
 
         // Track current content item for incremental updates
         ContentStreamItem? currentContentItem = null;
@@ -271,18 +272,18 @@ public partial class ExpressionAgent : IToolHandlerProvider
         // Stream response from chat completion service
         // Note: Cannot use try-catch with yield return, so exceptions will propagate to caller
         await foreach (var chatUpdate in chatCompletion.GetStreamingChatMessageContentsAsync(
-            _chatHistory,
+            chatHistory,
             executionSettings: executionSettings,
             _kernel,
             cancellationToken))
         {
 
             // Check for new messages in chat history (likely tool call results)
-            if (_chatHistory.Count > lastMessageCount)
+            if (chatHistory.Count > lastMessageCount)
             {
-                for (int i = lastMessageCount; i < _chatHistory.Count; i++)
+                for (int i = lastMessageCount; i < chatHistory.Count; i++)
                 {
-                    var newMessage = _chatHistory[i];
+                    var newMessage = chatHistory[i];
                     if (newMessage.Role == AuthorRole.Tool)
                     {
                         // Get the first incomplete function call item from queue (FIFO)
@@ -310,7 +311,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
                         }
                     }
                 }
-                lastMessageCount = _chatHistory.Count;
+                lastMessageCount = chatHistory.Count;
             }
 
             // Process regular content updates
@@ -378,48 +379,19 @@ public partial class ExpressionAgent : IToolHandlerProvider
     /// </summary>
     public async Task GenerateExpressionWithConsoleOutputAsync(
         string naturalLanguage,
+        ChatHistory chatHistory,
         CancellationToken cancellationToken = default)
     {
-        _currentExpression = null;
-
-        // Build initial context with variables (Agent can get them via GetExternalVariables tool)
-        var contextMessage = BuildContextMessage();
-
-        // Initialize chat history on first use (add system instructions once)
-        if (_chatHistory.Count == 0)
-        {
-            var systemInstructions = BuildSystemInstructions();
-            if (!string.IsNullOrEmpty(systemInstructions))
-            {
-                _chatHistory.AddSystemMessage(systemInstructions);
-            }
-            if (!string.IsNullOrEmpty(contextMessage))
-            {
-                _chatHistory.AddSystemMessage(contextMessage);
-            }
-        }
-
-        // Add user request to persistent chat history
-        _chatHistory.AddUserMessage(naturalLanguage);
-
-        // Get chat completion service from kernel
-        var chatCompletion = _kernel.GetRequiredService<IChatCompletionService>();
-
-        // Configure execution settings to auto-invoke kernel functions
-        // This will automatically execute tool calls and add results to chat history
-        var executionSettings = new OpenAIPromptExecutionSettings
-        {
-            ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
-        };
+        var (chatCompletion, executionSettings) = PrepareChatHistory(naturalLanguage, chatHistory, includeSystemInstructions: true);
 
         try
         {
             // Track the last processed message count to detect new tool call results in real-time
-            int lastMessageCount = _chatHistory.Count;
+            int lastMessageCount = chatHistory.Count;
 
             // Stream response from chat completion service
             await foreach (var chatUpdate in chatCompletion.GetStreamingChatMessageContentsAsync(
-                _chatHistory,
+                chatHistory,
                 executionSettings: executionSettings,
                 _kernel,
                 cancellationToken))
@@ -446,19 +418,19 @@ public partial class ExpressionAgent : IToolHandlerProvider
                 }
 
                 // Check for new messages in chat history (likely tool call results)
-                if (_chatHistory.Count > lastMessageCount)
+                if (chatHistory.Count > lastMessageCount)
                 {
                     // New message(s) added to chat history (likely tool call results)
                     Console.WriteLine();
-                    for (int i = lastMessageCount; i < _chatHistory.Count; i++)
+                    for (int i = lastMessageCount; i < chatHistory.Count; i++)
                     {
-                        var newMessage = _chatHistory[i];
+                        var newMessage = chatHistory[i];
                         if (newMessage.Role == AuthorRole.Tool)
                         {
                             Console.WriteLine($"[Tool Call Result] {newMessage.Content}");
                         }
                     }
-                    lastMessageCount = _chatHistory.Count;
+                    lastMessageCount = chatHistory.Count;
                 }
 
                 // Real-time streaming output - print incremental content
@@ -529,7 +501,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
             
             ## .NET Framework Version:
             - Expressions are executed in **.NET Framework 4.7.2** environment
-            - **IMPORTANT: Random number generation** - `new Random()` uses time-based seed. Creating multiple instances quickly may produce identical sequences. **Recommended: Reuse a single Random instance** - `var rnd = new Random(); Enumerable.Range(0, 10).Select(i => rnd.Next())`
+            - **IMPORTANT: Random number generation** - `new Random()` uses time-based seed. Creating multiple instances quickly may produce identical sequences. **Recommended: Reuse a single Random instance** - `var rnd = new Random(); var numbers = new List<int>(); for (int i = 0; i < 10; i++) numbers.Add(rnd.Next());`
             - Some APIs may have different behavior compared to newer .NET versions - always test expressions
             
             ## Variable Types:
@@ -580,14 +552,15 @@ public partial class ExpressionAgent : IToolHandlerProvider
     }
 
     /// <summary>
-    /// Calculate precise token count for the current chat history using SharpToken
+    /// Calculate precise token count for the chat history using SharpToken
     /// </summary>
+    /// <param name="chatHistory">Chat history to count tokens for</param>
     /// <returns>Precise token count</returns>
-    public int EstimateTokenCount()
+    public int EstimateTokenCount(ChatHistory chatHistory)
     {
         int totalTokens = 0;
         
-        foreach (var message in _chatHistory)
+        foreach (var message in chatHistory)
         {
             // Count tokens in message content
             if (!string.IsNullOrEmpty(message.Content))
@@ -616,9 +589,10 @@ public partial class ExpressionAgent : IToolHandlerProvider
     /// <summary>
     /// Get chat history message count
     /// </summary>
+    /// <param name="chatHistory">Chat history to get count for</param>
     /// <returns>Number of messages in chat history</returns>
-    public int GetChatHistoryCount()
+    public int GetChatHistoryCount(ChatHistory chatHistory)
     {
-        return _chatHistory.Count;
+        return chatHistory.Count;
     }
 }

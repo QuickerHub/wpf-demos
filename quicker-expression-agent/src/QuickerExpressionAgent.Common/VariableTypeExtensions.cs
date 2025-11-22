@@ -251,12 +251,33 @@ public static class VariableTypeExtensions
 
         var normalized = typeName.Trim();
 
-        // Handle generic types
+        // Handle generic types with angle brackets: List<string>, Dictionary<string, object>
         if (normalized.Contains('<') && normalized.Contains('>'))
         {
             var genericStart = normalized.IndexOf('<');
             var genericName = normalized.Substring(0, genericStart).Trim();
             var genericArgs = normalized.Substring(genericStart + 1, normalized.LastIndexOf('>') - genericStart - 1).Trim();
+
+            // Remove backtick and number suffix (e.g., "List`1" -> "List")
+            genericName = RemoveGenericSuffix(genericName);
+
+            if (IsListType(genericName) && IsStringType(genericArgs))
+                return VariableType.ListString;
+
+            if (IsDictionaryType(genericName))
+            {
+                var args = genericArgs.Split(',');
+                if (args.Length >= 2 && IsStringType(args[0].Trim()) && IsObjectType(args[1].Trim()))
+                    return VariableType.Dictionary;
+            }
+        }
+        // Handle generic types with backtick format: List`1[System.String], Dictionary`2[System.String,System.Object]
+        else if (normalized.Contains('`') && normalized.Contains('['))
+        {
+            var backtickIndex = normalized.IndexOf('`');
+            var bracketStart = normalized.IndexOf('[');
+            var genericName = normalized.Substring(0, backtickIndex).Trim();
+            var genericArgs = normalized.Substring(bracketStart + 1, normalized.LastIndexOf(']') - bracketStart - 1).Trim();
 
             if (IsListType(genericName) && IsStringType(genericArgs))
                 return VariableType.ListString;
@@ -269,16 +290,40 @@ public static class VariableTypeExtensions
             }
         }
 
-        // Handle non-generic types
-        return MatchTypeName(normalized);
+        // Handle non-generic types (remove backtick suffix if present)
+        var typeNameWithoutSuffix = RemoveGenericSuffix(normalized);
+        return MatchTypeName(typeNameWithoutSuffix);
+    }
+
+    /// <summary>
+    /// Remove generic type suffix (e.g., "List`1" -> "List", "Dictionary`2" -> "Dictionary")
+    /// </summary>
+    private static string RemoveGenericSuffix(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+            return typeName;
+
+        var backtickIndex = typeName.IndexOf('`');
+        if (backtickIndex >= 0)
+        {
+            return typeName.Substring(0, backtickIndex).Trim();
+        }
+
+        return typeName.Trim();
     }
 
     /// <summary>
     /// Match type name to VariableType (handles both simple and fully qualified names)
+    /// Also handles generic type suffixes like `1, `2, etc.
     /// </summary>
     private static VariableType MatchTypeName(string typeName)
     {
-        var lower = typeName.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(typeName))
+            return VariableType.Object;
+
+        // Remove generic suffix if present (e.g., "List`1" -> "List")
+        var nameWithoutSuffix = RemoveGenericSuffix(typeName);
+        var lower = nameWithoutSuffix.ToLowerInvariant();
 
         // Remove namespace prefix if present
         var simpleName = lower.Contains('.') ? lower.Substring(lower.LastIndexOf('.') + 1) : lower;
@@ -297,31 +342,71 @@ public static class VariableTypeExtensions
 
     /// <summary>
     /// Check if type name represents List type
+    /// Handles: "List", "List`1", "System.Collections.Generic.List", "System.Collections.Generic.List`1"
     /// </summary>
-    private static bool IsListType(string typeName) =>
-        typeName.Equals("List", StringComparison.OrdinalIgnoreCase) ||
-        typeName.Equals("System.Collections.Generic.List", StringComparison.OrdinalIgnoreCase);
+    private static bool IsListType(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+            return false;
+
+        // Remove generic suffix if present
+        typeName = RemoveGenericSuffix(typeName);
+
+        return typeName.Equals("List", StringComparison.OrdinalIgnoreCase) ||
+               typeName.Equals("System.Collections.Generic.List", StringComparison.OrdinalIgnoreCase) ||
+               typeName.EndsWith(".List", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Check if type name represents Dictionary type
+    /// Handles: "Dictionary", "Dictionary`2", "System.Collections.Generic.Dictionary", "System.Collections.Generic.Dictionary`2"
     /// </summary>
-    private static bool IsDictionaryType(string typeName) =>
-        typeName.Equals("Dictionary", StringComparison.OrdinalIgnoreCase) ||
-        typeName.Equals("System.Collections.Generic.Dictionary", StringComparison.OrdinalIgnoreCase);
+    private static bool IsDictionaryType(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+            return false;
+
+        // Remove generic suffix if present
+        typeName = RemoveGenericSuffix(typeName);
+
+        return typeName.Equals("Dictionary", StringComparison.OrdinalIgnoreCase) ||
+               typeName.Equals("System.Collections.Generic.Dictionary", StringComparison.OrdinalIgnoreCase) ||
+               typeName.EndsWith(".Dictionary", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Check if type name represents string type
+    /// Handles: "string", "String", "System.String"
     /// </summary>
-    private static bool IsStringType(string typeName) =>
-        typeName.Equals("string", StringComparison.OrdinalIgnoreCase) ||
-        typeName.Equals("System.String", StringComparison.OrdinalIgnoreCase);
+    private static bool IsStringType(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+            return false;
+
+        // Remove namespace prefix if present
+        var simpleName = typeName.Contains('.') ? typeName.Substring(typeName.LastIndexOf('.') + 1) : typeName;
+
+        return simpleName.Equals("string", StringComparison.OrdinalIgnoreCase) ||
+               simpleName.Equals("String", StringComparison.OrdinalIgnoreCase) ||
+               typeName.Equals("System.String", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Check if type name represents object type
+    /// Handles: "object", "Object", "System.Object"
     /// </summary>
-    private static bool IsObjectType(string typeName) =>
-        typeName.Equals("object", StringComparison.OrdinalIgnoreCase) ||
-        typeName.Equals("System.Object", StringComparison.OrdinalIgnoreCase);
+    private static bool IsObjectType(string typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+            return false;
+
+        // Remove namespace prefix if present
+        var simpleName = typeName.Contains('.') ? typeName.Substring(typeName.LastIndexOf('.') + 1) : typeName;
+
+        return simpleName.Equals("object", StringComparison.OrdinalIgnoreCase) ||
+               simpleName.Equals("Object", StringComparison.OrdinalIgnoreCase) ||
+               typeName.Equals("System.Object", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Convert value to string representation based on VariableType
@@ -334,18 +419,27 @@ public static class VariableTypeExtensions
             return string.Empty;
         }
 
+        // Handle JsonElement first (from JSON deserialization)
+        if (value is JsonElement jsonElement)
+        {
+            var convertedValue = varType.ConvertValueFromJson(jsonElement);
+            // Recursively convert if still JsonElement, otherwise use ToString
+            if (convertedValue is JsonElement nestedElement)
+            {
+                return nestedElement.ToString();
+            }
+            // For converted values, use simple ToString for most types
+            value = convertedValue;
+        }
+
         return varType switch
         {
-            VariableType.String => value.ToString() ?? string.Empty,
-            VariableType.Int => value is int intVal ? intVal.ToString() : (value is long longVal ? longVal.ToString() : "0"),
-            VariableType.Double => value is double doubleVal ? doubleVal.ToString() : (value is float floatVal ? floatVal.ToString() : (value is decimal decimalVal ? decimalVal.ToString() : "0.0")),
-            VariableType.Bool => value is bool boolVal ? boolVal.ToString().ToLower() : "false",
-            VariableType.DateTime => value is DateTime dateVal ? dateVal.ToString() : DateTime.MinValue.ToString(),
+            VariableType.Bool => value is bool boolVal ? boolVal.ToString().ToLower() : value.ToString() ?? "false",
             VariableType.ListString => value is System.Collections.IEnumerable enumerable && !(value is string)
                 ? string.Join("\n", enumerable.Cast<object>().Select(item => item?.ToString() ?? ""))
                 : string.Empty,
-            VariableType.Dictionary => value.ToJson(new JsonSerializerOptions { WriteIndented = true }),
-            VariableType.Object => value.ToString() ?? string.Empty,
+            VariableType.Dictionary => value.ToJson(indented: true),
+            // For other types, just use ToString()
             _ => value.ToString() ?? string.Empty
         };
     }

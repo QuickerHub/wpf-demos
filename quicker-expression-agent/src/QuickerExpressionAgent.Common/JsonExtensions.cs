@@ -14,7 +14,7 @@ public static class JsonExtensions
     /// <summary>
     /// Serialize object to JSON string
     /// </summary>
-    public static string ToJson<T>(this T? value, bool indented = true)
+    public static string ToJson<T>(this T? value, bool indented = false)
     {
         if (value == null)
         {
@@ -57,7 +57,7 @@ public static class JsonExtensions
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
-    public static string ToJson<T>(this T? value, bool indented = true)
+    public static string ToJson<T>(this T? value, bool indented = false)
     {
         if (value == null)
         {
@@ -67,23 +67,8 @@ public static class JsonExtensions
         var options = new System.Text.Json.JsonSerializerOptions
         {
             WriteIndented = indented,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All)
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
-
-        return System.Text.Json.JsonSerializer.Serialize(value, options);
-    }
-
-    /// <summary>
-    /// Serialize object to JSON string with custom options
-    /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
-    public static string ToJson<T>(this T? value, System.Text.Json.JsonSerializerOptions options)
-    {
-        if (value == null)
-        {
-            return "null";
-        }
 
         return System.Text.Json.JsonSerializer.Serialize(value, options);
     }
