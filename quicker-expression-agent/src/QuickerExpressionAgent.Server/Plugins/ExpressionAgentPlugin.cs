@@ -245,9 +245,12 @@ public class ExpressionAgentPlugin
         if (!string.IsNullOrWhiteSpace(expression))
         {
             description.AppendLine("Current Expression:");
-            description.AppendLine("```csharp");
-            description.AppendLine(expression);
-            description.AppendLine("```");
+            // Use indentation instead of markdown code blocks to avoid rendering issues
+            var expressionLines = expression.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            foreach (var line in expressionLines)
+            {
+                description.AppendLine($"  {line}");
+            }
         }
         else
         {

@@ -551,4 +551,50 @@ public partial class ExpressionAgent : IToolHandlerProvider
         }
         return null;
     }
+
+    /// <summary>
+    /// Estimate token count for the current chat history
+    /// </summary>
+    /// <returns>Estimated token count</returns>
+    public int EstimateTokenCount()
+    {
+        int totalChars = 0;
+        
+        foreach (var message in _chatHistory)
+        {
+            // Count content characters
+            if (!string.IsNullOrEmpty(message.Content))
+            {
+                totalChars += message.Content.Length;
+            }
+            
+            // Count tool call items (if any)
+            if (message.Items != null)
+            {
+                foreach (var item in message.Items)
+                {
+                    if (item is ChatMessageContent itemContent && !string.IsNullOrEmpty(itemContent.Content))
+                    {
+                        totalChars += itemContent.Content.Length;
+                    }
+                }
+            }
+        }
+        
+        // Rough estimation: 
+        // - English: 1 token ≈ 4 characters
+        // - Chinese: 1 token ≈ 1.5 characters
+        // - Mixed content: use average of 3 characters per token
+        // This is a conservative estimate
+        return totalChars / 3;
+    }
+
+    /// <summary>
+    /// Get chat history message count
+    /// </summary>
+    /// <returns>Number of messages in chat history</returns>
+    public int GetChatHistoryCount()
+    {
+        return _chatHistory.Count;
+    }
 }

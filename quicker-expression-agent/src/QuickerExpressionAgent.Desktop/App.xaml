@@ -4,220 +4,227 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop"
-    xmlns:mdx="clr-namespace:MdXaml;assembly=MdXaml">
+    xmlns:mdx="clr-namespace:MdXaml;assembly=MdXaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <Application.Resources>
-        <!--  Color Resources  -->
-        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#1F2937" />
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#0078D4" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#005A9E" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
+            <!--  Color Resources  -->
+            <SolidColorBrush x:Key="PrimaryTextBrush" Color="#1F2937" />
+            <SolidColorBrush x:Key="PrimaryBrush" Color="#0078D4" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#005A9E" />
 
-        <!--  MdXaml Markdown Style  -->
-        <Style x:Key="MdStyle" TargetType="{x:Type FlowDocument}">
-            <!--  Font and size related styles  -->
-            <Setter Property="TextAlignment" Value="Left" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei, sans-serif" />
-            <Setter Property="PagePadding" Value="10" />
+            <!--  MdXaml Markdown Style  -->
+            <Style x:Key="MdStyle" TargetType="{x:Type FlowDocument}">
+                <!--  Font and size related styles  -->
+                <Setter Property="TextAlignment" Value="Left" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei, sans-serif" />
+                <Setter Property="PagePadding" Value="10" />
 
-            <Style.Resources>
-                <!--  Quote block style (left border line)  -->
-                <Style TargetType="{x:Type Section}">
-                    <Setter Property="Margin" Value="0,10" />
-                    <Setter Property="Padding" Value="10,0" />
-                    <Setter Property="BorderBrush" Value="#DEDEDE" />
-                    <Setter Property="BorderThickness" Value="2.5,0,0,0" />
-                </Style>
+                <Style.Resources>
+                    <!--  Quote block style (left border line)  -->
+                    <Style TargetType="{x:Type Section}">
+                        <Setter Property="Margin" Value="0,10" />
+                        <Setter Property="Padding" Value="10,0" />
+                        <Setter Property="BorderBrush" Value="#DEDEDE" />
+                        <Setter Property="BorderThickness" Value="2.5,0,0,0" />
+                    </Style>
 
-                <!--  Code block style  -->
-                <Style TargetType="{x:Type avalonEdit:TextEditor}">
-                    <Setter Property="avalonEdit:TextEditor.HorizontalScrollBarVisibility" Value="Disabled" />
-                    <Setter Property="avalonEdit:TextEditor.VerticalScrollBarVisibility" Value="Auto" />
-                    <Setter Property="WordWrap" Value="True" />
-                    <Setter Property="Background" Value="#F5F5F5" />
-                    <Setter Property="Padding" Value="5,10" />
-                    <Setter Property="Border.CornerRadius" Value="5" />
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="{x:Type avalonEdit:TextEditor}">
-                                <Border
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="{TemplateBinding Border.CornerRadius}">
-                                    <ScrollViewer
-                                        Name="PART_ScrollViewer"
-                                        Padding="{TemplateBinding Padding}"
-                                        HorizontalContentAlignment="Left"
-                                        VerticalContentAlignment="Top"
-                                        CanContentScroll="True"
-                                        Content="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TextArea}"
-                                        Focusable="False"
-                                        HorizontalScrollBarVisibility="Disabled"
-                                        VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" />
-                                </Border>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
+                    <!--  Code block style  -->
+                    <Style TargetType="{x:Type avalonEdit:TextEditor}">
+                        <Setter Property="avalonEdit:TextEditor.HorizontalScrollBarVisibility" Value="Disabled" />
+                        <Setter Property="avalonEdit:TextEditor.VerticalScrollBarVisibility" Value="Auto" />
+                        <Setter Property="WordWrap" Value="True" />
+                        <Setter Property="Background" Value="#F5F5F5" />
+                        <Setter Property="Padding" Value="5,10" />
+                        <Setter Property="Border.CornerRadius" Value="5" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type avalonEdit:TextEditor}">
+                                    <Border
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding Border.CornerRadius}">
+                                        <ScrollViewer
+                                            Name="PART_ScrollViewer"
+                                            Padding="{TemplateBinding Padding}"
+                                            HorizontalContentAlignment="Left"
+                                            VerticalContentAlignment="Top"
+                                            CanContentScroll="True"
+                                            Content="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TextArea}"
+                                            Focusable="False"
+                                            HorizontalScrollBarVisibility="Disabled"
+                                            VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
 
-                <!--  Headings and paragraphs  -->
-                <Style TargetType="{x:Type Paragraph}">
-                    <Setter Property="Margin" Value="0,6" />
-                    <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                    <Style.Triggers>
-                        <!--  Heading1  -->
-                        <Trigger Property="FrameworkContentElement.Tag" Value="Heading1">
-                            <Setter Property="Block.Margin" Value="0,10,0,0" />
-                            <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                            <Setter Property="TextElement.FontSize" Value="28" />
-                            <Setter Property="TextElement.FontWeight" Value="Light" />
-                            <Setter Property="TextAlignment" Value="Center" />
-                        </Trigger>
-                        <!--  Heading2  -->
-                        <Trigger Property="FrameworkContentElement.Tag" Value="Heading2">
-                            <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                            <Setter Property="TextElement.FontSize" Value="21" />
-                        </Trigger>
-                        <!--  Heading3  -->
-                        <Trigger Property="FrameworkContentElement.Tag" Value="Heading3">
-                            <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                            <Setter Property="TextElement.FontSize" Value="17.5" />
-                        </Trigger>
-                        <!--  Heading4  -->
-                        <Trigger Property="FrameworkContentElement.Tag" Value="Heading4">
-                            <Setter Property="Block.Margin" Value="0,5,5,0" />
-                            <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                            <Setter Property="TextElement.FontSize" Value="14" />
-                        </Trigger>
-                        <!--  CodeBlock  -->
-                        <Trigger Property="FrameworkContentElement.Tag" Value="CodeBlock">
-                            <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
-                            <Setter Property="TextElement.FontSize" Value="13" />
-                            <Setter Property="TextElement.Background" Value="#F5F5F5" />
-                            <Setter Property="Block.Padding" Value="20,10" />
-                        </Trigger>
-                        <!--  Note  -->
-                        <Trigger Property="FrameworkContentElement.Tag" Value="Note">
-                            <Setter Property="Margin" Value="5,0,5,0" />
-                            <Setter Property="Padding" Value="10,5" />
-                            <Setter Property="BorderBrush" Value="#DEDEDE" />
-                            <Setter Property="BorderThickness" Value="3,3,3,3" />
-                            <Setter Property="TextElement.Background" Value="#FAFAFA" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Headings and paragraphs  -->
+                    <Style TargetType="{x:Type Paragraph}">
+                        <Setter Property="Margin" Value="0,6" />
+                        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                        <Style.Triggers>
+                            <!--  Heading1  -->
+                            <Trigger Property="FrameworkContentElement.Tag" Value="Heading1">
+                                <Setter Property="Block.Margin" Value="0,10,0,0" />
+                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.FontSize" Value="28" />
+                                <Setter Property="TextElement.FontWeight" Value="Light" />
+                                <Setter Property="TextAlignment" Value="Center" />
+                            </Trigger>
+                            <!--  Heading2  -->
+                            <Trigger Property="FrameworkContentElement.Tag" Value="Heading2">
+                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.FontSize" Value="21" />
+                            </Trigger>
+                            <!--  Heading3  -->
+                            <Trigger Property="FrameworkContentElement.Tag" Value="Heading3">
+                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.FontSize" Value="17.5" />
+                            </Trigger>
+                            <!--  Heading4  -->
+                            <Trigger Property="FrameworkContentElement.Tag" Value="Heading4">
+                                <Setter Property="Block.Margin" Value="0,5,5,0" />
+                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.FontSize" Value="14" />
+                            </Trigger>
+                            <!--  CodeBlock  -->
+                            <Trigger Property="FrameworkContentElement.Tag" Value="CodeBlock">
+                                <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
+                                <Setter Property="TextElement.FontSize" Value="13" />
+                                <Setter Property="TextElement.Background" Value="#F5F5F5" />
+                                <Setter Property="Block.Padding" Value="20,10" />
+                            </Trigger>
+                            <!--  Note  -->
+                            <Trigger Property="FrameworkContentElement.Tag" Value="Note">
+                                <Setter Property="Margin" Value="5,0,5,0" />
+                                <Setter Property="Padding" Value="10,5" />
+                                <Setter Property="BorderBrush" Value="#DEDEDE" />
+                                <Setter Property="BorderThickness" Value="3,3,3,3" />
+                                <Setter Property="TextElement.Background" Value="#FAFAFA" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  Inline code style  -->
-                <Style TargetType="{x:Type Run}">
-                    <Style.Triggers>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="CodeSpan">
-                            <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
-                            <Setter Property="TextElement.FontSize" Value="13" />
-                            <Setter Property="TextElement.Background" Value="#F0F0F0" />
-                            <Setter Property="TextElement.Foreground" Value="#D63384" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Inline code style  -->
+                    <Style TargetType="{x:Type Run}">
+                        <Style.Triggers>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="CodeSpan">
+                                <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
+                                <Setter Property="TextElement.FontSize" Value="13" />
+                                <Setter Property="TextElement.Background" Value="#F0F0F0" />
+                                <Setter Property="TextElement.Foreground" Value="#D63384" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  Hyperlink style  -->
-                <Style TargetType="{x:Type Hyperlink}">
-                    <Setter Property="Inline.TextDecorations" Value="None" />
-                    <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
-                    <Style.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsMouseCaptured" Value="True">
-                            <Setter Property="Foreground" Value="Gray" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Hyperlink style  -->
+                    <Style TargetType="{x:Type Hyperlink}">
+                        <Setter Property="Inline.TextDecorations" Value="None" />
+                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseCaptured" Value="True">
+                                <Setter Property="Foreground" Value="Gray" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  Image style  -->
-                <Style TargetType="{x:Type Image}">
-                    <Style.Triggers>
-                        <Trigger Property="FrameworkElement.Tag" Value="imageright">
-                            <Setter Property="HorizontalAlignment" Value="Right" />
-                        </Trigger>
-                        <Trigger Property="Tag" Value="imageleft">
-                            <Setter Property="HorizontalAlignment" Value="Left" />
-                        </Trigger>
-                        <Trigger Property="Tag" Value="imagecenter">
-                            <Setter Property="HorizontalAlignment" Value="Center" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Image style  -->
+                    <Style TargetType="{x:Type Image}">
+                        <Style.Triggers>
+                            <Trigger Property="FrameworkElement.Tag" Value="imageright">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="imageleft">
+                                <Setter Property="HorizontalAlignment" Value="Left" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="imagecenter">
+                                <Setter Property="HorizontalAlignment" Value="Center" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  List style  -->
-                <Style TargetType="{x:Type List}">
-                    <Setter Property="Margin" Value="0,5" />
-                </Style>
+                    <!--  List style  -->
+                    <Style TargetType="{x:Type List}">
+                        <Setter Property="Margin" Value="0,5" />
+                    </Style>
 
-                <!--  Table style  -->
-                <Style TargetType="{x:Type Table}">
-                    <Setter Property="Table.CellSpacing" Value="0" />
-                    <Setter Property="Block.BorderThickness" Value="0.3" />
-                    <Setter Property="Background" Value="White" />
-                    <Setter Property="BorderBrush" Value="Gray" />
-                    <Style.Resources>
-                        <Style TargetType="{x:Type TableCell}">
-                            <Setter Property="TableCell.BorderThickness" Value="0.2" />
-                            <Setter Property="TableCell.BorderBrush" Value="Gray" />
-                            <Setter Property="TableCell.Padding" Value="13,6" />
-                        </Style>
-                    </Style.Resources>
-                </Style>
+                    <!--  Table style  -->
+                    <Style TargetType="{x:Type Table}">
+                        <Setter Property="Table.CellSpacing" Value="0" />
+                        <Setter Property="Block.BorderThickness" Value="0.3" />
+                        <Setter Property="Background" Value="White" />
+                        <Setter Property="BorderBrush" Value="Gray" />
+                        <Style.Resources>
+                            <Style TargetType="{x:Type TableCell}">
+                                <Setter Property="TableCell.BorderThickness" Value="0.2" />
+                                <Setter Property="TableCell.BorderBrush" Value="Gray" />
+                                <Setter Property="TableCell.Padding" Value="13,6" />
+                            </Style>
+                        </Style.Resources>
+                    </Style>
 
-                <!--  Table header style  -->
-                <Style TargetType="{x:Type TableRowGroup}">
-                    <Style.Triggers>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="TableHeader">
-                            <Setter Property="TextElement.FontWeight" Value="Bold" />
-                            <Setter Property="TextElement.Background" Value="#F8F8F8" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Table header style  -->
+                    <Style TargetType="{x:Type TableRowGroup}">
+                        <Style.Triggers>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="TableHeader">
+                                <Setter Property="TextElement.FontWeight" Value="Bold" />
+                                <Setter Property="TextElement.Background" Value="#F8F8F8" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  Even table row style  -->
-                <Style TargetType="{x:Type TableRow}">
-                    <Style.Triggers>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="EvenTableRow">
-                            <Setter Property="TextElement.Background" Value="#F8F8F8" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Even table row style  -->
+                    <Style TargetType="{x:Type TableRow}">
+                        <Style.Triggers>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="EvenTableRow">
+                                <Setter Property="TextElement.Background" Value="#F8F8F8" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  Horizontal rule style  -->
-                <Style TargetType="{x:Type BlockUIContainer}">
-                    <Style.Triggers>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="RuleSingle">
-                            <Setter Property="Block.Margin" Value="0,3" />
-                        </Trigger>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="RuleDouble">
-                            <Setter Property="Block.Margin" Value="0,3" />
-                        </Trigger>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="RuleBold">
-                            <Setter Property="Block.Margin" Value="0,3" />
-                        </Trigger>
-                        <Trigger Property="FrameworkContentElement.Tag" Value="RuleBoldWithSingle">
-                            <Setter Property="Block.Margin" Value="0,3" />
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
+                    <!--  Horizontal rule style  -->
+                    <Style TargetType="{x:Type BlockUIContainer}">
+                        <Style.Triggers>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="RuleSingle">
+                                <Setter Property="Block.Margin" Value="0,3" />
+                            </Trigger>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="RuleDouble">
+                                <Setter Property="Block.Margin" Value="0,3" />
+                            </Trigger>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="RuleBold">
+                                <Setter Property="Block.Margin" Value="0,3" />
+                            </Trigger>
+                            <Trigger Property="FrameworkContentElement.Tag" Value="RuleBoldWithSingle">
+                                <Setter Property="Block.Margin" Value="0,3" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
 
-                <!--  Separator style  -->
-                <Style TargetType="{x:Type Separator}">
-                    <Setter Property="Height" Value="0.5" />
-                    <Setter Property="Background" Value="#A8A8A8" />
-                </Style>
-            </Style.Resources>
-        </Style>
+                    <!--  Separator style  -->
+                    <Style TargetType="{x:Type Separator}">
+                        <Setter Property="Height" Value="0.5" />
+                        <Setter Property="Background" Value="#A8A8A8" />
+                    </Style>
+                </Style.Resources>
+            </Style>
 
-        <!--  Apply MdStyle to MarkdownScrollViewer (for assistant messages)  -->
-        <Style TargetType="{x:Type mdx:MarkdownScrollViewer}">
-            <Setter Property="MarkdownStyle" Value="{StaticResource MdStyle}" />
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
+            <!--  Apply MdStyle to MarkdownScrollViewer (for assistant messages)  -->
+            <Style TargetType="{x:Type mdx:MarkdownScrollViewer}">
+                <Setter Property="MarkdownStyle" Value="{StaticResource MdStyle}" />
+                <Setter Property="Background" Value="Transparent" />
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

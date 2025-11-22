@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -167,6 +168,36 @@ public partial class ToolCallViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Check if arguments string is empty (null, whitespace, or empty JSON object)
+    /// </summary>
+    private bool IsEmptyArguments(string? arguments)
+    {
+        if (string.IsNullOrWhiteSpace(arguments))
+            return true;
+
+        // Check if it's an empty JSON object
+        var trimmed = arguments.Trim();
+        if (trimmed == "{}" || trimmed == "null")
+            return true;
+
+        // Try to parse as JSON and check if it's an empty object
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                return !doc.RootElement.EnumerateObject().Any();
+            }
+            return false;
+        }
+        catch
+        {
+            // If not valid JSON, treat as non-empty
+            return false;
+        }
+    }
+
     partial void OnInputParametersChanged(ObservableCollection<ToolCallParameterViewModel> value)
     {
         UpdateMarkdownContent();
@@ -190,8 +221,8 @@ public partial class ToolCallViewModel : ObservableObject
             markdown.AppendLine();
         }
 
-        // Arguments section
-        if (!string.IsNullOrWhiteSpace(Arguments))
+        // Arguments section - only show if not empty
+        if (!IsEmptyArguments(Arguments))
         {
             markdown.AppendLine("**输入参数**:");
             markdown.AppendLine();

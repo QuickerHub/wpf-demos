@@ -7,6 +7,7 @@
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="clr-namespace:MdXaml;assembly=MdXaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     Title="Quicker Expression Agent - Chat"
     Width="1000"
     Height="700"
@@ -66,7 +67,6 @@
                     ItemsSource="{Binding ViewModel.ChatMessages}"
                     ScrollViewer.CanContentScroll="False"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    ScrollViewer.VerticalScrollBarVisibility="Auto"
                     SelectionMode="Single">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
@@ -250,7 +250,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBox
+                        <ui:TextBox
                             x:Name="ChatInputTextBox"
                             Grid.Column="0"
                             MinHeight="40"
@@ -258,32 +258,20 @@
                             Margin="0,0,10,0"
                             Padding="10,8"
                             AcceptsReturn="True"
-                            Background="White"
-                            BorderBrush="#D0D0D0"
                             FontSize="14"
                             PreviewKeyDown="ChatInputTextBox_PreviewKeyDown"
                             Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
                             TextWrapping="Wrap"
                             VerticalScrollBarVisibility="Auto" />
 
-                        <Button
+                        <ui:Button
                             Grid.Column="1"
                             MinWidth="80"
                             Padding="20,8"
                             Command="{Binding ViewModel.GenerateCommand}"
                             Content="发送"
                             FontSize="14"
-                            IsEnabled="{Binding ViewModel.IsGenerating, Converter={StaticResource InvertBooleanConverter}}">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Style.Triggers>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter Property="Opacity" Value="0.5" />
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                            IsEnabled="{Binding ViewModel.IsGenerating, Converter={StaticResource InvertBooleanConverter}}" />
                     </Grid>
                 </Border>
 
@@ -308,6 +296,14 @@
         <StatusBar Grid.Row="2">
             <StatusBarItem>
                 <TextBlock Text="{Binding ViewModel.StatusText, Mode=OneWay}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock
+                    Margin="10,0,0,0"
+                    FontSize="11"
+                    Foreground="#666666"
+                    Text="{Binding ViewModel.TokenUsageText, Mode=OneWay}" />
             </StatusBarItem>
             <Separator />
             <StatusBarItem HorizontalAlignment="Right">

@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     Title="IQuickerService API 测试"
     Width="1000"
     Height="800"
@@ -62,7 +63,7 @@
                             Margin="0,0,12,12"
                             VerticalAlignment="Center"
                             Text="Handler ID:" />
-                        <TextBox
+                        <ui:TextBox
                             Grid.Row="0"
                             Grid.Column="1"
                             Margin="0,0,0,12"
@@ -75,7 +76,7 @@
                             Margin="0,0,12,12"
                             VerticalAlignment="Center"
                             Text="表达式:" />
-                        <TextBox
+                        <ui:TextBox
                             Grid.Row="1"
                             Grid.Column="1"
                             Margin="0,0,0,12"
@@ -88,7 +89,7 @@
                             Margin="0,0,12,12"
                             VerticalAlignment="Center"
                             Text="变量名:" />
-                        <TextBox
+                        <ui:TextBox
                             Grid.Row="2"
                             Grid.Column="1"
                             Margin="0,0,0,12"
@@ -115,7 +116,7 @@
                             Margin="0,0,12,0"
                             VerticalAlignment="Center"
                             Text="变量值:" />
-                        <TextBox
+                        <ui:TextBox
                             Grid.Row="4"
                             Grid.Column="1"
                             Text="{Binding ViewModel.TestVariableValue, UpdateSourceTrigger=PropertyChanged}"
@@ -133,19 +134,19 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Button
+                        <ui:Button
                             Grid.Column="1"
                             Margin="8,0,8,0"
                             Padding="8,4"
                             Command="{Binding ViewModel.LoadTestVariablesFromJsonCommand}"
                             Content="加载" />
-                        <Button
+                        <ui:Button
                             Grid.Column="2"
                             Padding="8,4"
                             Command="{Binding ViewModel.ExportVariablesToJsonCommand}"
                             Content="导出" />
                     </Grid>
-                    <TextBox
+                    <ui:TextBox
                         MinHeight="80"
                         MaxHeight="150"
                         AcceptsReturn="True"
@@ -164,7 +165,7 @@
                     <StackPanel>
                         <UniformGrid Margin="0,0,0,8" Columns="2">
                             <!-- Handler Operations -->
-                            <Button
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="0,0,8,8"
                                 Padding="8,6"
@@ -177,8 +178,8 @@
                                     Text="GetOrCreateCodeEditorAsync"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
-                            <Button
+                            </ui:Button>
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="8,0,0,8"
                                 Padding="8,6"
@@ -191,10 +192,10 @@
                                     Text="GetCodeWrapperIdAsync"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
+                            </ui:Button>
 
                             <!-- Wrapper Operations (Require Code Editor Handler) -->
-                            <Button
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="0,0,8,8"
                                 Padding="8,6"
@@ -207,8 +208,8 @@
                                     Text="GetExpressionAndVariablesForWrapperAsync"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
-                            <Button
+                            </ui:Button>
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="8,0,0,8"
                                 Padding="8,6"
@@ -221,10 +222,10 @@
                                     Text="SetExpressionForWrapperAsync"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
+                            </ui:Button>
 
                             <!-- Variable Operations (Require Code Editor Handler) -->
-                            <Button
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="0,0,8,8"
                                 Padding="8,6"
@@ -237,8 +238,8 @@
                                     Text="GetVariableForWrapperAsync"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
-                            <Button
+                            </ui:Button>
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="8,0,0,8"
                                 Padding="8,6"
@@ -251,8 +252,8 @@
                                     Text="SetVariableForWrapperAsync"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
-                            <Button
+                            </ui:Button>
+                            <ui:Button
                                 MinHeight="36"
                                 Margin="0,0,8,8"
                                 Padding="8,6"
@@ -265,11 +266,11 @@
                                     Text="GetAllVariables (详细)"
                                     TextAlignment="Center"
                                     TextWrapping="Wrap" />
-                            </Button>
+                            </ui:Button>
                         </UniformGrid>
 
                         <!-- Test Expression (Require Code Editor Handler) - Full Width -->
-                        <Button
+                        <ui:Button
                             MinHeight="36"
                             Padding="8,6"
                             HorizontalAlignment="Stretch"
@@ -281,7 +282,7 @@
                                 Text="TestExpressionForWrapperAsync"
                                 TextAlignment="Center"
                                 TextWrapping="Wrap" />
-                        </Button>
+                        </ui:Button>
                     </StackPanel>
                 </StackPanel>
             </GroupBox>
@@ -289,10 +290,9 @@
             <!-- Test Result Card -->
             <GroupBox Grid.Row="4" Header="测试结果">
                 <StackPanel Margin="12">
-                    <TextBox
+                    <ui:TextBox
                         MinHeight="100"
                         Padding="12"
-                        Background="#F5F5F5"
                         BorderThickness="0"
                         FontFamily="Consolas"
                         FontSize="12"

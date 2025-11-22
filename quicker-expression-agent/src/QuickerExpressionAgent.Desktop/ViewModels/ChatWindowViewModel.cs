@@ -47,6 +47,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [ObservableProperty]
         private bool _isConnected = false;
 
+        [ObservableProperty]
+        private string _tokenUsageText = "Token: 0";
+
         public ChatWindowViewModel(
             IConfigurationService configurationService,
             ExpressionExecutor executor,
@@ -79,6 +82,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             // Initialize connection
             InitializeConnectionAsync().ConfigureAwait(false);
+            
+            // Initialize token usage display
+            UpdateTokenUsage();
 
             // Initialize chat with welcome message
             AddChatMessage(ChatMessageType.Assistant, "正在连接 Quicker 服务，请稍候...");
@@ -182,6 +188,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         public void AddChatMessage(ChatMessageType messageType, string content)
         {
             ChatMessages.Add(new ChatMessageViewModel(messageType, content));
+            UpdateTokenUsage();
         }
 
         [RelayCommand]
@@ -240,6 +247,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                                     // Set initial value
                                     var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, contentItem.Text);
                                     ChatMessages.Add(assistantMessage);
+                                    UpdateTokenUsage();
                                 }
                                 break;
 
@@ -257,6 +265,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                                     };
                                     var toolCallMessage = new ChatMessageViewModel(ChatMessageType.Tool, toolCallViewModel);
                                     ChatMessages.Add(toolCallMessage);
+                                    UpdateTokenUsage();
                                     
                                     // Subscribe to property changes for real-time updates
                                     PropertyChangedEventHandler handler = (s, e) => FunctionCallItem_PropertyChanged(
@@ -278,6 +287,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 _logger?.LogError(ex, "Error generating expression");
                 var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, $"发生异常: {ex.Message}");
                 ChatMessages.Add(assistantMessage);
+                UpdateTokenUsage();
             }
             finally
             {
@@ -304,6 +314,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     if (assistantMessage != null)
                     {
                         assistantMessage.Content = item.Text;
+                        // Update token usage when content changes
+                        UpdateTokenUsage();
                     }
                 });
             }
@@ -322,11 +334,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 if (e.PropertyName == nameof(FunctionCallStreamItem.Arguments))
                 {
                     toolCallViewModel.Arguments = functionCallItem.Arguments;
+                    UpdateTokenUsage();
                 }
                 else if (e.PropertyName == nameof(FunctionCallStreamItem.Result))
                 {
                     toolCallViewModel.Result = functionCallItem.Result;
                     // UpdateMarkdownContent will be called automatically by OnResultChanged
+                    UpdateTokenUsage();
                 }
             });
         }
@@ -337,6 +351,24 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private void RunOnUIThread(Action action, DispatcherPriority priority = DispatcherPriority.Background)
         {
             Application.Current.Dispatcher.Invoke(action, priority);
+        }
+
+        /// <summary>
+        /// Update token usage display based on current chat history
+        /// </summary>
+        private void UpdateTokenUsage()
+        {
+            try
+            {
+                int tokenCount = _agent.EstimateTokenCount();
+                int messageCount = _agent.GetChatHistoryCount();
+                TokenUsageText = $"Token: {tokenCount:N0} | Messages: {messageCount}";
+            }
+            catch
+            {
+                // Ignore errors in token estimation
+                TokenUsageText = "Token: N/A";
+            }
         }
 
         /// <summary>
