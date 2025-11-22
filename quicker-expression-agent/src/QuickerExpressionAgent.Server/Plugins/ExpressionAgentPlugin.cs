@@ -2,7 +2,9 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.SemanticKernel;
 using QuickerExpressionAgent.Common;
@@ -48,7 +50,7 @@ public class ExpressionAgentPlugin
     /// Think of {variableName} as function parameters (inputs) and the expression as the function body.
     /// </summary>
     private const string ExpressionFormatDescription = 
-        "C# code with {variableName} format. " +
+        "C# code with {variableName} format. using net472. " +
         "Think of it like a function: {variableName} is like function parameters (inputs), and the expression is the function body. " +
         "The expression is pure C# code that can be executed directly and computes a result (like a function return value) or performs an action (void function). " +
         "To reference external variables (input variables), use {variableName} format, e.g., {userName}, {age}, {items}. " +
@@ -57,17 +59,6 @@ public class ExpressionAgentPlugin
         "**CRITICAL: {variableName} is like a function parameter - you CANNOT assign to it directly. For example, {varname} = value is NOT allowed and will NOT work.** " +
         "**Exception: For reference types (Dictionary, List, Object), you CAN modify properties/members, e.g., {dict}[\"key\"] = value or {list}.Add(item).** " +
         "**The expression should compute and return a result directly, NOT assign to variables. Example CORRECT: {inputDict}.Where(...).ToDictionary(...). Example WRONG: {outputDict} = {inputDict}.Where(...).ToDictionary(...).**";
-    
-    /// <summary>
-    /// Description of the JSON format for List&lt;VariableClass&gt;
-    /// </summary>
-    private const string VariableListJsonFormatDescription = 
-        "JSON array format: [{\"VarName\":\"string\",\"VarType\":\"String|Int|Double|Bool|DateTime|ListString|Dictionary|Object\",\"DefaultValue\":object value},...]. " +
-        "Each object must have: VarName (string), VarType (String|Int|Double|Bool|DateTime|ListString|Dictionary|Object), DefaultValue (type depends on VarType). " +
-        "DefaultValue type must match VarType: String uses string, Int uses number, Double uses number, Bool uses boolean, " +
-        "DateTime uses ISO8601 string, ListString uses array of strings [\"item1\",\"item2\"], " +
-        "Dictionary uses object {\"key\":\"value\"}, Object uses any JSON value. " +
-        "Example: [{\"VarName\":\"userName\",\"VarType\":\"String\",\"DefaultValue\":\"John\"},{\"VarName\":\"age\",\"VarType\":\"Int\",\"DefaultValue\":25}]";
     
     /// <summary>
     /// Description of the JSON format for List&lt;VariableClassWithObjectValue&gt; (for TestExpression)
@@ -273,8 +264,15 @@ public class ExpressionAgentPlugin
                     // Serialize List<object> to JSON string
                     var jsonString = JsonSerializer.Serialize(variables);
                     
+                    // Configure JsonSerializerOptions to handle enum as string
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        Converters = { new JsonStringEnumConverter() }
+                    };
+                    
                     // Deserialize directly to List<VariableClassWithObjectValue>
-                    var variableList = JsonSerializer.Deserialize<List<VariableClassWithObjectValue>>(jsonString);
+                    var variableList = JsonSerializer.Deserialize<List<VariableClassWithObjectValue>>(jsonString, options);
                     
                     if (variableList == null)
                     {
@@ -303,39 +301,29 @@ public class ExpressionAgentPlugin
                 return "Error: TestExpressionAsync returned null result.";
             }
 
-            var response = new StringBuilder();
-            
-            if (result.Success)
+            // Format output based on result type
+            if (result is ExpressionResultError errorResult)
             {
-                var resultJson = string.IsNullOrWhiteSpace(result.ValueJson) ? "null" : result.ValueJson;
-                var valueType = string.IsNullOrWhiteSpace(result.ValueType) ? "" : $" (Type: {result.ValueType})";
-                response.AppendLine($"Success: {resultJson}{valueType}");
+                // Error case: output Error: {error}
+                return $"Error: {errorResult.Error}";
             }
             else
             {
-                var errorMessage = result.Error ?? "Unknown error";
-                response.AppendLine($"Error: {errorMessage}");
-            }
-            
-            // Add used variables information (name and type only)
-            if (result.UsedVariables != null && result.UsedVariables.Count > 0)
-            {
-                response.AppendLine($"Used Variables ({result.UsedVariables.Count}):");
-                foreach (var usedVar in result.UsedVariables)
+                // Success case: output Result: ... and UsedVar: {name1},{name2},{name3}...
+                var resultValue = result.ValueJson ?? "null";
+                var usedVarNames = result.UsedVariables != null && result.UsedVariables.Count > 0
+                    ? string.Join(",", result.UsedVariables.Select(v => v.VarName))
+                    : "";
+                
+                var output = new StringBuilder();
+                output.AppendLine($"Result: {resultValue}");
+                if (!string.IsNullOrEmpty(usedVarNames))
                 {
-                    response.AppendLine($"  - {usedVar.VarName} ({usedVar.VarType})");
+                    output.AppendLine($"Input Variables: {usedVarNames}");
                 }
+                
+                return output.ToString().TrimEnd();
             }
-            
-            var responseText = response.ToString();
-            
-            // Ensure we always return something - this should never happen, but just in case
-            if (string.IsNullOrWhiteSpace(responseText))
-            {
-                return $"Error: Empty response from TestExpression. Success={result.Success}, Error={result.Error ?? "null"}, ValueJson={result.ValueJson ?? "null"}, ValueType={result.ValueType ?? "null"}";
-            }
-            
-            return responseText;
         }
         catch (Exception ex)
         {
