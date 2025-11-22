@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -85,90 +86,22 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
     /// <returns>Expression execution result</returns>
     public Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
     {
-        if (string.IsNullOrWhiteSpace(expression))
+        // Use provided variables or current variables
+        var varsToUse = variables ?? GetAllVariables();
+
+        // Create a temporary EvalContext for testing
+        var testEvalContext = new EvalContext();
+
+        // Register variables in test context (for any potential side effects)
+        foreach (var variable in varsToUse)
         {
-            return Task.FromResult<ExpressionResult>(new ExpressionResultError("Expression cannot be null or empty"));
+            var value = ConvertVariableToValue(variable);
+            testEvalContext.RegisterLocalVariable(variable.VarName, value);
         }
 
-        try
-        {
-            // Use provided variables or current variables
-            var varsToUse = variables ?? GetAllVariables();
-
-            // Create a temporary EvalContext for testing
-            var testEvalContext = new EvalContext();
-
-            // Register variables in test context
-            foreach (var variable in varsToUse)
-            {
-                var value = ConvertVariableToValue(variable);
-                testEvalContext.RegisterLocalVariable(variable.VarName, value);
-            }
-
-            // Replace variable placeholders {variableName} with actual variable names
-            var code = expression;
-            foreach (var variable in varsToUse)
-            {
-                code = code.Replace($"{{{variable.VarName}}}", variable.VarName);
-            }
-
-            // Execute expression
-            // TODO: EvalContext.Execute requires IActionContext and CustomData
-            // Need to determine how to handle this in standalone mode
-            // For now, using placeholder - actual implementation depends on EvalContext API
-            object? result = null;
-            try
-            {
-                // Placeholder: eval.Execute(code, customData)
-                // Need to check EvalContext API for standalone execution without IActionContext
-                // Possible alternatives:
-                // - eval.Compile(code).Invoke()
-                // - eval.Execute(code) if it supports null/empty CustomData
-                // - Create a minimal IActionContext wrapper
-                
-                // For now, this is a placeholder that needs to be implemented based on actual EvalContext API
-                result = ExecuteExpressionInternal(testEvalContext, code);
-            }
-            catch (Exception ex)
-            {
-                return Task.FromResult<ExpressionResult>(new ExpressionResultError(ex.Message));
-            }
-
-            // Extract used variables from expression
-            var usedVariables = ExtractUsedVariables(expression, varsToUse);
-
-            return Task.FromResult(new ExpressionResult(result, usedVariables));
-        }
-        catch (Exception ex)
-        {
-            return Task.FromResult<ExpressionResult>(new ExpressionResultError(ex.Message));
-        }
-    }
-
-    /// <summary>
-    /// Execute expression using EvalContext
-    /// </summary>
-    /// <param name="evalContext">EvalContext instance</param>
-    /// <param name="code">Expression code to execute</param>
-    /// <returns>Execution result</returns>
-    private object? ExecuteExpressionInternal(EvalContext evalContext, string code)
-    {
-        // Register _eval variable for self-reference (similar to ExpressionRunner)
-        evalContext.RegisterLocalVariable("_eval", evalContext);
-        
-        try
-        {
-            // Execute expression with null CustomData (standalone mode without IActionContext)
-            // CustomData is typically a Dictionary<string, object> used for custom data in Quicker context
-            // In standalone mode, we pass null or empty dictionary
-            var result = evalContext.Execute(code, null);
-            return result;
-        }
-        finally
-        {
-            // Unregister _eval variable
-            evalContext.UnregisterLocalVariable("_eval");
-        }
+        // Use helper method to test expression
+        var result = ExpressionTestHelper.TestExpression(testEvalContext, expression, varsToUse);
+        return Task.FromResult(result);
     }
 
     /// <summary>
@@ -183,28 +116,6 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
         var value = variable.GetDefaultValue();
         // Return default value for type if null
         return value ?? variable.VarType.GetDefaultValue();
-    }
-
-    /// <summary>
-    /// Extract variables that are actually used in the expression
-    /// </summary>
-    /// <param name="expression">Expression code</param>
-    /// <param name="allVariables">All available variables</param>
-    /// <returns>List of variables used in the expression</returns>
-    private List<VariableClass> ExtractUsedVariables(string expression, List<VariableClass> allVariables)
-    {
-        var usedVariables = new List<VariableClass>();
-
-        foreach (var variable in allVariables)
-        {
-            // Check if variable name appears in expression (after placeholder replacement)
-            if (expression.Contains(variable.VarName, StringComparison.OrdinalIgnoreCase))
-            {
-                usedVariables.Add(variable);
-            }
-        }
-
-        return usedVariables;
     }
 }
 

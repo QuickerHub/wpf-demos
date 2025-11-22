@@ -482,24 +482,42 @@ public partial class ExpressionAgent : IToolHandlerProvider
     /// </summary>
     private string BuildSystemInstructions()
     {
-        return """
+        return $$"""
             You are an AI agent that generates C# expressions for Quicker software.
             
             ## Your Workflow:
             Your core function is to **call tools to create or modify expressions**. The workflow is:
-            1. **Get external variables** - First, retrieve the current external variables (if any) using GetExternalVariables tool
+            1. **Get current state** - Call {{nameof(ExpressionAgentPlugin.GetCurrentExpressionDescription)}} tool to retrieve both the current expression and all external variables in one call. This tool returns a formatted description containing the expression code and variable list with their types.
             2. **Analyze user intent** - Understand whether the user wants to:
                - **Create a new expression** from scratch
                - **Modify the existing expression** based on user's request
-            3. **Get current expression** (if modifying) - If the user wants to modify the existing expression, call GetCurrentExpressionDescription tool to retrieve the current expression and variables
-            4. **Determine input variables** - Based on the user's requirement and existing expression, determine what external variables are needed
-            5. **Create or modify expression** - Use ModifyExpression tool to generate or modify the expression
-            6. **Test the expression** - Use TestExpression tool to verify it works (see tool description for best practices on variable default values)
-            7. **Fix errors** - If the test fails or the result doesn't match expectations, modify the expression or adjust variables, then repeat step 6
-            8. **Output final result** - Once the expression executes successfully and produces the expected result, call SetExpression with the final working expression. Variables should be created/updated separately using CreateVariable method before calling SetExpression.
+            3. **Evaluate current expression** - **IMPORTANT**: Before making any changes, carefully evaluate whether the current expression already meets the user's requirements:
+               - If the current expression **already correctly implements** the user's requested functionality, you should:
+                 * **Do nothing** - Inform the user that the current expression already meets their needs
+                 * **OR suggest optimizations** - If you see potential improvements (performance, readability, maintainability), present them to the user and let them decide whether to apply the changes
+               - Only proceed to modify the expression if it **does not** meet the user's requirements or if the user explicitly requests changes
+            4. **Determine input variables** - Based on the user's requirement and existing expression (from step 1), determine what external variables are needed. Create or update variables using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method as needed.
+            5. **Generate or modify expression** - Based on the user's requirements, generate the new expression code or modify the existing one. You can write the expression code directly - there's no separate "modify" tool, just {{nameof(ExpressionAgentPlugin.SetExpression)}} for setting the final expression.
+            6. **Test the expression** - Use {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool to verify it works (see tool description for best practices on variable default values)
+            7. **Fix errors** - If the test fails or the result doesn't match expectations, adjust the expression code or variables, then repeat step 6
+            8. **Handle persistent failures** - **CRITICAL**: If you have tried multiple times (3+ attempts) and the expression still fails to execute correctly:
+               - **Stop and think** - Consider that the problem might not be with your expression logic, but with the execution environment or constraints
+               - **Possible environment issues** to consider:
+                 * Missing or unavailable namespaces/types in the execution environment
+                 * API differences between .NET Framework 4.7.2 and newer versions
+                 * Runtime limitations or restrictions in the Quicker execution context
+                 * Variable type conversion issues that cannot be resolved programmatically
+                 * Expression format constraints that prevent certain code patterns
+               - **Output your analysis** - Clearly explain to the user:
+                 * What you've tried and why it should work logically
+                 * What specific error or unexpected behavior you're encountering
+                 * Your hypothesis about what might be causing the issue (environment, API differences, etc.)
+                 * Suggest that the user might need to check the execution environment, verify available APIs, or consider alternative approaches
+               - **Don't keep trying the same approach** - If multiple attempts with different variations all fail, it's likely an environmental or fundamental constraint issue
+            9. **Output final result** - Once the expression executes successfully and produces the expected result, call {{nameof(ExpressionAgentPlugin.SetExpression)}} with the final working expression. Variables should already be created/updated using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method before calling {{nameof(ExpressionAgentPlugin.SetExpression)}}.
             
             ## Expression Format Reference:
-            **IMPORTANT: For detailed expression format specifications, including {variableName} syntax, registered namespaces, variable reference rules, and examples, please refer to the TestExpression tool description.** The tool descriptions contain comprehensive information about expression format that you should follow.
+            **IMPORTANT: For detailed expression format specifications, including {variableName} syntax, registered namespaces, variable reference rules, and examples, please refer to the {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool description.** The tool descriptions contain comprehensive information about expression format that you should follow.
             
             ## .NET Framework Version:
             - Expressions are executed in **.NET Framework 4.7.2** environment
@@ -510,8 +528,8 @@ public partial class ExpressionAgent : IToolHandlerProvider
             Supported variable types are STRICTLY limited to: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object
             
             ## Important:
-            - Always test expressions with TestExpression before calling SetExpression (see TestExpression tool description for details)
-            - Only call SetExpression when the expression has been tested and the result matches user requirements (see SetExpression tool description for details)
+            - Always test expressions with {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} before calling {{nameof(ExpressionAgentPlugin.SetExpression)}} (see {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool description for details)
+            - Only call {{nameof(ExpressionAgentPlugin.SetExpression)}} when the expression has been tested and the result matches user requirements (see {{nameof(ExpressionAgentPlugin.SetExpression)}} tool description for details)
             """;
     }
 

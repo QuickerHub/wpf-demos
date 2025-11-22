@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -134,11 +135,6 @@ public class CodeEditorExpressionToolHandler : IExpressionAgentToolHandler
     /// </summary>
     public async Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
     {
-        if (string.IsNullOrWhiteSpace(expression))
-        {
-            return new ExpressionResultError("Expression cannot be empty.");
-        }
-
         // Merge variables: GetAllVariables() first, then override with provided variables
         var variablesDict = GetAllVariables().ToDictionary(v => v.VarName, v => v, StringComparer.Ordinal);
         if (variables != null)
@@ -149,33 +145,10 @@ public class CodeEditorExpressionToolHandler : IExpressionAgentToolHandler
             }
         }
 
-        try
-        {
-            // Replace placeholders and track used variables
-            var code = expression;
-            var usedVariables = new List<VariableClass>();
-            var variablesValueDict = new Dictionary<string, object?>(StringComparer.Ordinal);
-            
-            foreach (var variable in variablesDict.Values)
-            {
-                var placeholder = $"{{{variable.VarName}}}";
-                if (code.Contains(placeholder, StringComparison.Ordinal))
-                {
-                    usedVariables.Add(variable);
-                    variablesValueDict[variable.VarName] = variable.GetDefaultValue();
-                    code = code.Replace(placeholder, variable.VarName);
-                }
-            }
+        var varsToUse = variablesDict.Values.ToList();
 
-            // Execute expression
-            object result = _wrapper.EvalContext.Execute(code, variablesValueDict);
-
-            return new ExpressionResult(result, usedVariables);
-        }
-        catch (Exception ex)
-        {
-            return new ExpressionResultError(ex.Message);
-        }
+        // Use helper method to test expression
+        return ExpressionTestHelper.TestExpression(_wrapper.EvalContext, expression, varsToUse);
     }
 
     #region Conversion Methods
