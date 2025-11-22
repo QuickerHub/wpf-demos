@@ -35,6 +35,24 @@ public partial class ToolCallViewModel : ObservableObject
     private string _outputResult = string.Empty;
 
     /// <summary>
+    /// Function call ID (for tracking)
+    /// </summary>
+    [ObservableProperty]
+    private string _functionCallId = string.Empty;
+
+    /// <summary>
+    /// Function arguments (JSON string)
+    /// </summary>
+    [ObservableProperty]
+    private string _arguments = string.Empty;
+
+    /// <summary>
+    /// Function result (JSON string)
+    /// </summary>
+    [ObservableProperty]
+    private string? _result;
+
+    /// <summary>
     /// Whether the control is expanded
     /// </summary>
     [ObservableProperty]

@@ -86,6 +86,7 @@ public partial class ChatMessageViewModel : ObservableObject
 public enum ChatMessageType
 {
     User,           // User input
-    Assistant       // Assistant response
+    Assistant,      // Assistant response
+    Tool            // Tool call
 }
 

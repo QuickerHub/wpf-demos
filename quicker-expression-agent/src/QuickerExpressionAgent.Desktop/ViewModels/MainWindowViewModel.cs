@@ -5,6 +5,7 @@ using DynamicData.Binding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
+using QuickerExpressionAgent.Desktop;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
 using System.Collections.ObjectModel;
@@ -12,7 +13,6 @@ using System.Reactive.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels
 {
@@ -466,6 +466,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         {
             var testWindow = _serviceProvider.GetRequiredService<QuickerServiceTestWindow>();
             testWindow.Show();
+        }
+
+        [RelayCommand]
+        private void OpenChatWindow()
+        {
+            var chatWindow = _serviceProvider.GetRequiredService<ChatWindow>();
+            chatWindow.Show();
         }
     }
 

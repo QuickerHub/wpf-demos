@@ -42,11 +42,17 @@
                 FontSize="24"
                 FontWeight="Bold"
                 Text="AI 表达式生成器" />
-            <Button
-                Grid.Column="1"
-                Padding="10,5"
-                Command="{Binding ViewModel.OpenTestWindowCommand}"
-                Content="测试窗口" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button
+                    Margin="0,0,10,0"
+                    Padding="10,5"
+                    Command="{Binding ViewModel.OpenChatWindowCommand}"
+                    Content="Chat 窗口" />
+                <Button
+                    Padding="10,5"
+                    Command="{Binding ViewModel.OpenTestWindowCommand}"
+                    Content="测试窗口" />
+            </StackPanel>
         </Grid>
 
         <!--  Results Section  -->

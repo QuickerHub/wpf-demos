@@ -34,10 +34,12 @@ public static class ServiceCollectionExtensions
         // Register ViewModels
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<QuickerServiceTestViewModel>();
+        services.AddTransient<ChatWindowViewModel>();
         
         // Register Windows
         services.AddTransient<MainWindow>();
         services.AddTransient<QuickerServiceTestWindow>();
+        services.AddTransient<ChatWindow>();
         
         return services;
     }
