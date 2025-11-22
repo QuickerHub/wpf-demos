@@ -463,15 +463,67 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [RelayCommand]
         private void OpenTestWindow()
         {
-            var testWindow = _serviceProvider.GetRequiredService<QuickerServiceTestWindow>();
-            testWindow.Show();
+            // Check if window is already open
+            var existingWindow = System.Windows.Application.Current.Windows.OfType<QuickerServiceTestWindow>().FirstOrDefault();
+            if (existingWindow != null)
+            {
+                // Window already exists, activate it
+                existingWindow.Activate();
+                if (existingWindow.WindowState == System.Windows.WindowState.Minimized)
+                {
+                    existingWindow.WindowState = System.Windows.WindowState.Normal;
+                }
+            }
+            else
+            {
+                // Create new window
+                var testWindow = _serviceProvider.GetRequiredService<QuickerServiceTestWindow>();
+                testWindow.Show();
+            }
         }
 
         [RelayCommand]
         private void OpenChatWindow()
         {
-            var chatWindow = _serviceProvider.GetRequiredService<ChatWindow>();
-            chatWindow.Show();
+            // Check if window is already open
+            var existingWindow = System.Windows.Application.Current.Windows.OfType<ChatWindow>().FirstOrDefault();
+            if (existingWindow != null)
+            {
+                // Window already exists, activate it
+                existingWindow.Activate();
+                if (existingWindow.WindowState == System.Windows.WindowState.Minimized)
+                {
+                    existingWindow.WindowState = System.Windows.WindowState.Normal;
+                }
+            }
+            else
+            {
+                // Create new window
+                var chatWindow = _serviceProvider.GetRequiredService<ChatWindow>();
+                chatWindow.Show();
+            }
+        }
+
+        [RelayCommand]
+        private void OpenApiConfigWindow()
+        {
+            // Check if window is already open
+            var existingWindow = System.Windows.Application.Current.Windows.OfType<ApiConfigListWindow>().FirstOrDefault();
+            if (existingWindow != null)
+            {
+                // Window already exists, activate it
+                existingWindow.Activate();
+                if (existingWindow.WindowState == System.Windows.WindowState.Minimized)
+                {
+                    existingWindow.WindowState = System.Windows.WindowState.Normal;
+                }
+            }
+            else
+            {
+                // Create new window
+                var configWindow = _serviceProvider.GetRequiredService<ApiConfigListWindow>();
+                configWindow.Show();
+            }
         }
     }
 

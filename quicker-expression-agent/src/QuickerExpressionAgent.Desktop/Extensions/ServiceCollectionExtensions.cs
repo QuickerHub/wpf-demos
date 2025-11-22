@@ -1,7 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QuickerExpressionAgent.Desktop.Pages;
+using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Desktop.ViewModels;
 using QuickerExpressionAgent.Server.Services;
+using Wpf.Ui;
 
 namespace QuickerExpressionAgent.Desktop.Extensions;
 
@@ -31,15 +34,31 @@ public static class ServiceCollectionExtensions
             builder.AddConsole().SetMinimumLevel(LogLevel.Warning);
         });
         
+        // WPF-UI Services
+        services.AddSingleton<Services.PageService>();
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ISnackbarService, SnackbarService>();
+        
+        // Register PageService as INavigationViewPageProvider for WPF-UI 4.0.3
+        services.AddSingleton<Wpf.Ui.Abstractions.INavigationViewPageProvider>(provider => provider.GetRequiredService<Services.PageService>());
+        
         // Register ViewModels
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<QuickerServiceTestViewModel>();
         services.AddTransient<ChatWindowViewModel>();
+        services.AddTransient<ApiConfigListViewModel>();
+        services.AddSingleton<NavigationViewModel>();
+        
+        // Register Pages
+        services.AddTransient<ExpressionGeneratorPage>();
+        services.AddTransient<ApiConfigPage>();
+        services.AddTransient<TestPage>();
         
         // Register Windows
-        services.AddTransient<MainWindow>();
+        services.AddSingleton<MainWindow>();
         services.AddTransient<QuickerServiceTestWindow>();
         services.AddTransient<ChatWindow>();
+        services.AddTransient<ApiConfigListWindow>();
         
         return services;
     }

@@ -314,16 +314,16 @@ public class ExpressionAgentPlugin
             }
 
             if (!result.Success)
-            {
+                    {
                 return $"Error: {result.Error}";
-            }
-
+                    }
+                    
             // Success case: automatically set the expression
             ToolHandler.Expression = expression;
             return FormatTestResult(result, includeSetMessage: true);
-        }
-        catch (Exception ex)
-        {
+                }
+                catch (Exception ex)
+                {
             return $"Error: {ex.Message}\nStack trace: {ex.StackTrace}";
         }
     }
@@ -414,23 +414,23 @@ public class ExpressionAgentPlugin
     /// </summary>
     private string FormatTestResult(ExpressionResult result, bool includeSetMessage)
     {
-        var resultValue = result.ValueJson ?? "null";
-        var usedVarNames = result.UsedVariables != null && result.UsedVariables.Count > 0
-            ? string.Join(",", result.UsedVariables.Select(v => v.VarName))
-            : "";
-        
-        var output = new StringBuilder();
-        output.AppendLine($"Result: {resultValue}");
-        if (!string.IsNullOrEmpty(usedVarNames))
-        {
-            output.AppendLine($"Input Variables: {usedVarNames}");
-        }
+                var resultValue = result.ValueJson ?? "null";
+                var usedVarNames = result.UsedVariables != null && result.UsedVariables.Count > 0
+                    ? string.Join(",", result.UsedVariables.Select(v => v.VarName))
+                    : "";
+                
+                var output = new StringBuilder();
+                output.AppendLine($"Result: {resultValue}");
+                if (!string.IsNullOrEmpty(usedVarNames))
+                {
+                    output.AppendLine($"Input Variables: {usedVarNames}");
+                }
         if (includeSetMessage)
         {
-            output.AppendLine("Expression set successfully.");
+                output.AppendLine("Expression set successfully.");
         }
-        
-        return output.ToString().TrimEnd();
+                
+                return output.ToString().TrimEnd();
     }
 
     /// <summary>

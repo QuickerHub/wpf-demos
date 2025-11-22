@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using QuickerExpressionAgent.Server.Generated;
 
@@ -15,51 +12,46 @@ public class ConfigurationService : IConfigurationService
 
     public ConfigurationService()
     {
+        // Load from environment variables only
         var configBuilder = new ConfigurationBuilder();
-        
-        // First, add embedded config (generated at compile time from .env)
-        // Only ApiKey is embedded, ModelId and BaseUrl use default values
-        var embeddedApiKey = EmbeddedConfig.ApiKey;
-        
-        if (!string.IsNullOrEmpty(embeddedApiKey))
-        {
-            // Add embedded config as in-memory configuration
-            var embeddedConfig = new Dictionary<string, string?>
-            {
-                ["OpenAI:ApiKey"] = embeddedApiKey
-            };
-            configBuilder.AddInMemoryCollection(embeddedConfig);
-        }
-        
-        // Then load from file system (for development or fallback)
-        var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-            ?? Directory.GetCurrentDirectory();
-        
-        var configPaths = new[]
-        {
-            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
-            Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json"),
-            Path.Combine(basePath, "appsettings.json")
-        };
-
-        foreach (var path in configPaths)
-        {
-            if (File.Exists(path))
-            {
-                configBuilder.AddJsonFile(path, optional: true, reloadOnChange: false);
-            }
-        }
-
         Configuration = configBuilder
             .AddEnvironmentVariables()
             .Build();
     }
 
-    public string GetApiKey() => Configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
+    public ModelApiConfig GetConfig()
+    {
+        // Priority: EmbeddedConfig -> Environment Variables -> Defaults
+        string GetApiKey()
+        {
+            if (!string.IsNullOrEmpty(EmbeddedConfig.ApiKey))
+                return EmbeddedConfig.ApiKey;
+            var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            return !string.IsNullOrEmpty(envKey) ? envKey : "";
+        }
 
-    public string GetBaseUrl() => Configuration["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1";
+        string GetBaseUrl()
+        {
+            if (!string.IsNullOrEmpty(EmbeddedConfig.BaseUrl))
+                return EmbeddedConfig.BaseUrl;
+            var envUrl = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
+            return !string.IsNullOrEmpty(envUrl) ? envUrl : "https://api.openai.com/v1";
+        }
 
-    public string GetModelId() => Configuration["OpenAI:ModelId"] ?? "deepseek-chat";
+        string GetModelId()
+        {
+            if (!string.IsNullOrEmpty(EmbeddedConfig.ModelId))
+                return EmbeddedConfig.ModelId;
+            var envModelId = Environment.GetEnvironmentVariable("OPENAI_MODEL_ID");
+            return !string.IsNullOrEmpty(envModelId) ? envModelId : "deepseek-chat";
+        }
+
+        return new ModelApiConfig
+        {
+            ApiKey = GetApiKey(),
+            BaseUrl = GetBaseUrl(),
+            ModelId = GetModelId()
+        };
+    }
 }
 

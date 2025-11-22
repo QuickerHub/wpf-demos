@@ -13,18 +13,9 @@ public interface IConfigurationService
     IConfiguration Configuration { get; }
     
     /// <summary>
-    /// Gets OpenAI API key from configuration or environment variable
+    /// Gets the complete API configuration (ApiKey, BaseUrl, ModelId)
+    /// Priority: EmbeddedConfig -> Environment Variables -> Defaults
     /// </summary>
-    string GetApiKey();
-    
-    /// <summary>
-    /// Gets OpenAI base URL from configuration
-    /// </summary>
-    string GetBaseUrl();
-    
-    /// <summary>
-    /// Gets OpenAI model ID from configuration
-    /// </summary>
-    string GetModelId();
+    ModelApiConfig GetConfig();
 }
 

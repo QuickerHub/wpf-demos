@@ -30,7 +30,11 @@ namespace QuickerExpressionAgent.Desktop
 
             // Create and show main window
             var mainWindow = _host.Services.GetRequiredService<MainWindow>();
-            mainWindow.Show();
+            mainWindow.ShowWindow();
+            
+            // Navigate to default page
+            var navigationService = _host.Services.GetRequiredService<Wpf.Ui.INavigationService>();
+            navigationService.Navigate(typeof(QuickerExpressionAgent.Desktop.Pages.ExpressionGeneratorPage));
         }
 
         protected override async void OnExit(ExitEventArgs e)

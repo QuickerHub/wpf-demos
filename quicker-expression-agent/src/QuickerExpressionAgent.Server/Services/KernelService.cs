@@ -18,7 +18,9 @@ public static class KernelService
     {
         if (string.IsNullOrEmpty(apiKey))
         {
-            throw new InvalidOperationException("OpenAI API key not found. Please set it in appsettings.json or OPENAI_API_KEY environment variable.");
+            throw new InvalidOperationException("OpenAI API key not found. Please set it via one of the following methods:\n" +
+                "1. Embedded config (compile-time from .env file)\n" +
+                "2. OPENAI_API_KEY environment variable");
         }
 
         // Create kernel
@@ -32,43 +34,29 @@ public static class KernelService
     }
     
     /// <summary>
-    /// Creates a Kernel instance using AIModelConfig
-    /// </summary>
-    /// <param name="modelConfig">AI model configuration</param>
-    /// <returns>Configured Kernel instance</returns>
-    public static Kernel GetKernel(AIModelConfig modelConfig)
-    {
-        if (modelConfig == null)
-        {
-            throw new ArgumentNullException(nameof(modelConfig));
-        }
-        
-        return GetKernel(modelConfig.ApiKey, modelConfig.BaseUrl, modelConfig.ModelId);
-    }
-    
-    /// <summary>
     /// Creates a Kernel instance using IConfigurationService
     /// </summary>
     /// <param name="configurationService">Configuration service</param>
     /// <returns>Configured Kernel instance</returns>
     public static Kernel GetKernel(IConfigurationService configurationService)
     {
-        var apiKey = configurationService.GetApiKey();
-        var baseUrl = configurationService.GetBaseUrl();
-        var modelId = configurationService.GetModelId();
-        
-        return GetKernel(apiKey, baseUrl, modelId);
+        var config = configurationService.GetConfig();
+        return GetKernel(config);
     }
-}
-
-
-/// <summary>
-/// AI model configuration
-/// </summary>
-public class AIModelConfig
-{
-    public string ApiKey { get; set; } = string.Empty;
-    public string BaseUrl { get; set; } = "";
-    public string ModelId { get; set; } = "";
+    
+    /// <summary>
+    /// Creates a Kernel instance using ModelApiConfig
+    /// </summary>
+    /// <param name="apiConfig">Model API configuration</param>
+    /// <returns>Configured Kernel instance</returns>
+    public static Kernel GetKernel(ModelApiConfig apiConfig)
+    {
+        if (apiConfig == null)
+        {
+            throw new ArgumentNullException(nameof(apiConfig));
+        }
+        
+        return GetKernel(apiConfig.ApiKey, apiConfig.BaseUrl, apiConfig.ModelId);
+    }
 }
 

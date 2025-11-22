@@ -162,7 +162,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
                 }
             }
             if (!string.IsNullOrEmpty(contextMessage))
-            {
+        {
                 chatHistory.AddSystemMessage(contextMessage);
             }
         }

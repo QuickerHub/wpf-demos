@@ -1,106 +1,67 @@
-﻿using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using ICSharpCode.AvalonEdit;
 using Microsoft.Extensions.DependencyInjection;
 using QuickerExpressionAgent.Desktop.ViewModels;
+using Wpf.Ui;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
+using Wpf.Ui.Abstractions;
 
-namespace QuickerExpressionAgent.Desktop
+namespace QuickerExpressionAgent.Desktop;
+
+/// <summary>
+/// Interaction logic for MainWindow.xaml
+/// </summary>
+public partial class MainWindow : FluentWindow, INavigationWindow
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    public partial class MainWindow : Window
+    public NavigationViewModel ViewModel { get; }
+
+    public MainWindow(
+        NavigationViewModel viewModel,
+        Services.PageService pageService,
+        INavigationService navigationService,
+        ISnackbarService snackbarService,
+        IServiceProvider serviceProvider)
     {
-        public MainWindowViewModel ViewModel { get; }
+        ViewModel = viewModel;
+        DataContext = this;
+        SystemThemeWatcher.Watch(this);
 
-        public MainWindow(MainWindowViewModel vm)
-        {
-            InitializeComponent();
-            ViewModel = vm;
-            DataContext = this; // Set DataContext to this, not ViewModel (following WPF coding standards)
-            
-            // Subscribe to chat messages collection changes for auto-scroll
-            ViewModel.ChatMessages.CollectionChanged += ChatMessages_CollectionChanged;
-            ViewModel.ChatScrollToBottomRequested += ChatScrollToBottomRequested;
-            
-            // Bind AvalonEdit TextEditor to ViewModel.Expression
-            if (ParsedExpressionEditor != null)
-            {
-                // Two-way binding: ViewModel -> Editor
-                ViewModel.PropertyChanged += ViewModel_PropertyChanged;
-                UpdateEditorText();
-                
-                // Two-way binding: Editor -> ViewModel
-                ParsedExpressionEditor.TextChanged += (s, e) =>
-                {
-                    if (ViewModel.Expression != ParsedExpressionEditor.Text)
-                    {
-                        ViewModel.Expression = ParsedExpressionEditor.Text;
-                    }
-                };
-            }
-        }
-        
-        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(ViewModel.Expression))
-            {
-                UpdateEditorText();
-            }
-        }
-        
-        private void UpdateEditorText()
-        {
-            if (ParsedExpressionEditor != null && ViewModel != null)
-            {
-                if (ParsedExpressionEditor.Text != ViewModel.Expression)
-                {
-                    ParsedExpressionEditor.Text = ViewModel.Expression ?? string.Empty;
-                }
-            }
-        }
+        InitializeComponent();
+        SetPageService(pageService);
+        SetServiceProvider(serviceProvider);
+        snackbarService.SetSnackbarPresenter(SnackbarPresenter);
+        navigationService.SetNavigationControl(RootNavigation);
+    }
 
-        private void ChatMessages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            // Scroll to bottom when new messages are added
-            if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null && e.NewItems.Count > 0)
-            {
-                Dispatcher.BeginInvoke(new System.Action(() =>
-                {
-                    ScrollChatToBottom();
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
-            }
-        }
+    #region INavigationWindow methods
 
-        private void ChatScrollToBottomRequested(object? sender, System.EventArgs e)
-        {
-            ScrollChatToBottom();
-        }
+    public INavigationView GetNavigation() => RootNavigation;
 
-        private void ScrollChatToBottom()
-        {
-            if (ChatListBox != null && ChatListBox.Items.Count > 0)
-            {
-                ChatListBox.ScrollIntoView(ChatListBox.Items[ChatListBox.Items.Count - 1]);
-            }
-        }
+    public bool Navigate(Type pageType) => RootNavigation.Navigate(pageType);
 
-        private void ChatInputTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            // Enter key without Shift: trigger send command
-            if (e.Key == Key.Enter && Keyboard.Modifiers != ModifierKeys.Shift)
-            {
-                e.Handled = true;  // Prevent default newline behavior
-                if (ViewModel.GenerateCommand?.CanExecute(null) == true)
-                {
-                    ViewModel.GenerateCommand.Execute(null);
-                }
-            }
-            // Shift+Enter: allow default behavior (new line) - don't handle, let it bubble
-        }
+    public void SetPageService(INavigationViewPageProvider pageProvider)
+    {
+        // In WPF-UI 4.0.3, SetPageService is called via SetServiceProvider
+        // The page provider is set through the service provider
+    }
 
+    public void SetServiceProvider(IServiceProvider serviceProvider) => RootNavigation.SetServiceProvider(serviceProvider);
+
+    public void ShowWindow() => Show();
+
+    public void CloseWindow() => Close();
+
+    #endregion INavigationWindow methods
+
+    /// <summary>
+    /// Raises the closed event.
+    /// </summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        // Make sure that closing this window will begin the process of closing the application.
+        Application.Current.Shutdown();
     }
 }
+
