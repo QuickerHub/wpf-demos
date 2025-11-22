@@ -63,8 +63,8 @@ public partial class ChatMessageViewModel : ObservableObject
         {
             case ChatMessageType.User:
                 Icon = "👤";
-                BackgroundBrush = new SolidColorBrush(Color.FromRgb(0, 120, 212)); // Blue
-                ForegroundBrush = Brushes.White;
+                BackgroundBrush = new SolidColorBrush(Color.FromRgb(230, 230, 230)); // Light gray
+                ForegroundBrush = Brushes.Black;
                 break;
             case ChatMessageType.Assistant:
                 Icon = "🤖";

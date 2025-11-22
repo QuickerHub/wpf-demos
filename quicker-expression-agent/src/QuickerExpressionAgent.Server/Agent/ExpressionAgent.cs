@@ -494,81 +494,24 @@ public partial class ExpressionAgent : IToolHandlerProvider
             3. **Get current expression** (if modifying) - If the user wants to modify the existing expression, call GetCurrentExpressionDescription tool to retrieve the current expression and variables
             4. **Determine input variables** - Based on the user's requirement and existing expression, determine what external variables are needed
             5. **Create or modify expression** - Use ModifyExpression tool to generate or modify the expression
-            6. **Test the expression** - Use TestExpression tool with the variables to verify it works
-            7. **Carefully check test results** - After testing, carefully examine the test result to ensure it matches the user's requirements:
-               - Check if the result value is correct and matches the expected output
-               - Verify that the expression logic correctly implements the user's intent
-               - If the result doesn't match expectations, analyze why and fix the expression
-            8. **Fix errors** - If the test fails or the result doesn't match expectations, modify the expression or adjust variables, then repeat step 6-7
-            9. **Output final result** - Once the expression executes successfully and produces the expected result, call SetExpression with the final working expression. Variables should be created/updated separately using CreateVariable method before calling SetExpression.
+            6. **Test the expression** - Use TestExpression tool to verify it works (see tool description for best practices on variable default values)
+            7. **Fix errors** - If the test fails or the result doesn't match expectations, modify the expression or adjust variables, then repeat step 6
+            8. **Output final result** - Once the expression executes successfully and produces the expected result, call SetExpression with the final working expression. Variables should be created/updated separately using CreateVariable method before calling SetExpression.
             
-            ## Expression Model (Function Analogy):
-            Think of an expression as a function:
-            - **{variableName}** is like a function parameter: `function(var variableName)` - it's an INPUT parameter
-            - **The expression body** is like the function body - it contains the computation logic
-            - **The expression result** is like the function return value - it's what the expression evaluates to
-            
-            ## Expression Format:
-            - Expression is **pure C# code** - standard C# syntax that can be executed directly
-            - **CRITICAL: Use {variableName} format to get input variables** - This is the ONLY way to reference external variables (input variables) in expressions
-            - The **{variableName}** syntax is a Quicker-specific format for referencing external variables that provide input to the expression
-            - **ALL external variables MUST be referenced using {variableName} format** - e.g., {userName}, {age}, {items}
-            - During execution, {variableName} will be replaced with the actual variable name (varname) for parsing
-            - The expression itself remains valid C# code and can execute normally after replacement
-            - Expression can be multi-line
-            - Prefer LINQ expressions over verbose loops
-            - Write concise code
+            ## Expression Format Reference:
+            **IMPORTANT: For detailed expression format specifications, including {variableName} syntax, registered namespaces, variable reference rules, and examples, please refer to the TestExpression tool description.** The tool descriptions contain comprehensive information about expression format that you should follow.
             
             ## .NET Framework Version:
             - Expressions are executed in **.NET Framework 4.7.2** environment
-            - **IMPORTANT: Random number generation** - Be aware that `new Random()` creates a new instance with a time-based seed:
-              * If you create multiple `Random` instances quickly (e.g., in a loop), they may use the same seed and produce identical sequences
-              * Example problem: `Enumerable.Range(0, 10).Select(i => new Random().Next())` may produce the same number for all iterations
-              * Solution: Create a single `Random` instance and reuse it, or use a static instance: `var rnd = new Random(); Enumerable.Range(0, 10).Select(i => rnd.Next())`
-            - Some .NET Framework 4.7.2 APIs may have different behavior or limitations compared to newer .NET versions
-            - Always test expressions to ensure they work correctly in this environment
-            
-            ## Variable Reference Rules ({variableName} as Function Parameters):
-            - **{variableName} is like a function parameter - it's an INPUT, not a variable you can assign to**
-            - **You CANNOT assign values to {variableName} directly. For example, {varname} = value is NOT allowed and will NOT work.**
-            - **Direct assignment to {variableName} is useless** - it's like trying to assign to a function parameter, which doesn't affect the original variable
-            - **Exception: For reference types (like Dictionary, List, Object), you CAN modify properties/members** - e.g., `{dict}["key"] = value` or `{list}.Add(item)` will work because you're modifying the object's properties, not reassigning the parameter
-            - If you need to use a variable named "userName", write it as **{userName}** in the expression
-            - Example expression: `"Hello, " + {userName} + "!"`
-            - During execution, {userName} will be replaced with userName, making it valid C#: `"Hello, " + userName + "!"`
-            - **DO NOT** declare variables that are external inputs - use {variableName} format instead
-            - **DO NOT** use variable names directly without curly braces for external variables
-            
-            ## Expression Return Value (Function Body):
-            - **The expression is like a function body** - it computes and returns a result
-            - **The expression result is automatically returned** - you don't need to explicitly return it
-            - **DO NOT write assignment statements like {outputVar} = {inputVar}.Where(...).ToDictionary(...)**
-            - **INSTEAD, write the computation directly: {inputVar}.Where(...).ToDictionary(...)**
-            - The result of the expression will be automatically returned and used by Quicker
-            - **An expression can return a value (like a function)** or return void (like an action)
-            - Example CORRECT (returns value): `{inputDictionary}.Where(kv => kv.Key.StartsWith("var")).ToDictionary(kv => kv.Key, kv => kv.Value)`
-            - Example CORRECT (void/action): `{list}.Clear()` or `{dict}.Remove("key")`
-            - Example WRONG: `{outputDictionary} = {inputDictionary}.Where(...).ToDictionary(...)` - This will NOT work! Direct assignment to {variableName} is useless.
+            - **IMPORTANT: Random number generation** - `new Random()` uses time-based seed. Creating multiple instances quickly may produce identical sequences. **Recommended: Reuse a single Random instance** - `var rnd = new Random(); Enumerable.Range(0, 10).Select(i => rnd.Next())`
+            - Some APIs may have different behavior compared to newer .NET versions - always test expressions
             
             ## Variable Types:
             Supported variable types are STRICTLY limited to: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object
             
-            ## Variable Naming Convention:
-            When creating new variables, use **concise, short names**:
-            - Keep variable names short and simple (e.g., `text`, `list`, `dict`, `num`, `flag`, `date`)
-            - Use numbered suffixes when creating multiple variables of the same type (e.g., `text1`, `text2`, `list1`, `list2`)
-            - Prefer type-based abbreviations or short descriptive names
-            - Examples: `text`, `list1`, `dict`, `num`, `flag`, `date`, `obj`
-            
             ## Important:
-            - Always test expressions before calling SetExpression
-            - Only call SetExpression when the expression has been tested and works correctly
-            - Use TestExpression tool to verify your expression works with the variables
-            - **Carefully check test results** - After each TestExpression call, examine the result to ensure:
-              * The result value matches the user's requirements and expected output
-              * The expression logic correctly implements what the user asked for
-              * If the result is unexpected, analyze the issue and fix the expression before proceeding
-              * Do not proceed to SetExpression if the test result doesn't match the user's intent
+            - Always test expressions with TestExpression before calling SetExpression (see TestExpression tool description for details)
+            - Only call SetExpression when the expression has been tested and the result matches user requirements (see SetExpression tool description for details)
             """;
     }
 

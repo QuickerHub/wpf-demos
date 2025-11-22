@@ -326,10 +326,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 else if (e.PropertyName == nameof(FunctionCallStreamItem.Result))
                 {
                     toolCallViewModel.Result = functionCallItem.Result;
-                    if (!string.IsNullOrEmpty(functionCallItem.Result))
-                    {
-                        toolCallViewModel.SetOutputResult(functionCallItem.Result);
-                    }
+                    // UpdateMarkdownContent will be called automatically by OnResultChanged
                 }
             });
         }

@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels;
 
@@ -47,22 +49,39 @@ public partial class ToolCallViewModel : ObservableObject
     private string _arguments = string.Empty;
 
     /// <summary>
+    /// Formatted arguments (indented JSON)
+    /// </summary>
+    private string? _formattedArguments;
+
+    /// <summary>
     /// Function result (JSON string)
     /// </summary>
     [ObservableProperty]
     private string? _result;
 
     /// <summary>
-    /// Whether the control is expanded
+    /// Formatted result (indented JSON)
     /// </summary>
-    [ObservableProperty]
-    private bool _isExpanded = true;
+    private string? _formattedResult;
+
 
     /// <summary>
     /// Whether output result is available
     /// </summary>
     [ObservableProperty]
     private bool _hasOutputResult = false;
+
+    /// <summary>
+    /// Markdown content for displaying tool call information
+    /// </summary>
+    [ObservableProperty]
+    private string _markdownContent = string.Empty;
+
+    /// <summary>
+    /// Whether the message is expanded
+    /// </summary>
+    [ObservableProperty]
+    private bool _isExpanded = true;
 
     /// <summary>
     /// Initialize from function name, description, and parameters
@@ -84,6 +103,7 @@ public partial class ToolCallViewModel : ObservableObject
                 });
             }
         }
+        // UpdateMarkdownContent will be called by OnFunctionNameChanged
     }
 
     /// <summary>
@@ -93,6 +113,125 @@ public partial class ToolCallViewModel : ObservableObject
     {
         OutputResult = result;
         HasOutputResult = !string.IsNullOrWhiteSpace(result);
+        // UpdateMarkdownContent will be called by OnResultChanged
+    }
+
+    partial void OnFunctionNameChanged(string value)
+    {
+        UpdateMarkdownContent();
+    }
+
+    partial void OnArgumentsChanged(string value)
+    {
+        // Format JSON with indentation
+        _formattedArguments = FormatJson(value);
+        UpdateMarkdownContent();
+    }
+
+    partial void OnResultChanged(string? value)
+    {
+        // Format JSON with indentation
+        _formattedResult = FormatJson(value);
+        UpdateMarkdownContent();
+        
+        // Auto-collapse when result is available
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            IsExpanded = false;
+        }
+    }
+
+    /// <summary>
+    /// Format JSON string with indentation
+    /// </summary>
+    private string? FormatJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return json;
+
+        try
+        {
+            // Try to parse and format as JSON
+            using var doc = JsonDocument.Parse(json);
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // Allow all characters without escaping
+            };
+            return JsonSerializer.Serialize(doc.RootElement, options);
+        }
+        catch
+        {
+            // If not valid JSON, return original string
+            return json;
+        }
+    }
+
+    partial void OnInputParametersChanged(ObservableCollection<ToolCallParameterViewModel> value)
+    {
+        UpdateMarkdownContent();
+    }
+
+    private void UpdateMarkdownContent()
+    {
+        var markdown = new System.Text.StringBuilder();
+        
+        // Function name (small text, not heading)
+        if (!string.IsNullOrWhiteSpace(FunctionName))
+        {
+            markdown.AppendLine($"**函数名**: {FunctionName}");
+            markdown.AppendLine();
+        }
+
+        // Description
+        if (!string.IsNullOrWhiteSpace(Description))
+        {
+            markdown.AppendLine(Description);
+            markdown.AppendLine();
+        }
+
+        // Arguments section
+        if (!string.IsNullOrWhiteSpace(Arguments))
+        {
+            markdown.AppendLine("**输入参数**:");
+            markdown.AppendLine();
+            markdown.AppendLine("```json");
+            // Use formatted arguments if available, otherwise use original
+            markdown.AppendLine(_formattedArguments ?? Arguments);
+            markdown.AppendLine("```");
+            markdown.AppendLine();
+        }
+        else if (InputParameters.Count > 0)
+        {
+            markdown.AppendLine("**输入参数**:");
+            markdown.AppendLine();
+            foreach (var param in InputParameters)
+            {
+                markdown.AppendLine($"- **{param.Title}**: {param.Description}");
+            }
+            markdown.AppendLine();
+        }
+
+        // Result section
+        if (!string.IsNullOrWhiteSpace(Result))
+        {
+            markdown.AppendLine("**输出结果**:");
+            markdown.AppendLine();
+            markdown.AppendLine("```json");
+            // Use formatted result if available, otherwise use original
+            markdown.AppendLine(_formattedResult ?? Result);
+            markdown.AppendLine("```");
+        }
+        else if (!string.IsNullOrWhiteSpace(OutputResult))
+        {
+            markdown.AppendLine("**输出结果**:");
+            markdown.AppendLine();
+            markdown.AppendLine("```");
+            markdown.AppendLine(OutputResult);
+            markdown.AppendLine("```");
+        }
+
+        MarkdownContent = markdown.ToString();
     }
 }
 

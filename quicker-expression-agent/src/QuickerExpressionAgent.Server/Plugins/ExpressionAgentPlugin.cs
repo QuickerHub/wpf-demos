@@ -50,15 +50,40 @@ public class ExpressionAgentPlugin
     /// Think of {variableName} as function parameters (inputs) and the expression as the function body.
     /// </summary>
     private const string ExpressionFormatDescription = 
-        "C# code with {variableName} format. using net472. " +
-        "Think of it like a function: {variableName} is like function parameters (inputs), and the expression is the function body. " +
-        "The expression is pure C# code that can be executed directly and computes a result (like a function return value) or performs an action (void function). " +
-        "To reference external variables (input variables), use {variableName} format, e.g., {userName}, {age}, {items}. " +
-        "During execution, {variableName} will be replaced with the actual variable name for parsing. " +
-        "Example: \"Hello, \" + {userName} + \"!\" will become \"Hello, \" + userName + \"!\" after replacement. " +
-        "**CRITICAL: {variableName} is like a function parameter - you CANNOT assign to it directly. For example, {varname} = value is NOT allowed and will NOT work.** " +
-        "**Exception: For reference types (Dictionary, List, Object), you CAN modify properties/members, e.g., {dict}[\"key\"] = value or {list}.Add(item).** " +
-        "**The expression should compute and return a result directly, NOT assign to variables. Example CORRECT: {inputDict}.Where(...).ToDictionary(...). Example WRONG: {outputDict} = {inputDict}.Where(...).ToDictionary(...).**";
+        """
+        C# code with {variableName} format. using net472.
+        Think of it like a function: {variableName} is like function parameters (inputs), and the expression is the function body.
+        The expression is pure C# code that can be executed directly and computes a result (like a function return value) or performs an action (void function).
+        To reference external variables (input variables), use {variableName} format, e.g., {userName}, {age}, {items}.
+        During execution, {variableName} will be replaced with the actual variable name for parsing.
+        Example: "Hello, " + {userName} + "!" will become "Hello, " + userName + "!" after replacement.
+        
+        **CRITICAL: {variableName} is like a function parameter - you CANNOT assign to it directly. For example, {varname} = value is NOT allowed and will NOT work.**
+        **Exception: For reference types (Dictionary, List, Object), you CAN modify properties/members, e.g., {dict}["key"] = value or {list}.Add(item).**
+        **The expression should compute and return a result directly, NOT assign to variables. Example CORRECT: {inputDict}.Where(...).ToDictionary(...). Example WRONG: {outputDict} = {inputDict}.Where(...).ToDictionary(...).**
+        
+        The following namespaces are already registered and available (you can directly use types from these namespaces without fully qualified names):
+        
+        using System;
+        using System.Linq;
+        using System.Collections.Generic;
+        using System.Text.RegularExpressions;  // Regex
+        using System.IO;                        // Path
+        using System.Windows.Forms;             // Screen
+        using System.Drawing;                   // Bitmap
+        using System.Data;                      // DataRowCollection
+        using Newtonsoft.Json;                  // JsonConvert
+        using Newtonsoft.Json.Linq;             // JArray, JObject, JProperty, JToken, JValue
+        using Quicker.Public;                   // Global, CommonExtensions, IActionContext, CommonOperationItem, CustomSearchResultItem, CustomSearchResult
+        
+        **Note: These namespaces are already registered. You cannot add or use other namespaces. You only need to write the code part (the expression body), not the using statements.**
+        """;
+    
+    /// <summary>
+    /// Short description for parameter descriptions to avoid repetition
+    /// </summary>
+    private const string ExpressionFormatShortDescription = 
+        "C# expression code with {variableName} format. Use {variableName} to reference external variables. See expression format description in method documentation for details.";
     
     /// <summary>
     /// Description of the JSON format for List&lt;VariableClassWithObjectValue&gt; (for TestExpression)
@@ -66,13 +91,19 @@ public class ExpressionAgentPlugin
     private const string VariableClassWithObjectValueFormatDescription = 
         "JSON array format: [{\"VarName\":\"string\",\"VarType\":\"String|Int|Double|Bool|DateTime|ListString|Dictionary|Object\",\"DefaultValue\":value},...]. " +
         "DefaultValue can be any JSON value matching the VarType (string, number, boolean, array, object). " +
-        "Variables must already exist (created via CreateVariable). This allows setting temporary default values for testing without modifying UI variables.";
+        $"Variables must already exist (created via {nameof(CreateVariable)}). This allows setting temporary default values for testing without modifying UI variables.";
     
     /// <summary>
     /// Description of variable naming convention
     /// </summary>
     private const string VariableNamingConventionDescription = 
-        "Use concise, short names (e.g., text, list, dict, num, flag, date). Use numbered suffixes for multiple variables of the same type (e.g., text1, text2, list1, list2).";
+        """
+        When creating new variables, use **concise, short names**:
+        - Keep variable names short and simple (e.g., `text`, `list`, `dict`, `num`, `flag`, `date`)
+        - Use numbered suffixes when creating multiple variables of the same type (e.g., `text1`, `text2`, `list1`, `list2`)
+        - Prefer type-based abbreviations or short descriptive names
+        - Examples: `text`, `list1`, `dict`, `num`, `flag`, `date`, `obj`
+        """;
     
     private readonly IToolHandlerProvider _toolHandlerProvider;
 
@@ -88,7 +119,7 @@ public class ExpressionAgentPlugin
 
 
     [KernelFunction]
-    [Description($"Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {{variableName}} format. {ExpressionFormatDescription} Returns a formatted string with variable names and types only (no default values).")]
+    [Description($"Get all external variables (variables that are inputs to the expression). These are variables that can be referenced in expressions using {{variableName}} format. {ExpressionFormatShortDescription} Returns a formatted string with variable names and types only (no default values).")]
     public string GetExternalVariables()
     {
         var variables = ToolHandler.GetAllVariables();
@@ -109,7 +140,7 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description("Create or update a single variable. If a variable already exists, it will be updated. Variable types: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object. " + VariableNamingConventionDescription)]
+    [Description($"Create or update a single variable. If a variable already exists, it will be updated. Variable types: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object. **Recommended: If you plan to test the expression later, provide a default value when creating the variable to avoid needing to pass variables parameter in {nameof(TestExpressionAsync)}.** {VariableNamingConventionDescription}")]
     public string CreateVariable(
         [Description("Variable name")] string name,
         [Description("Variable type: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object")] VariableType varType,
@@ -164,7 +195,7 @@ public class ExpressionAgentPlugin
     }
     
     [KernelFunction]
-    [Description("Set the default value of an existing external variable. The default value can be of any type: string, number (int/double), boolean, DateTime, array (List<string>), object (Dictionary), or null.")]
+    [Description($"Set or update the default value of an **existing** external variable. **This is primarily used to modify variables that already exist** (created via {nameof(CreateVariable)}). The default value can be of any type: string, number (int/double), boolean, DateTime, array (List<string>), object (Dictionary), or null. Useful for updating variable values before testing expressions without recreating the variable.")]
     public string SetVarDefaultValue(
         [Description("Variable name")] string name,
         [Description("Default value (can be any type matching the variable type)")] object? defaultValue = null)
@@ -178,7 +209,7 @@ public class ExpressionAgentPlugin
         var existing = ToolHandler.GetVariable(name);
         if (existing == null)
         {
-            return $"Error: Variable '{name}' not found. Use CreateVariable to create it first.";
+            return $"Error: Variable '{name}' not found. Use {nameof(CreateVariable)} to create it first.";
         }
 
         // Convert defaultValue to correct type, handling JsonElement if present
@@ -242,9 +273,9 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description($"Test an expression with optional variable default values. {ExpressionFormatDescription} The variables must already exist (created via CreateVariable). If variables parameter is not provided, uses the current UI variable default values.")]
+    [Description($"Test an expression with optional variable default values. {ExpressionFormatDescription} The variables must already exist (created via {nameof(CreateVariable)}). **Recommended: Set variable default values using {nameof(SetVarDefaultValue)} first, so you don't need to pass variables parameter each time. Only pass variables parameter when you need to test with different default values.** If variables parameter is not provided, uses the current UI variable default values. **After testing, carefully check the result to ensure it matches user requirements before proceeding to {nameof(SetExpression)}.**")]
     public async Task<string> TestExpressionAsync(
-        [Description($"Expression to test. {ExpressionFormatDescription}")] string expression,
+        [Description($"Expression to test. {ExpressionFormatShortDescription}")] string expression,
         [Description($"Optional list of variables with default values. {VariableClassWithObjectValueFormatDescription}")] List<object>? variables = null)
     {
         if (string.IsNullOrWhiteSpace(expression))
@@ -302,10 +333,10 @@ public class ExpressionAgentPlugin
             }
 
             // Format output based on result type
-            if (result is ExpressionResultError errorResult)
+            if (!result.Success)
             {
                 // Error case: output Error: {error}
-                return $"Error: {errorResult.Error}";
+                return $"Error: {result.Error}";
             }
             else
             {
@@ -421,9 +452,9 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description($"Set the final expression. {ExpressionFormatDescription} This should be called only after the expression has been tested and verified to work correctly. This is the final step to output the completed expression. Use CreateVariable method to create or update variables separately.")]
+    [Description($"Set the final expression. {ExpressionFormatShortDescription} **CRITICAL: Only call this after the expression has been tested with {nameof(TestExpressionAsync)} and the test result matches user requirements.** This is the final step to output the completed expression. Use {nameof(CreateVariable)} method to create or update variables separately.")]
     public string SetExpression(
-        [Description($"Final expression code. {ExpressionFormatDescription}")] string expression)
+        [Description($"Final expression code. {ExpressionFormatShortDescription}")] string expression)
     {
         if (string.IsNullOrWhiteSpace(expression))
         {

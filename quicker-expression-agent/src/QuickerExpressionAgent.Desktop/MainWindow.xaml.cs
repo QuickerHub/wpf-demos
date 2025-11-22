@@ -101,5 +101,6 @@ namespace QuickerExpressionAgent.Desktop
             }
             // Shift+Enter: allow default behavior (new line) - don't handle, let it bubble
         }
+
     }
 }

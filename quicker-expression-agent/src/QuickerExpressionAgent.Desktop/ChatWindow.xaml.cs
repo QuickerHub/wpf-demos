@@ -75,6 +75,7 @@ namespace QuickerExpressionAgent.Desktop
             // Shift+Enter: allow default behavior (new line) - don't handle, let it bubble
         }
 
+
         protected override void OnClosed(EventArgs e)
         {
             ViewModel.Dispose();
