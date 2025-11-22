@@ -55,6 +55,8 @@ public static class JsonExtensions
     /// <summary>
     /// Serialize object to JSON string
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
     public static string ToJson<T>(this T? value, bool indented = true)
     {
         if (value == null)
@@ -72,8 +74,25 @@ public static class JsonExtensions
     }
 
     /// <summary>
+    /// Serialize object to JSON string with custom options
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "JSON serialization extension method - caller is responsible for ensuring types are preserved")]
+    public static string ToJson<T>(this T? value, System.Text.Json.JsonSerializerOptions options)
+    {
+        if (value == null)
+        {
+            return "null";
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(value, options);
+    }
+
+    /// <summary>
     /// Deserialize JSON string to object
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "JSON deserialization extension method - caller is responsible for ensuring types are preserved")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "JSON deserialization extension method - caller is responsible for ensuring types are preserved")]
     public static T? FromJson<T>(this string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -84,6 +103,28 @@ public static class JsonExtensions
         try
         {
             return System.Text.Json.JsonSerializer.Deserialize<T>(json);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Deserialize JSON string to object with custom options
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "JSON deserialization extension method - caller is responsible for ensuring types are preserved")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "JSON deserialization extension method - caller is responsible for ensuring types are preserved")]
+    public static T? FromJson<T>(this string? json, System.Text.Json.JsonSerializerOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return default;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<T>(json, options);
         }
         catch
         {

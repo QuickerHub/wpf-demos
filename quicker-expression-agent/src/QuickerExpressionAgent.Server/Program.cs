@@ -166,7 +166,7 @@ class Program
                 }
             }
             
-            var json = JsonSerializer.Serialize(tools, new JsonSerializerOptions 
+            var json = tools.ToJson(new JsonSerializerOptions 
             { 
                 WriteIndented = true,
                 Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
@@ -571,12 +571,12 @@ distance += Math.Abs(str1.Length - str2.Length);
                 foreach (var variable in variables)
                 {
                     // Convert VariableClassWithObjectValue to JsonElement (simulating SemanticKernel behavior)
-                    var jsonString = JsonSerializer.Serialize(new
+                    var jsonString = new
                     {
                         variable.VarName,
                         VarType = variable.VarType.ToString(),
                         variable.DefaultValue
-                    });
+                    }.ToJson();
                     using var varJsonDoc = JsonDocument.Parse(jsonString);
                     variablesList.Add(varJsonDoc.RootElement.Clone()); // Clone to avoid disposal issues
                 }

@@ -299,7 +299,7 @@ public class ExpressionAgentPlugin
                 try
                 {
                     // Serialize List<object> to JSON string
-                    var jsonString = JsonSerializer.Serialize(variables);
+                    var jsonString = variables.ToJson();
                     
                     // Configure JsonSerializerOptions to handle enum as string
                     var options = new JsonSerializerOptions
@@ -309,7 +309,7 @@ public class ExpressionAgentPlugin
                     };
                     
                     // Deserialize directly to List<VariableClassWithObjectValue>
-                    var variableList = JsonSerializer.Deserialize<List<VariableClassWithObjectValue>>(jsonString, options);
+                    var variableList = jsonString.FromJson<List<VariableClassWithObjectValue>>(options);
                     
                     if (variableList == null)
                     {

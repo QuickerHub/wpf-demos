@@ -344,7 +344,7 @@ public static class VariableTypeExtensions
             VariableType.ListString => value is System.Collections.IEnumerable enumerable && !(value is string)
                 ? string.Join("\n", enumerable.Cast<object>().Select(item => item?.ToString() ?? ""))
                 : string.Empty,
-            VariableType.Dictionary => JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }),
+            VariableType.Dictionary => value.ToJson(new JsonSerializerOptions { WriteIndented = true }),
             VariableType.Object => value.ToString() ?? string.Empty,
             _ => value.ToString() ?? string.Empty
         };
