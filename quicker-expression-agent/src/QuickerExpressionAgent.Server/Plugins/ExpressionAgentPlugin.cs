@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -276,7 +277,9 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description($"Test an expression with optional variable default values. {ExpressionFormatDescription} The variables must already exist (created via {nameof(CreateVariable)}). **Recommended: Set variable default values using {nameof(SetVarDefaultValue)} first, so you don't need to pass variables parameter each time. Only pass variables parameter when you need to test with different default values.** If variables parameter is not provided, uses the current UI variable default values. **After testing, carefully check the result to ensure it matches user requirements before proceeding to {nameof(SetExpression)}.**")]
+    [RequiresUnreferencedCode("JSON serialization requires unreferenced code")]
+    [RequiresDynamicCode("JSON serialization requires dynamic code generation")]
+    [Description($"Test an expression with optional variable default values. {ExpressionFormatDescription} The variables must already exist (created via {nameof(CreateVariable)}). **Recommended: Set variable default values using {nameof(SetVarDefaultValue)} first, so you don't need to pass variables parameter each time. Only pass variables parameter when you need to test with different default values.** If variables parameter is not provided, uses the current UI variable default values. **After successful testing, the expression is automatically set. You don't need to call {nameof(SetExpression)} separately.**")]
     public async Task<string> TestExpressionAsync(
         [Description($"Expression to test. {ExpressionFormatShortDescription}")] string expression,
         [Description($"Optional list of variables with default values. {VariableClassWithObjectValueFormatDescription}")] List<object>? variables = null)
@@ -343,6 +346,9 @@ public class ExpressionAgentPlugin
             }
             else
             {
+                // Success case: automatically set the expression
+                ToolHandler.Expression = expression;
+                
                 // Success case: output Result: ... and UsedVar: {name1},{name2},{name3}...
                 var resultValue = result.ValueJson ?? "null";
                 var usedVarNames = result.UsedVariables != null && result.UsedVariables.Count > 0
@@ -355,6 +361,7 @@ public class ExpressionAgentPlugin
                 {
                     output.AppendLine($"Input Variables: {usedVarNames}");
                 }
+                output.AppendLine("Expression set successfully.");
                 
                 return output.ToString().TrimEnd();
             }
@@ -455,7 +462,7 @@ public class ExpressionAgentPlugin
     }
 
     [KernelFunction]
-    [Description($"Set the final expression. {ExpressionFormatShortDescription} **CRITICAL: Only call this after the expression has been tested with {nameof(TestExpressionAsync)} and the test result matches user requirements.** This is the final step to output the completed expression. Use {nameof(CreateVariable)} method to create or update variables separately.")]
+    [Description($"Set the final expression. {ExpressionFormatShortDescription} **Note: {nameof(TestExpressionAsync)} automatically sets the expression after successful testing, so you typically don't need to call this method separately. Only use this method if you need to set an expression without testing it first.**")]
     public string SetExpression(
         [Description($"Final expression code. {ExpressionFormatShortDescription}")] string expression)
     {

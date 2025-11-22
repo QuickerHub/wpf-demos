@@ -29,6 +29,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\QuickerExpressionAgent.Common\QuickerExpressionAgent.Common.csproj" />
+		<ProjectReference Include="..\QuickerExpressionAgent.Server.Embed\QuickerExpressionAgent.Server.Embed.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -38,6 +39,6 @@
 		<None Update="appsettings.json.example">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
+		<AdditionalFiles Include=".env" />
 	</ItemGroup>
-
 </Project>

@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
+using QuickerExpressionAgent.Server.Generated;
 
 namespace QuickerExpressionAgent.Server.Services;
 
@@ -12,8 +15,24 @@ public class ConfigurationService : IConfigurationService
 
     public ConfigurationService()
     {
-        // Load configuration (same as demo project)
-        var basePath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
+        var configBuilder = new ConfigurationBuilder();
+        
+        // First, add embedded config (generated at compile time from .env)
+        // Only ApiKey is embedded, ModelId and BaseUrl use default values
+        var embeddedApiKey = EmbeddedConfig.ApiKey;
+        
+        if (!string.IsNullOrEmpty(embeddedApiKey))
+        {
+            // Add embedded config as in-memory configuration
+            var embeddedConfig = new Dictionary<string, string?>
+            {
+                ["OpenAI:ApiKey"] = embeddedApiKey
+            };
+            configBuilder.AddInMemoryCollection(embeddedConfig);
+        }
+        
+        // Then load from file system (for development or fallback)
+        var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
             ?? Directory.GetCurrentDirectory();
         
         var configPaths = new[]
@@ -24,13 +43,11 @@ public class ConfigurationService : IConfigurationService
             Path.Combine(basePath, "appsettings.json")
         };
 
-        var configBuilder = new ConfigurationBuilder();
         foreach (var path in configPaths)
         {
             if (File.Exists(path))
             {
-                configBuilder.AddJsonFile(path, optional: true, reloadOnChange: true);
-                break;
+                configBuilder.AddJsonFile(path, optional: true, reloadOnChange: false);
             }
         }
 
@@ -39,19 +56,10 @@ public class ConfigurationService : IConfigurationService
             .Build();
     }
 
-    public string GetApiKey()
-    {
-        return Configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
-    }
+    public string GetApiKey() => Configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
 
-    public string GetBaseUrl()
-    {
-        return Configuration["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1";
-    }
+    public string GetBaseUrl() => Configuration["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1";
 
-    public string GetModelId()
-    {
-        return Configuration["OpenAI:ModelId"] ?? "deepseek-chat";
-    }
+    public string GetModelId() => Configuration["OpenAI:ModelId"] ?? "deepseek-chat";
 }
 

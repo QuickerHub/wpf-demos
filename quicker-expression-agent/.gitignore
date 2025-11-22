@@ -62,4 +62,9 @@ artifacts/
 # App settings with secrets
 appsettings.json
 !appsettings.json.example
+appsettings.local.json
+**/appsettings.local.json
+.env
+**/.env
+!.env.example
 

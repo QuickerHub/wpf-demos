@@ -85,19 +85,19 @@ public class StandaloneExpressionToolHandler : IExpressionAgentToolHandler
     /// <param name="variables">Optional list of variables with default values (uses current variables if null)</param>
     /// <returns>Expression execution result</returns>
     public Task<ExpressionResult> TestExpressionAsync(string expression, List<VariableClass>? variables = null)
-    {
-        // Use provided variables or current variables
-        var varsToUse = variables ?? GetAllVariables();
+        {
+            // Use provided variables or current variables
+            var varsToUse = variables ?? GetAllVariables();
 
-        // Create a temporary EvalContext for testing
-        var testEvalContext = new EvalContext();
+            // Create a temporary EvalContext for testing
+            var testEvalContext = new EvalContext();
 
         // Register variables in test context (for any potential side effects)
-        foreach (var variable in varsToUse)
-        {
-            var value = ConvertVariableToValue(variable);
-            testEvalContext.RegisterLocalVariable(variable.VarName, value);
-        }
+            foreach (var variable in varsToUse)
+            {
+                var value = ConvertVariableToValue(variable);
+                testEvalContext.RegisterLocalVariable(variable.VarName, value);
+            }
 
         // Use helper method to test expression
         var result = ExpressionTestHelper.TestExpression(testEvalContext, expression, varsToUse);

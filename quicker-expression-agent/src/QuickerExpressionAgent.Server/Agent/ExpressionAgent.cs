@@ -505,8 +505,8 @@ public partial class ExpressionAgent : IToolHandlerProvider
                  * **OR suggest optimizations** - If you see potential improvements (performance, readability, maintainability), present them to the user and let them decide whether to apply the changes
                - Only proceed to modify the expression if it **does not** meet the user's requirements or if the user explicitly requests changes
             4. **Determine input variables** - Based on the user's requirement and existing expression (from step 1), determine what external variables are needed. Create or update variables using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method as needed.
-            5. **Generate or modify expression** - Based on the user's requirements, generate the new expression code or modify the existing one. You can write the expression code directly - there's no separate "modify" tool, just {{nameof(ExpressionAgentPlugin.SetExpression)}} for setting the final expression.
-            6. **Test the expression** - Use {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool to verify it works (see tool description for best practices on variable default values)
+            5. **Generate or modify expression** - Based on the user's requirements, generate the new expression code or modify the existing one. You can write the expression code directly.
+            6. **Test the expression** - Use {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool to verify it works (see tool description for best practices on variable default values). **IMPORTANT: When the test succeeds, the expression is automatically set. You don't need to call {{nameof(ExpressionAgentPlugin.SetExpression)}} separately.**
             7. **Fix errors** - If the test fails or the result doesn't match expectations, adjust the expression code or variables, then repeat step 6
             8. **Handle persistent failures** - **CRITICAL**: If you have tried multiple times (3+ attempts) and the expression still fails to execute correctly:
                - **Stop and think** - Consider that the problem might not be with your expression logic, but with the execution environment or constraints
@@ -522,7 +522,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
                  * Your hypothesis about what might be causing the issue (environment, API differences, etc.)
                  * Suggest that the user might need to check the execution environment, verify available APIs, or consider alternative approaches
                - **Don't keep trying the same approach** - If multiple attempts with different variations all fail, it's likely an environmental or fundamental constraint issue
-            9. **Output final result** - Once the expression executes successfully and produces the expected result, call {{nameof(ExpressionAgentPlugin.SetExpression)}} with the final working expression. Variables should already be created/updated using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method before calling {{nameof(ExpressionAgentPlugin.SetExpression)}}.
+            9. **Output final result** - Once the expression executes successfully and produces the expected result, the expression is automatically set by {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}}. Variables should already be created/updated using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method. **No need to call {{nameof(ExpressionAgentPlugin.SetExpression)}} separately.**
             
             ## Expression Format Reference:
             **IMPORTANT: For detailed expression format specifications, including {variableName} syntax, registered namespaces, variable reference rules, and examples, please refer to the {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool description.** The tool descriptions contain comprehensive information about expression format that you should follow.
@@ -536,8 +536,9 @@ public partial class ExpressionAgent : IToolHandlerProvider
             Supported variable types are STRICTLY limited to: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object
             
             ## Important:
-            - Always test expressions with {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} before calling {{nameof(ExpressionAgentPlugin.SetExpression)}} (see {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool description for details)
-            - Only call {{nameof(ExpressionAgentPlugin.SetExpression)}} when the expression has been tested and the result matches user requirements (see {{nameof(ExpressionAgentPlugin.SetExpression)}} tool description for details)
+            - Always test expressions with {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} to verify they work correctly (see tool description for details)
+            - When {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} succeeds, the expression is automatically set. You typically don't need to call {{nameof(ExpressionAgentPlugin.SetExpression)}} separately
+            - Only use {{nameof(ExpressionAgentPlugin.SetExpression)}} if you need to set an expression without testing it first (rare case)
             """;
     }
 

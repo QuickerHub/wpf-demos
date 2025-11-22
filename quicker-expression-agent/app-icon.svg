@@ -1,0 +1,24 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Modern tech gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="256" height="256" rx="50" fill="url(#bgGradient)"/>
+  
+  <!-- Nested hexagon structure (scaled and centered) -->
+  <!-- Original center: (41.65, 48.1), scale 2.2, target center: (128, 128) -->
+  <!-- Transform: scale first, then translate to center -->
+  <g transform="translate(128, 128) scale(2.2, 1.9) translate(-41.65, -48.1)">
+    <path d="M81.3 71L41.7 93.9 2 71V25.2L41.7 2.3l39.6 22.9V71zM61.6 47.9L40.7 59.8m1-46.8l39.6 23.6M41.7 13v12.3l29.7 17.1v22.9l9.9 5.7M66.6 27.9L41.7 13 2 36.6l.1-11.3m39.6 0L12.5 42.9v22.4L2 71m10.5-5.7l29.2 17.1 29.7-17.1M41.7 36.6l29.7 17.2m-58.9.3L41.7 71l29.7-17.2m-20.7 12L12.5 42.9m9 5.4l30-17.3M31.6 54.2l20.2-11.7" 
+          fill="none" 
+          stroke="white" 
+          stroke-width="4" 
+          stroke-miterlimit="10"/>
+  </g>
+</svg>
