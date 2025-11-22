@@ -33,6 +33,7 @@
         <ui:NavigationView
             x:Name="RootNavigation"
             Grid.Row="1"
+            Padding="0"
             FrameMargin="0"
             IsBackButtonVisible="Visible"
             IsPaneToggleVisible="True"

@@ -11,12 +11,24 @@ alwaysApply: true
 - 支持附加属性使用 `[AttachedDependencyProperty<Type, Target>("PropertyName")]`
 
 ```csharp
+// 非静态类（继承自 DependencyObject）
 [DependencyProperty<bool>("IsSpinning", DefaultValue = true)]
 [AttachedDependencyProperty<object, TreeView>("SelectedItem")]
 public partial class MyControl : UserControl
 {
     // 可选的属性变化回调
     partial void OnIsSpinningChanged(bool oldValue, bool newValue) { }
+}
+
+// 静态类（用于 AttachedDependencyProperty）
+[AttachedDependencyProperty<ICommand, Control>("EnterCommand")]
+public static partial class EnterCommandBehavior
+{
+    // 静态类中的回调方法必须是 static partial void
+    static partial void OnEnterCommandChanged(Control control, ICommand? oldValue, ICommand? newValue)
+    {
+        // 处理属性变化逻辑
+    }
 }
 ```
 
@@ -147,6 +159,38 @@ public partial class MyControl : UserControl
 <Button Command="{Binding SaveCommand}" />
 <TextBlock Text="{Binding Title}" />
 ```
+
+### Page 布局规范
+- **禁止在 Page 根元素添加 ScrollViewer**：NavigationView 内部已经有 ScrollViewer 处理滚动，Page 中不应再添加额外的 ScrollViewer
+- **Page 应直接使用 Grid 或其他布局控件作为根元素**：让 NavigationView 的 ScrollViewer 处理页面内容的滚动
+- **控件内部的 ScrollViewer 是允许的**：如 ListBox、DataGrid 等控件内部的 ScrollViewer 是正常的，不受此限制
+
+```xml
+<!-- ✅ 正确：Page 直接使用 Grid 作为根元素 -->
+<Page>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <!-- 内容 -->
+    </Grid>
+</Page>
+
+<!-- ❌ 错误：不要在 Page 根元素添加 ScrollViewer -->
+<Page>
+    <ScrollViewer>
+        <Grid>
+            <!-- 内容 -->
+        </Grid>
+    </ScrollViewer>
+</Page>
+```
+
+**原因**：
+- NavigationView 的内容区域（Frame）内部已经有 ScrollViewer
+- 嵌套的 ScrollViewer 会导致滚动冲突和布局问题
+- ListBox 等控件可能会无限扩展，无法被正确限制高度
 
 ### 必需的包
 - `CommunityToolkit.Mvvm` - MVVM 特性
