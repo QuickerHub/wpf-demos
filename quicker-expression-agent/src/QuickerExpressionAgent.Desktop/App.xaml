@@ -76,25 +76,25 @@
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading1">
                                 <Setter Property="Block.Margin" Value="0,10,0,0" />
                                 <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                                <Setter Property="TextElement.FontSize" Value="28" />
+                                <Setter Property="TextElement.FontSize" Value="18" />
                                 <Setter Property="TextElement.FontWeight" Value="Light" />
                                 <Setter Property="TextAlignment" Value="Center" />
                             </Trigger>
                             <!--  Heading2  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading2">
                                 <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                                <Setter Property="TextElement.FontSize" Value="21" />
+                                <Setter Property="TextElement.FontSize" Value="15" />
                             </Trigger>
                             <!--  Heading3  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading3">
                                 <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                                <Setter Property="TextElement.FontSize" Value="17.5" />
+                                <Setter Property="TextElement.FontSize" Value="13" />
                             </Trigger>
                             <!--  Heading4  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading4">
                                 <Setter Property="Block.Margin" Value="0,5,5,0" />
                                 <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
-                                <Setter Property="TextElement.FontSize" Value="14" />
+                                <Setter Property="TextElement.FontSize" Value="12" />
                             </Trigger>
                             <!--  CodeBlock  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="CodeBlock">

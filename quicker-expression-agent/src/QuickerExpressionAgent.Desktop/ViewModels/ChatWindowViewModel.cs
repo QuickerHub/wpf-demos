@@ -366,7 +366,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
             catch
             {
-                // Ignore errors in token estimation
+                // Ignore errors in token calculation
                 TokenUsageText = "Token: N/A";
             }
         }

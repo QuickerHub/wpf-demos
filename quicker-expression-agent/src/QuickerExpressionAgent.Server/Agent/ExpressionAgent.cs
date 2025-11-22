@@ -6,6 +6,7 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Server.Plugins;
 using QuickerExpressionAgent.Server.Services;
+using SharpToken;
 using System.Collections;
 using System.Linq;
 using System.Text.Json;
@@ -36,6 +37,9 @@ public partial class ExpressionAgent : IToolHandlerProvider
 
     // Persistent chat history for conversation memory
     private readonly ChatHistory _chatHistory = new();
+
+    // Token encoder for precise token counting
+    private readonly GptEncoding _tokenEncoder;
 
 
     /// <summary>
@@ -115,6 +119,10 @@ public partial class ExpressionAgent : IToolHandlerProvider
         _kernel = kernel;
         Executor = executor;
         ToolHandler = toolHandler!;
+
+        // Initialize token encoder (most modern models use cl100k_base encoding)
+        // This includes: gpt-4, gpt-3.5-turbo, gpt-4-turbo, and most OpenAI-compatible models
+        _tokenEncoder = GptEncoding.GetEncoding("cl100k_base");
 
         // Add plugin to kernel (plugin uses IToolHandlerProvider, so it can be added even if toolHandler is null)
         // Plugin will access toolHandler via provider.ToolHandler at runtime
@@ -571,40 +579,37 @@ public partial class ExpressionAgent : IToolHandlerProvider
     }
 
     /// <summary>
-    /// Estimate token count for the current chat history
+    /// Calculate precise token count for the current chat history using SharpToken
     /// </summary>
-    /// <returns>Estimated token count</returns>
+    /// <returns>Precise token count</returns>
     public int EstimateTokenCount()
     {
-        int totalChars = 0;
+        int totalTokens = 0;
         
         foreach (var message in _chatHistory)
         {
-            // Count content characters
+            // Count tokens in message content
             if (!string.IsNullOrEmpty(message.Content))
             {
-                totalChars += message.Content.Length;
+                var tokens = _tokenEncoder.Encode(message.Content);
+                totalTokens += tokens.Count;
             }
             
-            // Count tool call items (if any)
+            // Count tokens in tool call items (if any)
             if (message.Items != null)
             {
                 foreach (var item in message.Items)
                 {
                     if (item is ChatMessageContent itemContent && !string.IsNullOrEmpty(itemContent.Content))
                     {
-                        totalChars += itemContent.Content.Length;
+                        var tokens = _tokenEncoder.Encode(itemContent.Content);
+                        totalTokens += tokens.Count;
                     }
                 }
             }
         }
         
-        // Rough estimation: 
-        // - English: 1 token ≈ 4 characters
-        // - Chinese: 1 token ≈ 1.5 characters
-        // - Mixed content: use average of 3 characters per token
-        // This is a conservative estimate
-        return totalChars / 3;
+        return totalTokens;
     }
 
     /// <summary>
