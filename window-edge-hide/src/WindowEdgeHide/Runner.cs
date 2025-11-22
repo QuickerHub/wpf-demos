@@ -45,30 +45,8 @@ namespace WindowEdgeHide
         }
 
         /// <summary>
-        /// Enable edge hiding for a window (compatibility overload with useAnimation boolean)
-        /// This overload uses useAnimation boolean instead of animationType string for backward compatibility
-        /// </summary>
-        /// <param name="windowHandle">Window handle as int</param>
-        /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
-        /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
-        /// <param name="useAnimation">If true, use EaseInOut animation; if false, no animation. Default: false</param>
-        /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
-        /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
-        /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
-        /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
-        /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
-        /// <returns>Result object with success status and message</returns>
-        public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "", string updateEdgeDirection = "None")
-        {
-            // Convert useAnimation boolean to animationType string
-            string animationType = useAnimation ? "EaseInOut" : "None";
-            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, autoTopmost, quicker_param, updateEdgeDirection);
-        }
-
-        /// <summary>
-        /// Enable edge hiding for a window
-        /// This overload supports int handle and string visibleArea for Quicker integration
+        /// Enable edge hiding for a window with activation strategy (new API)
+        /// This overload uses activationStrategy string parameter
         /// </summary>
         /// <param name="windowHandle">Window handle as int</param>
         /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
@@ -76,12 +54,12 @@ namespace WindowEdgeHide
         /// <param name="animationType">Animation type string (None, Linear, EaseInOut). Default: "None"</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
         /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
-        /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
+        /// <param name="activationStrategy">Window activation strategy string (AutoActivate, Topmost, None). Default: "AutoActivate"</param>
         /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "", string updateEdgeDirection = "None")
+            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, string activationStrategy = "AutoActivate", string quicker_param = "", string updateEdgeDirection = "None")
         {
             // Ensure entire method executes on UI thread
             EnableEdgeHideResult? result = null;
@@ -105,23 +83,9 @@ namespace WindowEdgeHide
                             };
                             return;
                         }
-                        
-                        // Handle "stopall" command - unregister all windows
-                        if (cmd == "stopall")
-                        {
-                            int count = UnregisterAll();
-                            result = new EnableEdgeHideResult
-                            {
-                                Success = true,
-                                Message = $"已取消 {count} 个窗口的贴边隐藏"
-                            };
-                            return;
-                        }
                     }
                     
                     IntPtr hwnd = new IntPtr(windowHandle);
-                    
-                    // Check if window handle is valid
                     if (hwnd == IntPtr.Zero)
                     {
                         result = new EnableEdgeHideResult
@@ -170,24 +134,22 @@ namespace WindowEdgeHide
                         actualAutoUnregister = false;
                     }
                     
-                    // Check if already enabled and autoUnregister is true
-                    if (actualAutoUnregister && IsEnabled(hwnd))
+                    // Handle autoUnregister: if enabled and window is already registered, unregister it
+                    if (actualAutoUnregister && _services.ContainsKey(hwnd))
                     {
-                        // Unregister edge hiding
-                        bool unregistered = UnregisterEdgeHide(hwnd);
+                        UnregisterEdgeHide(hwnd);
                         result = new EnableEdgeHideResult
                         {
-                            Success = unregistered,
-                            Message = unregistered ? "贴边隐藏已取消" : "取消贴边隐藏失败"
+                            Success = true,
+                            Message = "贴边隐藏已取消"
                         };
                         return;
                     }
                     
-                    // Override edgeDirection with quicker_param if provided
+                    // Handle quicker_param override for edgeDirection
                     string actualEdgeDirection = edgeDirection;
                     if (!string.IsNullOrEmpty(quicker_param))
                     {
-                        // Map quicker_param to edgeDirection
                         actualEdgeDirection = quicker_param.ToLowerInvariant() switch
                         {
                             "left" => "Left",
@@ -204,6 +166,7 @@ namespace WindowEdgeHide
                     IntThickness thickness = ParseVisibleArea(visibleArea);
                     AnimationType animType = ParseAnimationType(animationType);
                     EdgeDirection updateDirection = ParseEdgeDirection(updateEdgeDirection);
+                    ActivationStrategy activationStrategyEnum = ParseActivationStrategy(activationStrategy);
                     
                     var config = new EdgeHideConfig
                     {
@@ -212,7 +175,7 @@ namespace WindowEdgeHide
                         VisibleArea = thickness,
                         AnimationType = animType,
                         ShowOnScreenEdge = showOnScreenEdge,
-                        AutoTopmost = autoTopmost,
+                        ActivationStrategy = activationStrategyEnum,
                         UpdateEdgeDirection = updateDirection
                     };
                     result = EnableEdgeHide(config);
@@ -228,6 +191,79 @@ namespace WindowEdgeHide
             }
             
             return result ?? new EnableEdgeHideResult { Success = false, Message = "执行失败" };
+        }
+
+        /// <summary>
+        /// Enable edge hiding for a window with activation strategy (new API, compatibility overload with useAnimation boolean)
+        /// This overload uses useAnimation boolean instead of animationType string for backward compatibility
+        /// </summary>
+        /// <param name="windowHandle">Window handle as int</param>
+        /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
+        /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
+        /// <param name="useAnimation">If true, use EaseInOut animation; if false, no animation. Default: false</param>
+        /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
+        /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
+        /// <param name="activationStrategy">Window activation strategy string (AutoActivate, Topmost, None). Default: "AutoActivate"</param>
+        /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
+        /// <returns>Result object with success status and message</returns>
+        public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
+            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, string activationStrategy = "AutoActivate", string quicker_param = "", string updateEdgeDirection = "None")
+        {
+            // Convert useAnimation boolean to animationType string
+            string animationType = useAnimation ? "EaseInOut" : "None";
+            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, activationStrategy, quicker_param, updateEdgeDirection);
+        }
+
+        /// <summary>
+        /// Enable edge hiding for a window (legacy API with autoTopmost and useFocusAwareActivation)
+        /// This overload is kept for backward compatibility
+        /// </summary>
+        /// <param name="windowHandle">Window handle as int</param>
+        /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
+        /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
+        /// <param name="useAnimation">If true, use EaseInOut animation; if false, no animation. Default: false</param>
+        /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
+        /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
+        /// <param name="autoTopmost">[Legacy] If true, automatically set window to topmost (default: true)</param>
+        /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
+        /// <param name="useFocusAwareActivation">[Legacy] If true, focused windows use auto-activate after show, unfocused windows use Topmost=true without activation (default: false)</param>
+        /// <returns>Result object with success status and message</returns>
+        [Obsolete("Use EnableEdgeHide with activationStrategy parameter instead. This method is kept for backward compatibility.")]
+        public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
+            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "", string updateEdgeDirection = "None", bool useFocusAwareActivation = false)
+        {
+            // Convert useAnimation boolean to animationType string
+            string animationType = useAnimation ? "EaseInOut" : "None";
+            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, autoTopmost, quicker_param, updateEdgeDirection, useFocusAwareActivation);
+        }
+
+        /// <summary>
+        /// Enable edge hiding for a window (legacy API with autoTopmost and useFocusAwareActivation)
+        /// This overload is kept for backward compatibility and forwards to the new activation strategy API
+        /// </summary>
+        /// <param name="windowHandle">Window handle as int</param>
+        /// <param name="edgeDirection">Edge direction string (Left, Top, Right, Bottom, Nearest). Default: Nearest</param>
+        /// <param name="visibleArea">Visible area thickness string: "5" (all sides), "5,6" (horizontal,vertical), or "1,2,3,4" (left,top,right,bottom). Default: "5"</param>
+        /// <param name="animationType">Animation type string (None, Linear, EaseInOut). Default: "None"</param>
+        /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
+        /// <param name="autoUnregister">If true, second call will disable edge hiding (default: true)</param>
+        /// <param name="autoTopmost">[Legacy] If true, automatically set window to topmost (default: true)</param>
+        /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
+        /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
+        /// <param name="useFocusAwareActivation">[Legacy] If true, focused windows use auto-activate after show, unfocused windows use Topmost=true without activation (default: false)</param>
+        /// <returns>Result object with success status and message</returns>
+        [Obsolete("Use EnableEdgeHide with activationStrategy parameter instead. This method is kept for backward compatibility.")]
+        public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
+            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, bool autoTopmost = true, string quicker_param = "", string updateEdgeDirection = "None", bool useFocusAwareActivation = false)
+        {
+            // Convert legacy parameters to new ActivationStrategy
+            ActivationStrategy activationStrategy = ConvertLegacyActivationParams(autoTopmost, useFocusAwareActivation);
+            string activationStrategyString = activationStrategy.ToString();
+            
+            // Forward to new API with activation strategy
+            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, activationStrategyString, quicker_param, updateEdgeDirection);
         }
 
         /// <summary>
@@ -263,8 +299,11 @@ namespace WindowEdgeHide
                 mover = new Implementations.EaseInOutWindowMover();
             }
 
+            // Convert legacy config format if needed
+            ConvertLegacyConfig(config);
+
             // Create new service (constructor initializes everything)
-            var service = new WindowEdgeHideService(config.WindowHandle, config.EdgeDirection, config.VisibleArea, mover, config.ShowOnScreenEdge, config.AutoTopmost, config.UpdateEdgeDirection);
+            var service = new WindowEdgeHideService(config.WindowHandle, config.EdgeDirection, config.VisibleArea, mover, config.ShowOnScreenEdge, config.ActivationStrategy, config.UpdateEdgeDirection);
             service.WindowDestroyed += (hwnd) =>
             {
                 _services.Remove(hwnd);
@@ -322,9 +361,10 @@ namespace WindowEdgeHide
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update. If None, automatically selects nearest edge (default: None)</param>
+        /// <param name="useFocusAwareActivation">If true, focused windows use auto-activate after show, unfocused windows use Topmost=true without activation (default: false)</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest,
-            IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None)
+            IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None, bool useFocusAwareActivation = false)
         {
             // Get top-level window handle to prevent operations on child windows
             // Operations on child windows are likely to fail
@@ -338,6 +378,9 @@ namespace WindowEdgeHide
                 };
             }
 
+            // Convert legacy parameters to new ActivationStrategy
+            ActivationStrategy activationStrategy = ConvertLegacyActivationParams(autoTopmost, useFocusAwareActivation);
+
             var config = new EdgeHideConfig
             {
                 WindowHandle = windowHandle,
@@ -345,7 +388,7 @@ namespace WindowEdgeHide
                 VisibleArea = visibleArea.Equals(default(IntThickness)) ? new IntThickness(5) : visibleArea,
                 AnimationType = animationType,
                 ShowOnScreenEdge = showOnScreenEdge,
-                AutoTopmost = autoTopmost,
+                ActivationStrategy = activationStrategy,
                 UpdateEdgeDirection = updateEdgeDirection
             };
             return EnableEdgeHide(config);
@@ -387,6 +430,77 @@ namespace WindowEdgeHide
                 return result;
 
             return AnimationType.None;
+        }
+
+        /// <summary>
+        /// Parse activation strategy string to enum
+        /// </summary>
+        /// <param name="activationStrategy">Activation strategy string (AutoActivate, Topmost, None)</param>
+        /// <returns>ActivationStrategy enum value</returns>
+        private static ActivationStrategy ParseActivationStrategy(string activationStrategy)
+        {
+            if (string.IsNullOrWhiteSpace(activationStrategy))
+                return ActivationStrategy.AutoActivate;
+
+            if (Enum.TryParse<ActivationStrategy>(activationStrategy.Trim(), ignoreCase: true, out var result))
+                return result;
+
+            return ActivationStrategy.AutoActivate;
+        }
+
+        /// <summary>
+        /// Convert legacy autoTopmost and useFocusAwareActivation parameters to ActivationStrategy
+        /// </summary>
+        /// <param name="autoTopmost">Legacy parameter: whether to automatically set window to topmost</param>
+        /// <param name="useFocusAwareActivation">Legacy parameter: whether to use focus-aware activation</param>
+        /// <returns>ActivationStrategy enum value</returns>
+        private static ActivationStrategy ConvertLegacyActivationParams(bool autoTopmost, bool useFocusAwareActivation)
+        {
+            // Priority: useFocusAwareActivation > autoTopmost
+            if (useFocusAwareActivation)
+            {
+                return ActivationStrategy.AutoActivate;
+            }
+            else if (autoTopmost)
+            {
+                return ActivationStrategy.Topmost;
+            }
+            else
+            {
+                return ActivationStrategy.None;
+            }
+        }
+
+        /// <summary>
+        /// Convert EdgeHideConfig from legacy format (AutoTopmost, UseFocusAwareActivation) to new format (ActivationStrategy)
+        /// </summary>
+        /// <param name="config">Configuration to convert</param>
+        private static void ConvertLegacyConfig(EdgeHideConfig config)
+        {
+            // If ActivationStrategy is default (AutoActivate) and legacy properties are set,
+            // convert from legacy properties to new format
+            // This handles both cases:
+            // 1. New configs with ActivationStrategy explicitly set (won't convert)
+            // 2. Legacy configs loaded from JSON (will convert)
+            if (config.ActivationStrategy == ActivationStrategy.AutoActivate)
+            {
+                // Check if legacy properties indicate a different strategy
+                // If UseFocusAwareActivation is true, it maps to AutoActivate (already default, no change needed)
+                // If AutoTopmost is false and UseFocusAwareActivation is false, it maps to None
+                // If AutoTopmost is true and UseFocusAwareActivation is false, it maps to Topmost
+                if (!config.UseFocusAwareActivation)
+                {
+                    if (!config.AutoTopmost)
+                    {
+                        config.ActivationStrategy = ActivationStrategy.None;
+                    }
+                    else
+                    {
+                        config.ActivationStrategy = ActivationStrategy.Topmost;
+                    }
+                }
+                // If UseFocusAwareActivation is true, ActivationStrategy.AutoActivate is correct (default)
+            }
         }
 
         /// <summary>

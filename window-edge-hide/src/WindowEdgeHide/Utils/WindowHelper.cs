@@ -700,6 +700,19 @@ namespace WindowEdgeHide.Utils
         [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId", SetLastError = false, CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
         private static extern uint GetWindowThreadProcessIdSafe(IntPtr hWnd, IntPtr lpdwProcessId);
 
+        // ShowWindow constants
+        private const int SW_RESTORE = 9;
+        private const int SW_SHOW = 5;
+        private const int SW_SHOWNA = 8;
+
+        // P/Invoke declaration for ShowWindow
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        // P/Invoke declaration for BringWindowToTop
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool BringWindowToTop(IntPtr hWnd);
+
         // GetAncestor flags
         private enum GET_ANCESTOR_FLAGS
         {
@@ -714,6 +727,59 @@ namespace WindowEdgeHide.Utils
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetDesktopWindow();
+
+        /// <summary>
+        /// Check if window is a noactive window (cannot be activated)
+        /// Checks for WS_EX_NOACTIVATE extended style
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <returns>True if window is noactive, false otherwise</returns>
+        internal static bool IsNoActiveWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return false;
+
+            // Check for WS_EX_NOACTIVATE extended style
+            var exStyle = GetWindowLongPtrWrapper(hWnd, (int)WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            var windowExStyle = (WINDOW_EX_STYLE)exStyle;
+            return windowExStyle.HasFlag(WINDOW_EX_STYLE.WS_EX_NOACTIVATE);
+        }
+
+        /// <summary>
+        /// Activate a window and bring it to foreground
+        /// Directly calls SetForegroundWindow
+        /// </summary>
+        /// <param name="hWnd">Window handle to activate</param>
+        /// <returns>True if successful, false otherwise</returns>
+        internal static bool ActivateWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return false;
+
+            try
+            {
+                // First, restore window if minimized
+                if (IsWindowMinimized(hWnd))
+                {
+                    ShowWindow(hWnd, SW_RESTORE);
+                }
+
+                // Directly call SetForegroundWindow
+                return Windows.Win32.PInvoke.SetForegroundWindow(hwnd);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         /// <summary>
         /// Get top-level window handle for a given window handle

@@ -20,7 +20,7 @@ namespace WindowEdgeHide.Services
     {
         private readonly HWND _windowHandle;
         private readonly IntThickness _visibleArea;
-        private readonly bool _autoTopmost; // Whether to automatically set topmost
+        private readonly ActivationStrategy _activationStrategy; // Window activation strategy
         private readonly EdgeDirection _updateEdgeDirection; // Edge direction for restore/update
         private bool _isEnabled;
         private bool _isHidden = false;
@@ -44,18 +44,18 @@ namespace WindowEdgeHide.Services
         /// <param name="visibleArea">Visible area thickness when hidden (default: all sides 5)</param>
         /// <param name="mover">Window mover for animation (default: DirectWindowMover). Use same mover for hide/show to prevent conflicts.</param>
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
-        /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
+        /// <param name="activationStrategy">Window activation strategy when showing from edge hide (default: AutoActivate)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update. If None, automatically selects nearest edge (default: None)</param>
         public WindowEdgeHideService(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest, 
             IntThickness visibleArea = default, 
-            IWindowMover? mover = null, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None)
+            IWindowMover? mover = null, bool showOnScreenEdge = false, ActivationStrategy activationStrategy = ActivationStrategy.AutoActivate, EdgeDirection updateEdgeDirection = EdgeDirection.None)
         {
             var hwnd = new HWND(windowHandle);
             if (!IsWindow(hwnd))
                 throw new ArgumentException("Invalid window handle");
 
             _windowHandle = hwnd;
-            _autoTopmost = autoTopmost;
+            _activationStrategy = activationStrategy;
             _updateEdgeDirection = updateEdgeDirection;
             // Use default thickness if not specified
             if (visibleArea.Equals(default(IntThickness)))
@@ -103,19 +103,37 @@ namespace WindowEdgeHide.Services
             // Ensure we start in visible state
             _isHidden = false;
 
-            // Record original topmost state (only if autoTopmost is enabled)
-            _originalTopmost = autoTopmost ? WindowHelper.GetWindowTopmost(windowHandle) : null;
+            // Record original topmost state (only if activation strategy requires topmost)
+            _originalTopmost = (_activationStrategy == ActivationStrategy.AutoActivate || _activationStrategy == ActivationStrategy.Topmost) 
+                ? WindowHelper.GetWindowTopmost(windowHandle) : null;
 
             // Create managed window for state monitoring
             _managedWindow = new ManagedWindow(windowHandle);
             _managedWindow.IsActiveChanged += ManagedWindow_IsActiveChanged;
             _managedWindow.WindowStateChanged += ManagedWindow_WindowStateChanged;
             
-            // Set topmost only if autoTopmost is enabled
-            if (autoTopmost)
+            // Set topmost based on activation strategy
+            // Important: Never set topmost for focused windows
+            bool isFocused = _managedWindow.IsActive;
+            
+            if (_activationStrategy == ActivationStrategy.Topmost)
             {
-                _managedWindow.Topmost = true;
+                // Topmost strategy: set topmost only if window is not focused
+                if (!isFocused)
+                {
+                    _managedWindow.Topmost = true;
+                }
             }
+            else if (_activationStrategy == ActivationStrategy.AutoActivate)
+            {
+                // AutoActivate strategy: set topmost only if window is not focused
+                // Focused windows will use activation strategy, unfocused windows use topmost
+                if (!isFocused)
+                {
+                    _managedWindow.Topmost = true;
+                }
+            }
+            // None strategy: do nothing
 
             // Create and start mouse hook
             _mouseHook = new WindowMouseHook(windowHandle, _visibleArea, showOnScreenEdge);
@@ -161,8 +179,9 @@ namespace WindowEdgeHide.Services
                 _mover?.MoveWindow(_windowHandle.Value, pos.Left, pos.Top, pos.Width, pos.Height);
             }
 
-            // Restore original topmost state (only if autoTopmost was enabled)
-            if (_autoTopmost && _originalTopmost.HasValue && _windowHandle.Value != IntPtr.Zero)
+            // Restore original topmost state (if activation strategy required topmost)
+            if ((_activationStrategy == ActivationStrategy.AutoActivate || _activationStrategy == ActivationStrategy.Topmost) 
+                && _originalTopmost.HasValue && _windowHandle.Value != IntPtr.Zero)
             {
                 WindowHelper.SetWindowTopmost(_windowHandle.Value, _originalTopmost.Value);
             }
@@ -181,7 +200,9 @@ namespace WindowEdgeHide.Services
         /// <summary>
         /// Restore window to original position (show window)
         /// Calculates the edge position based on current hidden state and restores to that position
-        /// Sets z-order above foreground window to ensure visibility without stealing focus
+        /// Uses focus-aware activation strategy if enabled:
+        /// - Focused windows: auto-activate after show
+        /// - Unfocused windows: use Topmost=true without activation
         /// </summary>
         private void RestorePosition()
         {
@@ -212,6 +233,65 @@ namespace WindowEdgeHide.Services
             
             // Update _originalPosition to the restored edge position
             _originalPosition = new WindowRect(edgePos.x, edgePos.y, edgePos.x + edgePos.width, edgePos.y + edgePos.height);
+            
+            // Apply activation strategy
+            switch (_activationStrategy)
+            {
+                case ActivationStrategy.AutoActivate:
+                    // Auto-activate window when showing
+                    // For noactive windows, automatically fallback to Topmost
+                    bool isNoActive = WindowHelper.IsNoActiveWindow(_windowHandle.Value);
+                    if (isNoActive)
+                    {
+                        // Noactive window: fallback to Topmost strategy
+                        _managedWindow.Topmost = true;
+                    }
+                    else
+                    {
+                        // Normal window: check if it has focus
+                        var foregroundWindow = WindowHelper.GetForegroundWindow();
+                        bool isFocused = foregroundWindow == _windowHandle.Value;
+                        
+                        if (isFocused)
+                        {
+                            // Window already has focus: clear topmost and ensure it's visible
+                            // For focused windows, we don't want topmost, just ensure visibility
+                            _managedWindow.Topmost = false;
+                            // Ensure window is visible and bring to front without stealing focus
+                            var hwnd = new Windows.Win32.Foundation.HWND(_windowHandle.Value);
+                            // Use SetWindowPos to bring to front without activation (SWP_NOACTIVATE)
+                            Windows.Win32.PInvoke.SetWindowPos(
+                                hwnd,
+                                new Windows.Win32.Foundation.HWND(new IntPtr(0)), // HWND_TOP (but not topmost)
+                                0, 0, 0, 0,
+                                SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE);
+                        }
+                        else
+                        {
+                            // Window doesn't have focus: activate it and clear topmost
+                            // Clear topmost first (if it was set during initialization)
+                            _managedWindow.Topmost = false;
+                            // Then activate the window
+                            WindowHelper.ActivateWindow(_windowHandle.Value);
+                        }
+                    }
+                    break;
+
+                case ActivationStrategy.Topmost:
+                    // Set window to topmost without activation
+                    // But never set topmost for focused windows
+                    var foregroundWindowForTopmost = WindowHelper.GetForegroundWindow();
+                    bool isFocusedForTopmost = foregroundWindowForTopmost == _windowHandle.Value;
+                    if (!isFocusedForTopmost)
+                    {
+                        _managedWindow.Topmost = true;
+                    }
+                    break;
+
+                case ActivationStrategy.None:
+                    // Do nothing (no activation, no topmost)
+                    break;
+            }
             
             _isHidden = false;
         }
