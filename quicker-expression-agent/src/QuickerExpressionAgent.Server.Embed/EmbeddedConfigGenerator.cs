@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -24,27 +25,37 @@ public class EmbeddedConfigGenerator : ISourceGenerator
 		{
 			// Find .env file in AdditionalFiles
 			string? envContent = null;
+			string? envFilePath = null;
 			foreach (var additionalFile in context.AdditionalFiles)
 			{
 				var fileName = Path.GetFileName(additionalFile.Path);
 				if (fileName.Equals(".env", StringComparison.OrdinalIgnoreCase))
 				{
 					envContent = additionalFile.GetText()?.ToString();
+					envFilePath = additionalFile.Path;
 					break;
 				}
+			}
+
+			// Report error if .env file doesn't exist
+			if (string.IsNullOrEmpty(envContent))
+			{
+				var descriptor = new DiagnosticDescriptor(
+					"EMBED002",
+					".env file not found",
+					".env file is required but not found. Please create a .env file in the project directory with OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL_ID.",
+					"EmbeddedConfig",
+					DiagnosticSeverity.Error,
+					isEnabledByDefault: true);
+				
+				context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+				return;
 			}
 
 			// Read .env file - read ApiKey, BaseUrl, and ModelId
 			string apiKey = "";
 			string baseUrl = "";
 			string modelId = "";
-
-			if (string.IsNullOrEmpty(envContent))
-			{
-				// Generate default values if .env file doesn't exist
-				GenerateDefaultConfig(context);
-				return;
-			}
 
 			var lines = envContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -87,6 +98,39 @@ public class EmbeddedConfigGenerator : ISourceGenerator
 				}
 			}
 
+			// Validate required configuration values
+			var errors = new List<string>();
+			
+			if (string.IsNullOrWhiteSpace(apiKey))
+			{
+				errors.Add("OPENAI_API_KEY is required but not found or empty in .env file");
+			}
+			
+			if (string.IsNullOrWhiteSpace(baseUrl))
+			{
+				errors.Add("OPENAI_BASE_URL is required but not found or empty in .env file");
+			}
+			
+			if (string.IsNullOrWhiteSpace(modelId))
+			{
+				errors.Add("OPENAI_MODEL_ID is required but not found or empty in .env file");
+			}
+
+			// Report errors if any configuration is missing
+			if (errors.Count > 0)
+			{
+				var descriptor = new DiagnosticDescriptor(
+					"EMBED003",
+					"Missing required configuration in .env file",
+					string.Join("; ", errors),
+					"EmbeddedConfig",
+					DiagnosticSeverity.Error,
+					isEnabledByDefault: true);
+				
+				context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
+				return;
+			}
+
 			// Generate C# code - ApiKey, BaseUrl, and ModelId
 			var source = GenerateSourceCode(apiKey, baseUrl, modelId);
 			context.AddSource("EmbeddedConfig.generated.cs", SourceText.From(source, Encoding.UTF8));
@@ -103,18 +147,10 @@ public class EmbeddedConfigGenerator : ISourceGenerator
 				isEnabledByDefault: true);
 			
 			context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None, ex.Message));
-			
-			// Generate default config on error
-			GenerateDefaultConfig(context);
 		}
 	}
 
 
-	private void GenerateDefaultConfig(GeneratorExecutionContext context)
-	{
-		var source = GenerateSourceCode("", "", "");
-		context.AddSource("EmbeddedConfig.generated.cs", SourceText.From(source, Encoding.UTF8));
-	}
 
 	private string GenerateSourceCode(string apiKey, string baseUrl, string modelId)
 	{

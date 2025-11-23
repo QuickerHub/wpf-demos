@@ -41,4 +41,11 @@
 		</None>
 	</ItemGroup>
 
+	<!-- Exclude Server's appsettings.json from publish to avoid conflict -->
+	<Target Name="ExcludeServerAppSettingsFromPublish" BeforeTargets="GetCopyToPublishDirectoryItems">
+		<ItemGroup>
+			<_AllItemsToPublish Remove="@(_AllItemsToPublish)" Condition="'%(Filename)%(Extension)' == 'appsettings.json' AND '%(MSBuildSourceProjectFile)' != '' AND $([System.String]::Copy('%(MSBuildSourceProjectFile)').Contains('QuickerExpressionAgent.Server'))" />
+		</ItemGroup>
+	</Target>
+
 </Project>
