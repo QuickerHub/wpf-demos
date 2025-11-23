@@ -21,6 +21,10 @@ public static class ServiceCollectionExtensions
         // Configuration
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         
+        // API Config Storage
+        services.AddSingleton<ApiConfigStorageService>();
+        services.AddSingleton<CurrentApiConfigService>();
+        
         // Expression executor
         services.AddSingleton<ExpressionExecutor>();
         
@@ -42,12 +46,13 @@ public static class ServiceCollectionExtensions
         // Register PageService as INavigationViewPageProvider for WPF-UI 4.0.3
         services.AddSingleton<Wpf.Ui.Abstractions.INavigationViewPageProvider>(provider => provider.GetRequiredService<Services.PageService>());
         
-        // Register ViewModels
-        services.AddTransient<MainWindowViewModel>();
-        services.AddTransient<QuickerServiceTestViewModel>();
-        services.AddTransient<ChatWindowViewModel>();
-        services.AddTransient<ApiConfigListViewModel>();
-        services.AddSingleton<NavigationViewModel>();
+               // Register ViewModels
+               services.AddTransient<MainWindowViewModel>();
+               services.AddTransient<QuickerServiceTestViewModel>();
+               services.AddTransient<ChatWindowViewModel>();
+               services.AddTransient<ApiConfigListViewModel>();
+               services.AddSingleton<NavigationViewModel>();
+               services.AddTransient<ExpressionAgentViewModel>();
         
         // Register Pages
         services.AddTransient<ExpressionGeneratorPage>();

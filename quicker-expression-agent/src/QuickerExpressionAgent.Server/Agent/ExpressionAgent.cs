@@ -496,6 +496,22 @@ public partial class ExpressionAgent : IToolHandlerProvider
                - **Don't keep trying the same approach** - If multiple attempts with different variations all fail, it's likely an environmental or fundamental constraint issue
             9. **Output final result** - Once the expression executes successfully and produces the expected result, the expression is automatically set by {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}}. Variables should already be created/updated using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method. **No need to call {{nameof(ExpressionAgentPlugin.SetExpression)}} separately.**
             
+            ## External Variable Access - CRITICAL:
+            **MOST IMPORTANT: To access external variables in expressions, you MUST use {variableName} format with curly braces.**
+            - **Format**: `{variableName}` - Use curly braces around the variable name
+            - **Example**: `"Hello, " + {userName} + "!"` - This accesses the external variable `userName`
+            - **This is the ONLY way to access external variables** - You cannot use variables without curly braces
+            - **Think of {variableName} as function parameters** - They are inputs to your expression
+            - **You CANNOT assign to {variableName} directly** - `{varname} = value` is NOT allowed
+            - **Exception**: For reference types (Dictionary, List, Object), you CAN modify properties/members: `{dict}["key"] = value` or `{list}.Add(item)`
+            
+            **Common mistakes to avoid:**
+            - ❌ WRONG: `userName` (without curly braces) - This will NOT work
+            - ❌ WRONG: `{outputVar} = {inputVar}` - Cannot assign to {variableName}
+            - ✅ CORRECT: `"Hello, " + {userName}` - Accessing external variable correctly
+            - ✅ CORRECT: `{dict}["key"]` - Accessing dictionary value
+            - ✅ CORRECT: `{list}.Count` - Accessing list property
+            
             ## Expression Format Reference:
             **IMPORTANT: For detailed expression format specifications, including {variableName} syntax, registered namespaces, variable reference rules, and examples, please refer to the {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool description.** The tool descriptions contain comprehensive information about expression format that you should follow.
             

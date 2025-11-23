@@ -123,6 +123,7 @@
                 Text="AI 表达式生成器 - Chat" />
             <TextBlock
                 Grid.Column="1"
+                VerticalAlignment="Center"
                 FontSize="12"
                 Foreground="{Binding ViewModel.IsConnected, Converter={StaticResource BoolToVis}, ConverterParameter=Green|Red}"
                 Text="{Binding ViewModel.StatusText}" />
@@ -163,6 +164,7 @@
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="Margin" Value="0" />
+                            <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVis}}" />
                         </Style>
                     </ListBox.ItemContainerStyle>
                     <ListBox.Resources>
@@ -292,33 +294,65 @@
                     BorderBrush="#E0E0E0"
                     BorderThickness="0,1,0,0">
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                        <!--  Message Input Row  -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <ui:TextBox
-                            x:Name="ChatInputTextBox"
-                            Grid.Column="0"
-                            MinHeight="40"
-                            MaxHeight="100"
-                            Margin="0,0,10,0"
-                            Padding="10,8"
-                            AcceptsReturn="True"
-                            FontSize="14"
-                            PreviewKeyDown="ChatInputTextBox_PreviewKeyDown"
-                            Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
-                            TextWrapping="Wrap"
-                            VerticalScrollBarVisibility="Auto" />
+                            <ui:TextBox
+                                x:Name="ChatInputTextBox"
+                                Grid.Column="1"
+                                MinHeight="40"
+                                MaxHeight="100"
+                                Margin="0,0,10,0"
+                                Padding="10,8"
+                                AcceptsReturn="True"
+                                FontSize="14"
+                                PreviewKeyDown="ChatInputTextBox_PreviewKeyDown"
+                                Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
+                                TextWrapping="Wrap"
+                                VerticalScrollBarVisibility="Auto" />
 
-                        <ui:Button
-                            Grid.Column="1"
-                            MinWidth="80"
-                            Padding="20,8"
-                            Command="{Binding ViewModel.GenerateCommand}"
-                            Content="发送"
-                            FontSize="14"
-                            IsEnabled="{Binding ViewModel.IsGenerating, Converter={StaticResource InvertBooleanConverter}}" />
+                            <ComboBox
+                                x:Name="ApiConfigComboBox"
+                                Grid.Column="0"
+                                MinWidth="120"
+                                MaxWidth="150"
+                                Margin="0,0,10,0"
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                ItemsSource="{Binding ViewModel.AgentViewModel.AvailableApiConfigs}"
+                                SelectedItem="{Binding ViewModel.AgentViewModel.SelectedApiConfig, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock FontSize="11" Text="{Binding VisualTitle}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <ui:Button
+                                Grid.Column="2"
+                                Width="36"
+                                Height="36"
+                                Padding="8"
+                                Command="{Binding ViewModel.GenerateCommand}">
+                                <ui:SymbolIcon>
+                                    <ui:SymbolIcon.Style>
+                                        <Style TargetType="ui:SymbolIcon">
+                                            <Setter Property="Symbol" Value="ArrowUp24" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ViewModel.IsGenerating}" Value="True">
+                                                    <Setter Property="Symbol" Value="Stop24" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ui:SymbolIcon.Style>
+                                </ui:SymbolIcon>
+                            </ui:Button>
+                        </Grid>
                     </Grid>
                 </Border>
 

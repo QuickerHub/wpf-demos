@@ -33,6 +33,12 @@ public partial class ChatMessageViewModel : ObservableObject
     [ObservableProperty]
     private ToolCallViewModel? _toolCallItem;
 
+    /// <summary>
+    /// Whether this message should be visible in the UI
+    /// </summary>
+    [ObservableProperty]
+    private bool _isVisible = true;
+
     public ChatMessageViewModel(ChatMessageType messageType, string content)
     {
         MessageType = messageType;
@@ -76,6 +82,34 @@ public partial class ChatMessageViewModel : ObservableObject
                 BackgroundBrush = Brushes.White;
                 ForegroundBrush = Brushes.Black;
                 break;
+        }
+        
+        // Initialize visibility based on content
+        UpdateVisibility();
+    }
+
+    /// <summary>
+    /// Automatically update visibility when content changes
+    /// </summary>
+    partial void OnContentChanged(string value)
+    {
+        UpdateVisibility();
+    }
+
+    /// <summary>
+    /// Update visibility based on content and message type
+    /// </summary>
+    private void UpdateVisibility()
+    {
+        // For Assistant messages, hide if content is empty or whitespace
+        if (MessageType == ChatMessageType.Assistant)
+        {
+            IsVisible = !string.IsNullOrWhiteSpace(Content);
+        }
+        else
+        {
+            // User and Tool messages are always visible
+            IsVisible = true;
         }
     }
 }

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuickerExpressionAgent.Desktop.Services;
+using QuickerExpressionAgent.Desktop.Windows;
 using QuickerExpressionAgent.Server.Services;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -14,6 +15,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels;
 public partial class ApiConfigListViewModel : ObservableObject
 {
     private readonly ApiConfigStorageService _storageService;
+    private readonly CurrentApiConfigService _currentApiConfigService;
 
     [ObservableProperty]
     private ObservableCollection<ModelApiConfigItemViewModel> _configItems = new();
@@ -21,17 +23,49 @@ public partial class ApiConfigListViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
-    public ApiConfigListViewModel()
+    [ObservableProperty]
+    private ModelApiConfigItemViewModel? _currentActiveConfig;
+
+    public ApiConfigListViewModel(
+        CurrentApiConfigService currentApiConfigService,
+        ApiConfigStorageService storageService)
     {
-        _storageService = new ApiConfigStorageService();
+        _storageService = storageService;
+        _currentApiConfigService = currentApiConfigService;
         LoadConfigs();
+        UpdateCurrentActiveConfig();
+        
+        // Listen for config changes
+        _currentApiConfigService.CurrentConfigChanged += (s, e) => UpdateCurrentActiveConfig();
+    }
+
+    /// <summary>
+    /// Update current active config indicator
+    /// </summary>
+    private void UpdateCurrentActiveConfig()
+    {
+        var current = _currentApiConfigService.CurrentConfig;
+        if (current != null)
+        {
+            CurrentActiveConfig = ConfigItems.FirstOrDefault(item =>
+                item.ApiKey == current.ApiKey &&
+                item.ModelId == current.ModelId &&
+                item.BaseUrl == current.BaseUrl);
+        }
+        else
+        {
+            CurrentActiveConfig = null;
+        }
     }
 
     /// <summary>
     /// Load configurations from storage
+    /// Note: Only loads user-configured configs from storage, does NOT include default config
     /// </summary>
     private void LoadConfigs()
     {
+        // Only load user-configured configs from storage file
+        // Default config is NOT included here to avoid exposing it in the API config management page
         var configs = _storageService.LoadConfigs();
         SetConfigs(configs);
         
@@ -46,19 +80,35 @@ public partial class ApiConfigListViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Add a new configuration
+    /// Add a new configuration with template selection
     /// </summary>
     [RelayCommand]
     private void AddConfig()
     {
-        var newConfig = new ModelApiConfig
+        // Show template selection dialog
+        var templates = ApiConfigTemplateService.GetTemplates();
+        var templateWindow = new ApiConfigTemplateWindow(templates);
+        
+        if (templateWindow.ShowDialog() == true && templateWindow.SelectedTemplate != null)
         {
-            ApiKey = string.Empty,
-            ModelId = "deepseek-chat",
-            BaseUrl = "https://api.deepseek.com/v1"
-        };
-        ConfigItems.Add(new ModelApiConfigItemViewModel(newConfig));
-        StatusMessage = "已添加新配置，请编辑后保存";
+            // Create config from selected template
+            var template = templateWindow.SelectedTemplate;
+            var newConfig = new ModelApiConfig
+            {
+                ApiKey = template.Config.ApiKey,
+                ModelId = template.Config.ModelId,
+                BaseUrl = template.Config.BaseUrl
+            };
+            var newItem = new ModelApiConfigItemViewModel(newConfig);
+            // Subscribe to save event to auto-save all configs
+            newItem.ConfigSaved += (s, e) => AutoSaveConfigs();
+            ConfigItems.Add(newItem);
+            
+            // Automatically start editing the newly added item
+            newItem.BeginEdit();
+            
+            StatusMessage = $"已添加 {template.Name} 配置，请编辑 API Key 后保存";
+        }
     }
 
     /// <summary>
@@ -89,7 +139,61 @@ public partial class ApiConfigListViewModel : ObservableObject
         ConfigItems.Clear();
         foreach (var config in configs)
         {
-            ConfigItems.Add(new ModelApiConfigItemViewModel(config));
+            var item = new ModelApiConfigItemViewModel(config);
+            // Subscribe to save event to auto-save all configs
+            item.ConfigSaved += (s, e) => AutoSaveConfigs();
+            ConfigItems.Add(item);
+        }
+        UpdateCurrentActiveConfig();
+    }
+
+    /// <summary>
+    /// Auto-save all configurations (called when individual config is saved)
+    /// </summary>
+    private void AutoSaveConfigs()
+    {
+        try
+        {
+            var configs = GetAllConfigs();
+            _storageService.SaveConfigs(configs);
+            _currentApiConfigService.ReloadConfigs();
+            UpdateCurrentActiveConfig();
+        }
+        catch
+        {
+            // Ignore errors in auto-save (user can manually save if needed)
+        }
+    }
+
+    /// <summary>
+    /// Switch to a different API configuration
+    /// </summary>
+    [RelayCommand]
+    private void SwitchToConfig(ModelApiConfigItemViewModel? item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var config = item.GetConfig();
+            if (string.IsNullOrWhiteSpace(config.ApiKey))
+            {
+                StatusMessage = "请先配置 API Key";
+                MessageBox.Show("请先配置 API Key 后再切换模型", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _currentApiConfigService.SwitchConfig(config);
+            StatusMessage = $"已切换到模型: {config.ModelId}";
+            UpdateCurrentActiveConfig();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"切换模型失败: {ex.Message}";
+            MessageBox.Show($"切换模型失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -103,6 +207,8 @@ public partial class ApiConfigListViewModel : ObservableObject
         {
             var configs = GetAllConfigs();
             _storageService.SaveConfigs(configs);
+            _currentApiConfigService.ReloadConfigs();
+            UpdateCurrentActiveConfig();
             StatusMessage = $"已保存 {configs.Count} 个配置";
         }
         catch (System.Exception ex)

@@ -42,11 +42,24 @@ public partial class ModelApiConfigItemViewModel : ObservableObject
     [RelayCommand]
     private void StartEdit()
     {
+        BeginEdit();
+    }
+
+    /// <summary>
+    /// Begin editing mode (public method for external use)
+    /// </summary>
+    public void BeginEdit()
+    {
         _tempApiKey = ApiKey;
         _tempModelId = ModelId;
         _tempBaseUrl = BaseUrl;
         IsEditing = true;
     }
+
+    /// <summary>
+    /// Event raised when config is saved
+    /// </summary>
+    public event EventHandler? ConfigSaved;
 
     /// <summary>
     /// Save changes - update config and exit edit mode
@@ -58,6 +71,9 @@ public partial class ModelApiConfigItemViewModel : ObservableObject
         _config.ModelId = ModelId;
         _config.BaseUrl = BaseUrl;
         IsEditing = false;
+        
+        // Notify that config was saved
+        ConfigSaved?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -73,8 +89,18 @@ public partial class ModelApiConfigItemViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Get the underlying ModelApiConfig
+    /// Get the current ModelApiConfig (with current property values)
     /// </summary>
-    public ModelApiConfig GetConfig() => _config;
+    public ModelApiConfig GetConfig()
+    {
+        // Return a new config with current property values (not the underlying _config)
+        // This ensures we get the latest values even if not saved yet
+        return new ModelApiConfig
+        {
+            ApiKey = ApiKey,
+            ModelId = ModelId,
+            BaseUrl = BaseUrl
+        };
+    }
 }
 

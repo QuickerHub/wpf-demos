@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
+using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 {
     public partial class ChatWindowViewModel : ObservableObject
     {
-        private readonly ExpressionAgent _agent;
+        private readonly ExpressionAgentViewModel _agentViewModel;
         private readonly QuickerServerClientConnector _connector;
         private readonly ILogger<ChatWindowViewModel> _logger;
         private readonly ServerToolHandler _defaultToolHandler;
@@ -28,6 +29,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         
         // Chat history managed by caller
         private readonly ChatHistory _chatHistory = new();
+        
+        // Cancellation token source for stopping generation
+        private CancellationTokenSource? _cancellationTokenSource;
 
         // Chat messages and input
         [ObservableProperty]
@@ -54,22 +58,33 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [ObservableProperty]
         private string _tokenUsageText = "Token: 0";
 
+        /// <summary>
+        /// Expose ExpressionAgentViewModel for binding
+        /// </summary>
+        public ExpressionAgentViewModel AgentViewModel => _agentViewModel;
+
         public ChatWindowViewModel(
-            IConfigurationService configurationService,
+            ExpressionAgentViewModel agentViewModel,
             ExpressionExecutor executor,
             QuickerServerClientConnector connector,
             ILogger<ChatWindowViewModel> logger)
         {
             _connector = connector;
             _logger = logger;
+            _agentViewModel = agentViewModel;
             
             // Create default tool handler using script engine (ServerToolHandler)
             // This is independent of Quicker connection and uses ExpressionExecutor
             _defaultToolHandler = new ServerToolHandler(executor);
             
-            // Create ExpressionAgent with default tool handler (ensures IExpressionAgentToolHandler is not null)
-            var kernel = QuickerExpressionAgent.Server.Services.KernelService.GetKernel(configurationService);
-            _agent = new ExpressionAgent(kernel, executor, _defaultToolHandler);
+            // Set default tool handler to agent view model
+            _agentViewModel.SetToolHandler(_defaultToolHandler);
+            
+            // Listen for agent recreation events
+            _agentViewModel.AgentRecreated += OnAgentRecreated;
+            
+            // Update status text from agent view model
+            StatusText = _agentViewModel.StatusText;
 
             // Initialize chat messages monitoring for auto-scroll
             // Use ObserveOnDispatcher to ensure UI updates happen on UI thread
@@ -104,12 +119,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 if (!isConnected)
                 {
                     IsConnected = false;
-                    // Switch back to default tool handler on disconnect
-                    if (_quickerToolHandler != null)
-                    {
-                        _agent.ToolHandler = _defaultToolHandler;
-                        _quickerToolHandler = null;
-                    }
+                // Switch back to default tool handler on disconnect
+                if (_agentViewModel.Agent != null && _quickerToolHandler != null)
+                {
+                    _agentViewModel.SetToolHandler(_defaultToolHandler);
+                    _quickerToolHandler = null;
+                }
                     StatusText = "未连接到 Quicker 服务";
                     AddChatMessage(ChatMessageType.Assistant, "✗ 与 Quicker 服务断开连接");
                 }
@@ -156,7 +171,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     // Create handler using handlerId (similar to .Server project)
                     // Replace standalone tool handler with Quicker tool handler
                     _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
-                    _agent.ToolHandler = _quickerToolHandler;
+                    _agentViewModel.SetToolHandler(_quickerToolHandler);
 
                     RunOnUIThread(() =>
                     {
@@ -191,17 +206,38 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         /// </summary>
         public void AddChatMessage(ChatMessageType messageType, string content)
         {
+            // Skip empty messages (streaming API may return empty messages)
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return;
+            }
             ChatMessages.Add(new ChatMessageViewModel(messageType, content));
             UpdateTokenUsage();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = true)]
         private async Task GenerateAsync()
         {
+            // If already generating, cancel the current operation
+            if (IsGenerating)
+            {
+                _cancellationTokenSource?.Cancel();
+                StatusText = "正在停止...";
+                return;
+            }
+
             var text = ChatInputText.Trim();
             ChatInputText = "";
             if (string.IsNullOrWhiteSpace(text))
             {
+                return;
+            }
+
+            // Check if agent is initialized
+            var agent = _agentViewModel.Agent;
+            if (agent == null)
+            {
+                AddChatMessage(ChatMessageType.Assistant, "✗ Agent 未初始化，请先配置 API Key");
                 return;
             }
 
@@ -211,6 +247,11 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 未就绪，无法生成表达式");
                 return;
             }
+
+            // Create new cancellation token source
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = _cancellationTokenSource.Token;
 
             // Update UI state
             IsGenerating = true;
@@ -227,8 +268,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             {
                 // Use GenerateExpressionAsStreamAsync to get stream items
                 // Ensure UI updates happen on UI thread
-                await foreach (var item in _agent.GenerateExpressionAsStreamAsync(text, _chatHistory))
+                await foreach (var item in agent.GenerateExpressionAsStreamAsync(text, _chatHistory, cancellationToken))
                 {
+                    // Check if cancellation was requested
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
                     // Update UI on UI thread
                     RunOnUIThread(() =>
                     {
@@ -283,15 +329,35 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     });
                 }
 
-                StatusText = "Agent 已完成";
+                RunOnUIThread(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        StatusText = "已停止生成";
+                    }
+                    else
+                    {
+                        StatusText = "Agent 已完成";
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                RunOnUIThread(() =>
+                {
+                    StatusText = "已停止生成";
+                });
             }
             catch (Exception ex)
             {
-                StatusText = "发生错误";
-                _logger?.LogError(ex, "Error generating expression");
-                var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, $"发生异常: {ex.Message}");
-                ChatMessages.Add(assistantMessage);
-                UpdateTokenUsage();
+                RunOnUIThread(() =>
+                {
+                    StatusText = "发生错误";
+                    _logger?.LogError(ex, "Error generating expression");
+                    var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, $"发生异常: {ex.Message}");
+                    ChatMessages.Add(assistantMessage);
+                    UpdateTokenUsage();
+                });
             }
             finally
             {
@@ -364,8 +430,15 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         {
             try
             {
-                int tokenCount = _agent.EstimateTokenCount(_chatHistory);
-                int messageCount = _agent.GetChatHistoryCount(_chatHistory);
+                var agent = _agentViewModel.Agent;
+                if (agent == null)
+                {
+                    TokenUsageText = "Token: N/A (Agent 未初始化)";
+                    return;
+                }
+
+                int tokenCount = agent.EstimateTokenCount(_chatHistory);
+                int messageCount = agent.GetChatHistoryCount(_chatHistory);
                 TokenUsageText = $"Token: {tokenCount:N0} | Messages: {messageCount}";
             }
             catch
@@ -375,13 +448,36 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
         }
 
+
+        /// <summary>
+        /// Handle agent recreation events
+        /// </summary>
+        private void OnAgentRecreated(object? sender, ExpressionAgent? agent)
+        {
+            // Update tool handler if Quicker is connected
+            if (_quickerToolHandler != null && agent != null)
+            {
+                _agentViewModel.SetToolHandler(_quickerToolHandler);
+            }
+            
+            // Update status text from agent view model
+            StatusText = _agentViewModel.StatusText;
+            UpdateTokenUsage();
+        }
+
         /// <summary>
         /// Cleanup resources
         /// </summary>
         public void Dispose()
         {
+            if (_agentViewModel != null)
+            {
+                _agentViewModel.AgentRecreated -= OnAgentRecreated;
+            }
             _scrollThrottleSubscription?.Dispose();
             _connector.ConnectionStatusChanged -= Connector_ConnectionStatusChanged;
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
         }
     }
 }

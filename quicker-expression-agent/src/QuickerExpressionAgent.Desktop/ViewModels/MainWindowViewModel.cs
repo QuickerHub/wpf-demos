@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop;
+using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
 using System.Collections.ObjectModel;
@@ -19,10 +20,10 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 {
     public partial class MainWindowViewModel : ObservableObject, IExpressionAgentToolHandler
     {
-        private readonly ExpressionAgent _semanticKernelAgent;
+        private readonly ExpressionAgentViewModel _agentViewModel;
         private readonly ExpressionExecutor _executor;
         private readonly ILogger<MainWindowViewModel> _logger;
-        
+
         // Chat history managed by caller
         private readonly ChatHistory _chatHistory = new();
 
@@ -60,10 +61,18 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [ObservableProperty]
         private Brush _resultForeground = Brushes.Black;
 
+        [ObservableProperty]
+        private string _currentApiDisplayText = "未配置";
+
+        /// <summary>
+        /// Expose ExpressionAgentViewModel for binding
+        /// </summary>
+        public ExpressionAgentViewModel AgentViewModel => _agentViewModel;
+
         private readonly IServiceProvider _serviceProvider;
 
         public MainWindowViewModel(
-            IConfigurationService configurationService,
+            ExpressionAgentViewModel agentViewModel,
             ExpressionExecutor executor,
             ILogger<MainWindowViewModel> logger,
             IServiceProvider serviceProvider)
@@ -71,8 +80,19 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             _logger = logger;
             _executor = executor;
             _serviceProvider = serviceProvider;
-            var kernel = KernelService.GetKernel(configurationService);
-            _semanticKernelAgent = new ExpressionAgent(kernel, _executor, this);
+            _agentViewModel = agentViewModel;
+
+            // Set this as tool handler for the agent
+            _agentViewModel.SetToolHandler(this);
+
+            // Listen for agent recreation events
+            _agentViewModel.AgentRecreated += OnAgentRecreated;
+
+            // Update status text from agent view model
+            StatusText = _agentViewModel.StatusText;
+
+            // Update display
+            UpdateCurrentApiDisplay();
 
             StatusText = "已就绪，可以开始生成表达式";
 
@@ -117,6 +137,16 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 return;
             }
 
+            // Check if agent is initialized
+            var agent = _agentViewModel.Agent;
+            if (agent == null)
+            {
+                ExecutionResult = "✗ Agent 未初始化，请先配置 API Key";
+                ResultForeground = Brushes.Red;
+                StatusText = "Agent 未初始化";
+                return;
+            }
+
             // Update UI state
             IsGenerating = true;
             StatusText = "正在生成表达式...";
@@ -136,12 +166,11 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     if (!string.IsNullOrEmpty(partialContent))
                     {
                         // Append content to assistant message on UI thread
-                        System.Windows.Application.Current.Dispatcher.BeginInvoke(
-                            System.Windows.Threading.DispatcherPriority.Background,
-                            new System.Action(() =>
+                        Application.Current.Dispatcher.Invoke(
+                            System.Windows.Threading.DispatcherPriority.Background, () =>
                             {
                                 assistantMessage.Content += partialContent;
-                            }));
+                            });
                     }
                 };
 
@@ -151,7 +180,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 // Agent will call tools (SetExpression, TestExpression, etc.) to complete the work
                 // Agent can get existing variables via GetExternalVariables tool
                 // No need to process result - tools have already updated the UI
-                await _semanticKernelAgent.GenerateExpressionAsync(
+                await agent.GenerateExpressionAsync(
                     text,
                     _chatHistory,
                     progressCallback: progressCallback,
@@ -217,7 +246,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
                 // Execute expression
                 var result = await _executor.ExecuteExpressionAsync(Expression, variableClassList);
-                
+
                 // Check if cancelled after execution
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -288,10 +317,69 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         /// <summary>
+        /// Handle agent recreation events
+        /// </summary>
+        private void OnAgentRecreated(object? sender, ExpressionAgent? agent)
+        {
+            // Update status text from agent view model
+            StatusText = _agentViewModel.StatusText;
+            UpdateCurrentApiDisplay();
+        }
+
+        /// <summary>
+        /// Update current API display
+        /// </summary>
+        private void UpdateCurrentApiDisplay()
+        {
+            var current = _agentViewModel.CurrentConfig;
+            if (current != null && !string.IsNullOrWhiteSpace(current.ModelId))
+            {
+                CurrentApiDisplayText = $"{current.ModelId} ({current.BaseUrl})";
+            }
+            else
+            {
+                CurrentApiDisplayText = "未配置";
+            }
+        }
+
+        /// <summary>
+        /// Switch to a different API configuration
+        /// </summary>
+        [RelayCommand]
+        private void SwitchModel(ModelApiConfig? config)
+        {
+            if (config == null)
+            {
+                return;
+            }
+
+            if (IsGenerating)
+            {
+                StatusText = "正在生成中，无法切换模型";
+                return;
+            }
+
+            try
+            {
+                _agentViewModel.SwitchConfig(config);
+                // Agent will be recreated by ExpressionAgentViewModel
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"切换模型失败: {ex.Message}";
+                _logger?.LogError(ex, "Error switching model");
+            }
+        }
+
+        /// <summary>
         /// Cleanup resources
         /// </summary>
         public void Dispose()
         {
+            if (_agentViewModel != null)
+            {
+                _agentViewModel.AgentRecreated -= OnAgentRecreated;
+            }
             _scrollThrottleSubscription?.Dispose();
             _autoExecutionCancellationTokenSource?.Dispose();
         }

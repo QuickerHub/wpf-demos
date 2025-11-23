@@ -8,6 +8,7 @@
 		<LangVersion>preview</LangVersion>
 		<UseWPF>true</UseWPF>
 		<Version Condition="'$(Version)' == ''">1.0.0.0</Version>
+		<ApplicationIcon Condition="Exists('app-icon.ico')">app-icon.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -39,6 +40,8 @@
 		<None Update="appsettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<Resource Include="app-icon.ico" />
+		<Resource Include="app-icon.png" />
 	</ItemGroup>
 
 	<!-- Exclude Server's appsettings.json from publish to avoid conflict -->

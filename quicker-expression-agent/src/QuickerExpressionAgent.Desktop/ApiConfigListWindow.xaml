@@ -15,6 +15,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <local:InvertBooleanToVisibilityConverter x:Key="InvertBoolToVis" />
+        <local:NullToBoolConverter x:Key="NullToBoolConverter" />
     </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -107,13 +108,44 @@
                                         FontSize="14"
                                         Foreground="#555555"
                                         Text="{Binding BaseUrl, Mode=OneWay}" />
+                                    <TextBlock
+                                        Margin="12,0,0,0"
+                                        FontSize="12"
+                                        Foreground="#2196F3"
+                                        FontWeight="SemiBold"
+                                        Text="[当前使用]">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.ViewModel.CurrentActiveConfig, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="{Binding}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                     <ui:Button
                                         Margin="0,0,8,0"
                                         Padding="8,4"
+                                        Command="{Binding DataContext.ViewModel.SwitchToConfigCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"
+                                        Content="切换"
+                                        Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVis}}" />
+                                    <ui:Button
+                                        Margin="0,0,8,0"
+                                        Padding="8,4"
                                         Command="{Binding StartEditCommand}"
                                         Content="编辑"
+                                        Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVis}}" />
+                                    <ui:Button
+                                        Margin="0,0,8,0"
+                                        Padding="8,4"
+                                        Command="{Binding DataContext.ViewModel.RemoveConfigCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"
+                                        Content="删除"
                                         Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVis}}" />
                                     <ui:Button
                                         Margin="0,0,8,0"
