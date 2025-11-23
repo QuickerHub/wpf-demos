@@ -10,6 +10,7 @@
     Title="API 配置"
     d:DataContext="{d:DesignInstance local:ApiConfigPage,
                                      IsDesignTimeCreatable=False}"
+    d:Width="500"
     mc:Ignorable="d">
     <Page.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -24,161 +25,449 @@
 
         <!--  Header with Add Button  -->
         <Grid Grid.Row="0" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock
-                Grid.Column="0"
-                FontSize="20"
-                FontWeight="Bold"
-                Text="API 配置列表" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <ui:Button
-                    Margin="0,0,8,0"
-                    Command="{Binding ViewModel.AddConfigCommand}"
-                    Content="添加配置" />
-                <ui:Button Command="{Binding ViewModel.SaveAllCommand}" Content="保存全部" />
-            </StackPanel>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Grid.Column="0"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Text="API 配置列表" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Grid Margin="0,0,8,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Column="0"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Text="默认配置:" />
+                        <ComboBox
+                            Grid.Column="1"
+                            DisplayMemberPath="VisualTitle"
+                            ItemsSource="{Binding ViewModel.AvailableDefaultConfigs}"
+                            SelectedItem="{Binding ViewModel.SelectedDefaultConfig}" />
+                    </Grid>
+                    <ui:Button
+                        Margin="0,0,8,0"
+                        Command="{Binding ViewModel.AddConfigCommand}"
+                        Content="添加配置" />
+                    <ui:Button Command="{Binding ViewModel.SaveAllCommand}" Content="保存全部" />
+                </StackPanel>
+            </Grid>
+            <!--  Default Config Selection  -->
         </Grid>
 
         <!--  Config List  -->
-        <ListBox
-            Grid.Row="1"
-            Background="Transparent"
-            BorderThickness="0"
-            ItemsSource="{Binding ViewModel.ConfigItems}"
-            ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-            <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="ListBoxItem">
-                                <ContentPresenter />
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Margin" Value="0" />
-                    <Setter Property="Background" Value="Transparent" />
-                </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Border
-                        Margin="0,0,0,8"
-                        Padding="12"
-                        Background="White"
-                        BorderBrush="#D0D0D0"
-                        BorderThickness="1"
-                        CornerRadius="4">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <!--  Header with Edit Button  -->
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel
-                                    Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    Orientation="Horizontal">
-                                    <TextBlock
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Foreground="#333333"
-                                        Text="模型: " />
-                                    <TextBlock
-                                        FontSize="14"
-                                        Foreground="#555555"
-                                        Text="{Binding ModelId, Mode=OneWay}" />
-                                    <TextBlock
-                                        Margin="12,0,0,0"
-                                        FontSize="14"
-                                        Foreground="#999999"
-                                        Text=" | " />
-                                    <TextBlock
-                                        FontSize="14"
-                                        Foreground="#555555"
-                                        Text="{Binding BaseUrl, Mode=OneWay}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <ui:Button
-                                        Margin="0,0,8,0"
-                                        Padding="8,4"
-                                        Command="{Binding StartEditCommand}"
-                                        Content="编辑"
-                                        Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVis}}" />
-                                    <ui:Button
-                                        Margin="0,0,8,0"
-                                        Padding="8,4"
-                                        Command="{Binding SaveCommand}"
-                                        Content="保存"
-                                        Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
-                                    <ui:Button
-                                        Padding="8,4"
-                                        Command="{Binding CancelCommand}"
-                                        Content="取消"
-                                        Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <!--  Editable Fields (shown when editing)  -->
-                            <StackPanel Grid.Row="1" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock
-                                        Grid.Column="0"
-                                        VerticalAlignment="Center"
-                                        Text="API Key:" />
-                                    <TextBox
-                                        Grid.Column="1"
-                                        Margin="8,0,0,0"
-                                        Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" />
-                                </Grid>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock
-                                        Grid.Column="0"
-                                        VerticalAlignment="Center"
-                                        Text="Model ID:" />
-                                    <TextBox
-                                        Grid.Column="1"
-                                        Margin="8,0,0,0"
-                                        Text="{Binding ModelId, UpdateSourceTrigger=PropertyChanged}" />
-                                </Grid>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!--  Built-in Configs (Read-only)  -->
+                <TextBlock
+                    Margin="0,0,0,8"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="试用配置" />
+                <ListBox
+                    Margin="0,0,0,16"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    ItemsSource="{Binding ViewModel.BuiltInConfigs}"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border
+                                Margin="0,0,0,8"
+                                Padding="12"
+                                Background="White"
+                                BorderBrush="#D0D0D0"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#F8F8F8" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock
-                                        Grid.Column="0"
-                                        VerticalAlignment="Center"
-                                        Text="Base URL:" />
-                                    <TextBox
-                                        Grid.Column="1"
-                                        Margin="8,0,0,0"
-                                        Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!--  Header with Edit Button  -->
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel
+                                            Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal">
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Foreground="#333333"
+                                                Text="模型: " />
+                                            <TextBlock
+                                                FontSize="14"
+                                                Foreground="#555555"
+                                                Text="{Binding ModelId, Mode=OneWay}" />
+                                            <TextBlock
+                                                Margin="12,0,0,0"
+                                                FontSize="14"
+                                                Foreground="#999999"
+                                                Text=" | " />
+                                            <TextBlock
+                                                FontSize="14"
+                                                Foreground="#555555"
+                                                Text="{Binding BaseUrl, Mode=OneWay}" />
+                                            <TextBlock
+                                                Margin="12,0,0,0"
+                                                Cursor="Hand"
+                                                FontSize="14"
+                                                Foreground="#FF4444"
+                                                Text="设为默认"
+                                                TextDecorations="Underline">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=IsMouseOver}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                                <TextBlock.InputBindings>
+                                                    <MouseBinding Command="{Binding SetAsDefaultCommand}" MouseAction="LeftClick" />
+                                                </TextBlock.InputBindings>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <TextBlock
+                                                Margin="0,0,8,0"
+                                                Padding="8,4"
+                                                VerticalAlignment="Center"
+                                                Foreground="#999999"
+                                                Text="只读"
+                                                Visibility="{Binding IsReadOnly, Converter={StaticResource BoolToVis}}" />
+                                            <ui:Button
+                                                Margin="0,0,8,0"
+                                                Padding="8,4"
+                                                Command="{Binding StartEditCommand}"
+                                                Content="编辑"
+                                                Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVis}}" />
+                                            <ui:Button
+                                                Margin="0,0,8,0"
+                                                Padding="8,4"
+                                                Command="{Binding SaveCommand}"
+                                                Content="保存"
+                                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+                                            <ui:Button
+                                                Padding="8,4"
+                                                Command="{Binding CancelCommand}"
+                                                Content="取消"
+                                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+                                            <ui:Button
+                                                Margin="8,0,0,0"
+                                                Padding="8,4"
+                                                Command="{Binding RemoveCommand}"
+                                                Content="删除"
+                                                Visibility="{Binding IsReadOnly, Converter={StaticResource InvertBoolToVis}}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!--  Editable Fields (shown when editing)  -->
+                                    <StackPanel Grid.Row="1" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                                        <!--  Read-only configs should not show editable fields  -->
+                                        <TextBlock
+                                            Foreground="#999999"
+                                            Text="此配置为只读配置，无法编辑"
+                                            Visibility="{Binding IsReadOnly, Converter={StaticResource BoolToVis}}" />
+                                        <StackPanel Visibility="{Binding IsReadOnly, Converter={StaticResource InvertBoolToVis}}">
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    Grid.Column="0"
+                                                    VerticalAlignment="Center"
+                                                    Text="自定义配置名:" />
+                                                <TextBox
+                                                    Grid.Column="1"
+                                                    Margin="8,0,0,0"
+                                                    Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    Grid.Column="0"
+                                                    VerticalAlignment="Center"
+                                                    Text="API Key:" />
+                                                <TextBox
+                                                    Grid.Column="1"
+                                                    Margin="8,0,0,0"
+                                                    Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    Grid.Column="0"
+                                                    VerticalAlignment="Center"
+                                                    Text="Model ID:" />
+                                                <TextBox
+                                                    Grid.Column="1"
+                                                    Margin="8,0,0,0"
+                                                    Text="{Binding ModelId, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="100" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    Grid.Column="0"
+                                                    VerticalAlignment="Center"
+                                                    Text="Base URL:" />
+                                                <TextBox
+                                                    Grid.Column="1"
+                                                    Margin="8,0,0,0"
+                                                    Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
                                 </Grid>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!--  User Configs (Editable)  -->
+                <TextBlock
+                    Margin="0,16,0,8"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="用户配置" />
+                <ListBox
+                    Background="Transparent"
+                    BorderThickness="0"
+                    ItemsSource="{Binding ViewModel.Configs}"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border
+                                Margin="0,0,0,8"
+                                Padding="12"
+                                Background="White"
+                                BorderBrush="#D0D0D0"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#F8F8F8" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!--  Header with Edit Button  -->
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel
+                                            Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal">
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Foreground="#333333"
+                                                Text="模型: " />
+                                            <TextBlock
+                                                FontSize="14"
+                                                Foreground="#555555"
+                                                Text="{Binding ModelId, Mode=OneWay}" />
+                                            <TextBlock
+                                                Margin="12,0,0,0"
+                                                FontSize="14"
+                                                Foreground="#999999"
+                                                Text=" | " />
+                                            <TextBlock
+                                                FontSize="14"
+                                                Foreground="#555555"
+                                                Text="{Binding BaseUrl, Mode=OneWay}" />
+                                            <TextBlock
+                                                Margin="12,0,0,0"
+                                                Cursor="Hand"
+                                                FontSize="14"
+                                                Foreground="#FF4444"
+                                                Text="设为默认"
+                                                TextDecorations="Underline">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=IsMouseOver}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                                <TextBlock.InputBindings>
+                                                    <MouseBinding Command="{Binding SetAsDefaultCommand}" MouseAction="LeftClick" />
+                                                </TextBlock.InputBindings>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <ui:Button
+                                                Margin="0,0,8,0"
+                                                Padding="8,4"
+                                                Command="{Binding StartEditCommand}"
+                                                Content="编辑"
+                                                Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVis}}" />
+                                            <ui:Button
+                                                Margin="0,0,8,0"
+                                                Padding="8,4"
+                                                Command="{Binding SaveCommand}"
+                                                Content="保存"
+                                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+                                            <ui:Button
+                                                Padding="8,4"
+                                                Command="{Binding CancelCommand}"
+                                                Content="取消"
+                                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+                                            <ui:Button
+                                                Margin="8,0,0,0"
+                                                Padding="8,4"
+                                                Command="{Binding RemoveCommand}"
+                                                Content="删除" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!--  Editable Fields (shown when editing)  -->
+                                    <StackPanel Grid.Row="1" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                VerticalAlignment="Center"
+                                                Text="自定义配置名:" />
+                                            <TextBox
+                                                Grid.Column="1"
+                                                Margin="8,0,0,0"
+                                                Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Grid>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                VerticalAlignment="Center"
+                                                Text="API Key:" />
+                                            <TextBox
+                                                Grid.Column="1"
+                                                Margin="8,0,0,0"
+                                                Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Grid>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                VerticalAlignment="Center"
+                                                Text="Model ID:" />
+                                            <TextBox
+                                                Grid.Column="1"
+                                                Margin="8,0,0,0"
+                                                Text="{Binding ModelId, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                VerticalAlignment="Center"
+                                                Text="Base URL:" />
+                                            <TextBox
+                                                Grid.Column="1"
+                                                Margin="8,0,0,0"
+                                                Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </ScrollViewer>
 
         <!--  Status Message  -->
         <Border

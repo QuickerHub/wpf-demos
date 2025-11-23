@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Desktop.Windows;
 using QuickerExpressionAgent.Server.Services;
@@ -10,72 +11,272 @@ using System.Windows;
 namespace QuickerExpressionAgent.Desktop.ViewModels;
 
 /// <summary>
-/// ViewModel for managing a list of ModelApiConfig
+/// ViewModel for managing a list of ModelApiConfig (Singleton)
+/// Only this ViewModel can control API config storage
 /// </summary>
 public partial class ApiConfigListViewModel : ObservableObject
 {
-    private readonly ApiConfigStorageService _storageService;
-    private readonly CurrentApiConfigService _currentApiConfigService;
+    private readonly ConfigService _configService;
+    private readonly IConfigurationService _configurationService;
 
-    [ObservableProperty]
-    private ObservableCollection<ModelApiConfigItemViewModel> _configItems = new();
+    /// <summary>
+    /// Get API config storage (singleton)
+    /// </summary>
+    private ApiConfigStorage Storage => _configService.GetConfig<ApiConfigStorage>();
+
+    /// <summary>
+    /// Observable collection of config ViewModels for UI binding (user configs only, editable)
+    /// </summary>
+    public ObservableCollection<ModelApiConfigItemViewModel> Configs { get; } = new();
+
+    /// <summary>
+    /// Observable collection of built-in config ViewModels for UI binding (read-only)
+    /// </summary>
+    public ObservableCollection<ModelApiConfigItemViewModel> BuiltInConfigs { get; } = new();
+
+    /// <summary>
+    /// Available API configurations for selection (includes embedded default config and user configs)
+    /// Automatically updated when Configs change
+    /// </summary>
+    public ObservableCollection<ModelApiConfig> AvailableApiConfigs { get; } = new();
+
+    /// <summary>
+    /// Default config to use (user-set default or first built-in config)
+    /// Returns the actual config to use for agent creation
+    /// </summary>
+    public ModelApiConfig? DefaultConfig
+    {
+        get
+        {
+            var builtInConfigs = _configurationService.GetBuiltInConfigs();
+            
+            // Priority 1: Use saved default config if it exists and is valid
+            if (Storage.DefaultConfig != null && !string.IsNullOrWhiteSpace(Storage.DefaultConfig.ApiKey))
+            {
+                // Check if saved default config is a built-in config
+                var matchingBuiltIn = builtInConfigs.FirstOrDefault(c => c.Id == Storage.DefaultConfig.Id);
+                if (matchingBuiltIn != null)
+                {
+                    return matchingBuiltIn;
+                }
+                
+                // Otherwise, return the saved user config
+                return Storage.DefaultConfig;
+            }
+            
+            // Priority 2: Use first built-in config if available
+            if (builtInConfigs.Count > 0)
+            {
+                return builtInConfigs[0];
+            }
+            
+            return null;
+        }
+    }
 
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    /// <summary>
+    /// Available API configurations for default selection (same as AvailableApiConfigs)
+    /// </summary>
+    public ObservableCollection<ModelApiConfig> AvailableDefaultConfigs => AvailableApiConfigs;
+
+    /// <summary>
+    /// Selected default API configuration
+    /// </summary>
     [ObservableProperty]
-    private ModelApiConfigItemViewModel? _currentActiveConfig;
+    private ModelApiConfig? _selectedDefaultConfig;
+
+    /// <summary>
+    /// Currently editing config ViewModel
+    /// </summary>
+    [ObservableProperty]
+    private ModelApiConfigItemViewModel? _editingConfig;
 
     public ApiConfigListViewModel(
-        CurrentApiConfigService currentApiConfigService,
-        ApiConfigStorageService storageService)
+        ConfigService configService,
+        IConfigurationService configurationService)
     {
-        _storageService = storageService;
-        _currentApiConfigService = currentApiConfigService;
-        LoadConfigs();
-        UpdateCurrentActiveConfig();
+        _configService = configService;
+        _configurationService = configurationService;
         
-        // Listen for config changes
-        _currentApiConfigService.CurrentConfigChanged += (s, e) => UpdateCurrentActiveConfig();
+        // Listen to storage changes
+        Storage.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(ApiConfigStorage.DefaultConfig))
+            {
+                LoadDefaultConfigs();
+                OnPropertyChanged(nameof(DefaultConfig));
+            }
+        };
+        
+        // Listen to Configs collection changes to update AvailableApiConfigs
+        Configs.CollectionChanged += (s, e) =>
+        {
+            UpdateAvailableApiConfigs();
+            OnPropertyChanged(nameof(DefaultConfig));
+            LoadDefaultConfigs(); // Update SelectedDefaultConfig when configs change
+        };
+        
+        // Load configs from storage
+        LoadConfigs();
+        UpdateStatusMessage();
+        LoadDefaultConfigs();
+        UpdateAvailableApiConfigs();
     }
 
     /// <summary>
-    /// Update current active config indicator
-    /// </summary>
-    private void UpdateCurrentActiveConfig()
-    {
-        var current = _currentApiConfigService.CurrentConfig;
-        if (current != null)
-        {
-            CurrentActiveConfig = ConfigItems.FirstOrDefault(item =>
-                item.ApiKey == current.ApiKey &&
-                item.ModelId == current.ModelId &&
-                item.BaseUrl == current.BaseUrl);
-        }
-        else
-        {
-            CurrentActiveConfig = null;
-        }
-    }
-
-    /// <summary>
-    /// Load configurations from storage
-    /// Note: Only loads user-configured configs from storage, does NOT include default config
+    /// Load configs from Storage and create ViewModels
     /// </summary>
     private void LoadConfigs()
     {
-        // Only load user-configured configs from storage file
-        // Default config is NOT included here to avoid exposing it in the API config management page
-        var configs = _storageService.LoadConfigs();
-        SetConfigs(configs);
-        
-        if (configs.Count == 0)
+        Configs.Clear();
+        foreach (var config in Storage.Configs)
         {
-            StatusMessage = "暂无配置，点击\"添加配置\"创建新配置";
+            var viewModel = new ModelApiConfigItemViewModel(config, this);
+            Configs.Add(viewModel);
+        }
+    }
+
+    /// <summary>
+    /// Save configs from ViewModels to Storage
+    /// </summary>
+    private void SaveConfigs()
+    {
+        Storage.Configs = Configs.Select(vm => vm.GetConfig()).ToList();
+        _configService.SaveConfig<ApiConfigStorage>();
+    }
+
+    /// <summary>
+    /// Update status message based on config count
+    /// </summary>
+    private void UpdateStatusMessage()
+    {
+        StatusMessage = Configs.Count == 0 
+            ? "暂无配置，点击\"添加配置\"创建新配置" 
+            : $"已加载 {Configs.Count} 个配置";
+    }
+
+    /// <summary>
+    /// Load available configurations for default selection
+    /// </summary>
+    private void LoadDefaultConfigs()
+    {
+        SelectedDefaultConfig = Storage.DefaultConfig != null
+            ? AvailableApiConfigs.FirstOrDefault(c => c.Id == Storage.DefaultConfig.Id)
+            : AvailableApiConfigs.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Update AvailableApiConfigs collection (includes built-in configs and user configs)
+    /// Also updates BuiltInConfigs collection for UI display
+    /// </summary>
+    private void UpdateAvailableApiConfigs()
+    {
+        var builtInConfigs = _configurationService.GetBuiltInConfigs();
+        
+        AvailableApiConfigs.Clear();
+        BuiltInConfigs.Clear();
+        
+        // Add built-in configs first (read-only)
+        foreach (var builtInConfig in builtInConfigs)
+        {
+            var displayConfig = builtInConfig.Clone();
+            displayConfig.IsReadOnly = true; // Ensure read-only flag is set
+            AvailableApiConfigs.Add(displayConfig);
+            
+            // Create ViewModel for UI display
+            var viewModel = new ModelApiConfigItemViewModel(displayConfig, this);
+            BuiltInConfigs.Add(viewModel);
+        }
+        
+        // Add user-configured configs (editable)
+        foreach (var vm in Configs)
+        {
+            AvailableApiConfigs.Add(vm.GetConfig());
+        }
+    }
+
+
+    /// <summary>
+    /// Get the actual config to use (not the display config) based on selected config
+    /// This method is provided for ExpressionAgentViewModel to convert display config to actual config
+    /// </summary>
+    /// <param name="selectedConfig">Selected config from UI</param>
+    /// <returns>Actual config to use for agent creation</returns>
+    public ModelApiConfig? GetActualConfig(ModelApiConfig? selectedConfig)
+    {
+        if (selectedConfig == null) return null;
+        
+        // If selected config is a built-in config (read-only), find the original built-in config
+        if (selectedConfig.IsReadOnly)
+        {
+            var builtInConfigs = _configurationService.GetBuiltInConfigs();
+            var matchingBuiltIn = builtInConfigs.FirstOrDefault(c => c.Id == selectedConfig.Id);
+            if (matchingBuiltIn != null)
+            {
+                return matchingBuiltIn;
+            }
+        }
+
+        return selectedConfig;
+    }
+
+    /// <summary>
+    /// Set a configuration as default (called by item ViewModel)
+    /// </summary>
+    public void SetAsDefaultConfig(ModelApiConfigItemViewModel viewModel)
+    {
+        if (viewModel == null) return;
+        
+        var config = viewModel.GetConfig();
+        var builtInConfigs = _configurationService.GetBuiltInConfigs();
+        
+        // Check if config is a built-in config
+        var matchingBuiltIn = builtInConfigs.FirstOrDefault(c => c.Id == config.Id);
+        if (matchingBuiltIn != null)
+        {
+            // Save the built-in config
+            Storage.DefaultConfig = matchingBuiltIn;
         }
         else
         {
-            StatusMessage = $"已加载 {configs.Count} 个配置";
+            // Otherwise, save the user config
+            Storage.DefaultConfig = config;
+        }
+        
+        _configService.SaveConfig<ApiConfigStorage>();
+        OnPropertyChanged(nameof(DefaultConfig));
+        LoadDefaultConfigs();
+        StatusMessage = $"已设置默认配置: {config.ModelId}";
+    }
+
+    /// <summary>
+    /// Handle default config selection change
+    /// </summary>
+    partial void OnSelectedDefaultConfigChanged(ModelApiConfig? value)
+    {
+        if (value != null)
+        {
+            var builtInConfigs = _configurationService.GetBuiltInConfigs();
+            
+            // Check if selected config is a built-in config
+            var matchingBuiltIn = builtInConfigs.FirstOrDefault(c => c.Id == value.Id);
+            if (matchingBuiltIn != null)
+            {
+                // Save the built-in config
+                Storage.DefaultConfig = matchingBuiltIn;
+            }
+            else
+            {
+                // Otherwise, save the selected user config
+                Storage.DefaultConfig = value;
+            }
+            
+            _configService.SaveConfig<ApiConfigStorage>();
+            OnPropertyChanged(nameof(DefaultConfig));
+            StatusMessage = $"已设置默认配置: {value.ModelId}";
         }
     }
 
@@ -99,102 +300,137 @@ public partial class ApiConfigListViewModel : ObservableObject
                 ModelId = template.Config.ModelId,
                 BaseUrl = template.Config.BaseUrl
             };
-            var newItem = new ModelApiConfigItemViewModel(newConfig);
-            // Subscribe to save event to auto-save all configs
-            newItem.ConfigSaved += (s, e) => AutoSaveConfigs();
-            ConfigItems.Add(newItem);
+            
+            // Create ViewModel and add to collection
+            var viewModel = new ModelApiConfigItemViewModel(newConfig, this);
+            Configs.Add(viewModel);
             
             // Automatically start editing the newly added item
-            newItem.BeginEdit();
+            StartEditItem(viewModel);
             
             StatusMessage = $"已添加 {template.Name} 配置，请编辑 API Key 后保存";
         }
     }
 
     /// <summary>
-    /// Remove a configuration
+    /// Remove a configuration item (called by item ViewModel)
     /// </summary>
-    [RelayCommand]
-    private void RemoveConfig(ModelApiConfigItemViewModel item)
+    public void RemoveConfig(ModelApiConfigItemViewModel viewModel)
     {
-        if (item != null)
-        {
-            ConfigItems.Remove(item);
-        }
-    }
-
-    /// <summary>
-    /// Get all configurations
-    /// </summary>
-    public List<ModelApiConfig> GetAllConfigs()
-    {
-        return ConfigItems.Select(item => item.GetConfig()).ToList();
-    }
-
-    /// <summary>
-    /// Set configurations (for loading from storage)
-    /// </summary>
-    public void SetConfigs(IEnumerable<ModelApiConfig> configs)
-    {
-        ConfigItems.Clear();
-        foreach (var config in configs)
-        {
-            var item = new ModelApiConfigItemViewModel(config);
-            // Subscribe to save event to auto-save all configs
-            item.ConfigSaved += (s, e) => AutoSaveConfigs();
-            ConfigItems.Add(item);
-        }
-        UpdateCurrentActiveConfig();
-    }
-
-    /// <summary>
-    /// Auto-save all configurations (called when individual config is saved)
-    /// </summary>
-    private void AutoSaveConfigs()
-    {
-        try
-        {
-            var configs = GetAllConfigs();
-            _storageService.SaveConfigs(configs);
-            _currentApiConfigService.ReloadConfigs();
-            UpdateCurrentActiveConfig();
-        }
-        catch
-        {
-            // Ignore errors in auto-save (user can manually save if needed)
-        }
-    }
-
-    /// <summary>
-    /// Switch to a different API configuration
-    /// </summary>
-    [RelayCommand]
-    private void SwitchToConfig(ModelApiConfigItemViewModel? item)
-    {
-        if (item == null)
+        if (viewModel == null) return;
+        
+        var config = viewModel.GetConfig();
+        
+        // Show confirmation dialog
+        var result = MessageBox.Show(
+            $"确定要删除配置 \"{config.ModelId}\" 吗？",
+            "确认删除",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        
+        if (result != MessageBoxResult.Yes)
         {
             return;
         }
-
-        try
+        
+        // If removing the editing config, clear editing state
+        if (EditingConfig == viewModel)
         {
-            var config = item.GetConfig();
-            if (string.IsNullOrWhiteSpace(config.ApiKey))
-            {
-                StatusMessage = "请先配置 API Key";
-                MessageBox.Show("请先配置 API Key 后再切换模型", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            _currentApiConfigService.SwitchConfig(config);
-            StatusMessage = $"已切换到模型: {config.ModelId}";
-            UpdateCurrentActiveConfig();
+            EditingConfig = null;
         }
-        catch (Exception ex)
+        
+        // Clear default config if it's the one being removed
+        if (Storage.DefaultConfig != null && Storage.DefaultConfig.Equals(config))
         {
-            StatusMessage = $"切换模型失败: {ex.Message}";
-            MessageBox.Show($"切换模型失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            Storage.DefaultConfig = null;
         }
+        
+        // Remove from collection
+        Configs.Remove(viewModel);
+        
+        // Save to storage
+        SaveConfigs();
+        
+        // Clear default config if it's no longer in the list
+        if (Storage.DefaultConfig != null && !Configs.Any(vm => vm.GetConfig().Equals(Storage.DefaultConfig)))
+        {
+            Storage.DefaultConfig = null;
+            _configService.SaveConfig<ApiConfigStorage>();
+        }
+        
+        UpdateStatusMessage();
+        LoadDefaultConfigs();
+    }
+
+    /// <summary>
+    /// Start editing a configuration item (called by item ViewModel)
+    /// </summary>
+    public void StartEditItem(ModelApiConfigItemViewModel viewModel)
+    {
+        // Don't allow editing read-only configs
+        if (viewModel.IsReadOnly)
+        {
+            StatusMessage = "只读配置无法编辑";
+            return;
+        }
+        
+        if (viewModel == null) return;
+        
+        // Cancel previous editing if any
+        if (EditingConfig != null && EditingConfig != viewModel)
+        {
+            EditingConfig.CancelEdit();
+        }
+        
+        // Start editing this ViewModel
+        viewModel.BeginEdit();
+        EditingConfig = viewModel;
+        
+        StatusMessage = "正在编辑配置";
+    }
+
+    /// <summary>
+    /// Save current editing item (called by item ViewModel)
+    /// </summary>
+    public void SaveEditItem(ModelApiConfigItemViewModel viewModel)
+    {
+        if (viewModel == null || EditingConfig != viewModel) return;
+        
+        // Save changes in ViewModel (updates underlying config)
+        viewModel.SaveChanges();
+        
+        // Clear editing state
+        EditingConfig = null;
+        
+        // Save to storage
+        SaveConfigs();
+        
+        // Clear default config if it's no longer in the list
+        if (Storage.DefaultConfig != null && !Configs.Any(vm => vm.GetConfig().Equals(Storage.DefaultConfig)))
+        {
+            Storage.DefaultConfig = null;
+            _configService.SaveConfig<ApiConfigStorage>();
+        }
+        
+        UpdateStatusMessage();
+        LoadDefaultConfigs();
+        StatusMessage = "配置已保存";
+    }
+
+    /// <summary>
+    /// Cancel editing item (called by item ViewModel)
+    /// </summary>
+    public void CancelEditItem(ModelApiConfigItemViewModel viewModel)
+    {
+        if (viewModel == null || EditingConfig != viewModel) return;
+        
+        // Cancel changes in ViewModel (restores original values)
+        viewModel.CancelEdit();
+        
+        // Clear editing state
+        EditingConfig = null;
+        
+        StatusMessage = "已取消编辑";
     }
 
     /// <summary>
@@ -205,11 +441,18 @@ public partial class ApiConfigListViewModel : ObservableObject
     {
         try
         {
-            var configs = GetAllConfigs();
-            _storageService.SaveConfigs(configs);
-            _currentApiConfigService.ReloadConfigs();
-            UpdateCurrentActiveConfig();
-            StatusMessage = $"已保存 {configs.Count} 个配置";
+            // Save all configs from ViewModels to Storage
+            SaveConfigs();
+            
+            // Clear default config if it's no longer in the list
+            if (Storage.DefaultConfig != null && !Configs.Any(vm => vm.GetConfig().Equals(Storage.DefaultConfig)))
+            {
+                Storage.DefaultConfig = null;
+                _configService.SaveConfig<ApiConfigStorage>();
+            }
+            
+            LoadDefaultConfigs();
+            StatusMessage = $"已保存 {Configs.Count} 个配置";
         }
         catch (System.Exception ex)
         {

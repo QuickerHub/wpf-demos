@@ -10,6 +10,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels;
 public partial class ModelApiConfigItemViewModel : ObservableObject
 {
     private readonly ModelApiConfig _config;
+    private readonly ApiConfigListViewModel _parentViewModel;
 
     [ObservableProperty]
     private string _apiKey = string.Empty;
@@ -21,71 +22,133 @@ public partial class ModelApiConfigItemViewModel : ObservableObject
     private string _baseUrl = string.Empty;
 
     [ObservableProperty]
+    private string _title = string.Empty;
+
+    [ObservableProperty]
     private bool _isEditing = false;
 
-    // Temporary values for editing
-    private string _tempApiKey = string.Empty;
-    private string _tempModelId = string.Empty;
-    private string _tempBaseUrl = string.Empty;
+    /// <summary>
+    /// Whether this config is read-only (built-in configs from developer)
+    /// </summary>
+    public bool IsReadOnly => _config.IsReadOnly;
 
-    public ModelApiConfigItemViewModel(ModelApiConfig config)
+    // Snapshot of values when editing starts
+    private ModelApiConfig? _editSnapshot;
+
+    public ModelApiConfigItemViewModel(ModelApiConfig config, ApiConfigListViewModel parentViewModel)
     {
         _config = config;
+        _parentViewModel = parentViewModel;
         ApiKey = config.ApiKey;
         ModelId = config.ModelId;
         BaseUrl = config.BaseUrl;
+        Title = config.Title;
     }
 
     /// <summary>
-    /// Start editing - save current values to temp
+    /// Start editing this item
     /// </summary>
     [RelayCommand]
     private void StartEdit()
     {
-        BeginEdit();
+        _parentViewModel.StartEditItem(this);
     }
 
     /// <summary>
-    /// Begin editing mode (public method for external use)
+    /// Begin editing mode (called by parent ViewModel)
     /// </summary>
     public void BeginEdit()
     {
-        _tempApiKey = ApiKey;
-        _tempModelId = ModelId;
-        _tempBaseUrl = BaseUrl;
+        // Save current state as snapshot using Clone pattern
+        _editSnapshot = GetCurrentState();
         IsEditing = true;
     }
 
     /// <summary>
-    /// Event raised when config is saved
+    /// Get current state as a ModelApiConfig snapshot
     /// </summary>
-    public event EventHandler? ConfigSaved;
+    private ModelApiConfig GetCurrentState()
+    {
+        return new ModelApiConfig
+        {
+            Id = _config.Id,
+            ApiKey = ApiKey,
+            ModelId = ModelId,
+            BaseUrl = BaseUrl,
+            Title = Title
+        };
+    }
 
     /// <summary>
-    /// Save changes - update config and exit edit mode
+    /// Restore state from snapshot
+    /// </summary>
+    private void RestoreFromSnapshot()
+    {
+        if (_editSnapshot != null)
+        {
+            ApiKey = _editSnapshot.ApiKey;
+            ModelId = _editSnapshot.ModelId;
+            BaseUrl = _editSnapshot.BaseUrl;
+            Title = _editSnapshot.Title;
+        }
+    }
+
+    /// <summary>
+    /// Save changes
     /// </summary>
     [RelayCommand]
     private void Save()
     {
-        _config.ApiKey = ApiKey;
-        _config.ModelId = ModelId;
-        _config.BaseUrl = BaseUrl;
-        IsEditing = false;
-        
-        // Notify that config was saved
-        ConfigSaved?.Invoke(this, EventArgs.Empty);
+        _parentViewModel.SaveEditItem(this);
     }
 
     /// <summary>
-    /// Cancel editing - restore temp values
+    /// Save changes to underlying config (called by parent ViewModel)
+    /// </summary>
+    public void SaveChanges()
+    {
+        _config.ApiKey = ApiKey;
+        _config.ModelId = ModelId;
+        _config.BaseUrl = BaseUrl;
+        _config.Title = Title;
+        IsEditing = false;
+    }
+
+    /// <summary>
+    /// Cancel editing
     /// </summary>
     [RelayCommand]
     private void Cancel()
     {
-        ApiKey = _tempApiKey;
-        ModelId = _tempModelId;
-        BaseUrl = _tempBaseUrl;
+        _parentViewModel.CancelEditItem(this);
+    }
+
+    /// <summary>
+    /// Cancel editing and restore original values (called by parent ViewModel)
+    /// </summary>
+    public void CancelEdit()
+    {
+        RestoreFromSnapshot();
+        _editSnapshot = null;
         IsEditing = false;
+    }
+
+    /// <summary>
+    /// Remove this configuration
+    /// </summary>
+    [RelayCommand]
+    private void Remove()
+    {
+        _parentViewModel.RemoveConfig(this);
+    }
+
+    /// <summary>
+    /// Set this configuration as default
+    /// </summary>
+    [RelayCommand]
+    private void SetAsDefault()
+    {
+        _parentViewModel.SetAsDefaultConfig(this);
     }
 
     /// <summary>
@@ -93,14 +156,13 @@ public partial class ModelApiConfigItemViewModel : ObservableObject
     /// </summary>
     public ModelApiConfig GetConfig()
     {
-        // Return a new config with current property values (not the underlying _config)
-        // This ensures we get the latest values even if not saved yet
-        return new ModelApiConfig
-        {
-            ApiKey = ApiKey,
-            ModelId = ModelId,
-            BaseUrl = BaseUrl
-        };
+        // Return the underlying config with updated property values
+        // This preserves the Id and ensures we get the latest values
+        _config.ApiKey = ApiKey;
+        _config.ModelId = ModelId;
+        _config.BaseUrl = BaseUrl;
+        _config.Title = Title;
+        return _config;
     }
 }
 

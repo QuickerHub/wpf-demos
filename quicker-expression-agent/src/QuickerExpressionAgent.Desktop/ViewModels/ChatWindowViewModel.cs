@@ -119,12 +119,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 if (!isConnected)
                 {
                     IsConnected = false;
-                // Switch back to default tool handler on disconnect
+                    // Switch back to default tool handler on disconnect
                 if (_agentViewModel.Agent != null && _quickerToolHandler != null)
-                {
+                    {
                     _agentViewModel.SetToolHandler(_defaultToolHandler);
-                    _quickerToolHandler = null;
-                }
+                        _quickerToolHandler = null;
+                    }
                     StatusText = "未连接到 Quicker 服务";
                     AddChatMessage(ChatMessageType.Assistant, "✗ 与 Quicker 服务断开连接");
                 }
@@ -325,6 +325,11 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                                     functionCallMessages[functionCallItem.FunctionCallId] = (toolCallMessage, toolCallViewModel, functionCallItem);
                                 }
                                 break;
+
+                            case TokenUsageStreamItem tokenUsageItem:
+                                // Update token usage display with actual API usage information
+                                UpdateTokenUsageFromStreamItem(tokenUsageItem);
+                                break;
                         }
                     });
                 }
@@ -337,7 +342,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     }
                     else
                     {
-                        StatusText = "Agent 已完成";
+                StatusText = "Agent 已完成";
                     }
                 });
             }
@@ -351,12 +356,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             catch (Exception ex)
             {
                 RunOnUIThread(() =>
-                {
-                    StatusText = "发生错误";
-                    _logger?.LogError(ex, "Error generating expression");
-                    var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, $"发生异常: {ex.Message}");
-                    ChatMessages.Add(assistantMessage);
-                    UpdateTokenUsage();
+            {
+                StatusText = "发生错误";
+                _logger?.LogError(ex, "Error generating expression");
+                var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, $"发生异常: {ex.Message}");
+                ChatMessages.Add(assistantMessage);
+                UpdateTokenUsage();
                 });
             }
             finally
@@ -440,6 +445,23 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 int tokenCount = agent.EstimateTokenCount(_chatHistory);
                 int messageCount = agent.GetChatHistoryCount(_chatHistory);
                 TokenUsageText = $"Token: {tokenCount:N0} | Messages: {messageCount}";
+            }
+            catch
+            {
+                // Ignore errors in token calculation
+                TokenUsageText = "Token: N/A";
+            }
+        }
+
+        /// <summary>
+        /// Update token usage display from TokenUsageStreamItem (actual API usage)
+        /// </summary>
+        private void UpdateTokenUsageFromStreamItem(TokenUsageStreamItem tokenUsageItem)
+        {
+            try
+            {
+                int messageCount = _agentViewModel.Agent?.GetChatHistoryCount(_chatHistory) ?? 0;
+                TokenUsageText = $"Token: {tokenUsageItem.TotalTokenCount:N0} (In: {tokenUsageItem.InputTokenCount:N0}, Out: {tokenUsageItem.OutputTokenCount:N0}) | Messages: {messageCount}";
             }
             catch
             {

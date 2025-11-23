@@ -23,7 +23,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private readonly ExpressionAgentViewModel _agentViewModel;
         private readonly ExpressionExecutor _executor;
         private readonly ILogger<MainWindowViewModel> _logger;
-
+        
         // Chat history managed by caller
         private readonly ChatHistory _chatHistory = new();
 
@@ -246,7 +246,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
                 // Execute expression
                 var result = await _executor.ExecuteExpressionAsync(Expression, variableClassList);
-
+                
                 // Check if cancelled after execution
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -592,27 +592,6 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
         }
 
-        [RelayCommand]
-        private void OpenApiConfigWindow()
-        {
-            // Check if window is already open
-            var existingWindow = System.Windows.Application.Current.Windows.OfType<ApiConfigListWindow>().FirstOrDefault();
-            if (existingWindow != null)
-            {
-                // Window already exists, activate it
-                existingWindow.Activate();
-                if (existingWindow.WindowState == System.Windows.WindowState.Minimized)
-                {
-                    existingWindow.WindowState = System.Windows.WindowState.Normal;
-                }
-            }
-            else
-            {
-                // Create new window
-                var configWindow = _serviceProvider.GetRequiredService<ApiConfigListWindow>();
-                configWindow.Show();
-            }
-        }
     }
 
 }

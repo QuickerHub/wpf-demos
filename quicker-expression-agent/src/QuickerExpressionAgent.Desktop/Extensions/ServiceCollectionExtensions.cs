@@ -21,9 +21,8 @@ public static class ServiceCollectionExtensions
         // Configuration
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         
-        // API Config Storage
-        services.AddSingleton<ApiConfigStorageService>();
-        services.AddSingleton<CurrentApiConfigService>();
+        // Config Service (unified configuration management)
+        services.AddSingleton<ConfigService>();
         
         // Expression executor
         services.AddSingleton<ExpressionExecutor>();
@@ -50,7 +49,11 @@ public static class ServiceCollectionExtensions
                services.AddTransient<MainWindowViewModel>();
                services.AddTransient<QuickerServiceTestViewModel>();
                services.AddTransient<ChatWindowViewModel>();
-               services.AddTransient<ApiConfigListViewModel>();
+               // ApiConfigListViewModel needs IConfigurationService to provide AvailableApiConfigs
+               services.AddSingleton<ApiConfigListViewModel>(provider => 
+                   new ApiConfigListViewModel(
+                       provider.GetRequiredService<ConfigService>(),
+                       provider.GetRequiredService<IConfigurationService>())); // Singleton - only this ViewModel controls API config storage
                services.AddSingleton<NavigationViewModel>();
                services.AddTransient<ExpressionAgentViewModel>();
         
@@ -63,7 +66,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<MainWindow>();
         services.AddTransient<QuickerServiceTestWindow>();
         services.AddTransient<ChatWindow>();
-        services.AddTransient<ApiConfigListWindow>();
         
         return services;
     }
