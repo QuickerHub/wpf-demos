@@ -30,6 +30,11 @@ class Program
 
     static async Task Main(string[] args)
     {
+        // Configure Serilog logging (must be called before creating host)
+        Extensions.ServiceCollectionExtensions.ConfigureSerilogLogging();
+        
+        try
+        {
         // Create host to run IHostedService
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureServices(services =>
@@ -40,8 +45,8 @@ class Program
 
         var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
-        try
-        {
+            logger.LogInformation("=== Application Started ===");
+
             // Start hosted services (including QuickerServerClientConnector)
             await host.StartAsync();
 
@@ -84,15 +89,15 @@ class Program
 
             // Stop hosted services
             await host.StopAsync();
+            host.Dispose();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Fatal error occurred");
             Console.WriteLine($"Error: {ex.Message}");
         }
         finally
         {
-            host.Dispose();
+            Serilog.Log.CloseAndFlush(); // Flush and close Serilog
         }
     }
 

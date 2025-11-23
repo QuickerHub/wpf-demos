@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -9,6 +10,7 @@ using QuickerExpressionAgent.Server.Services;
 using SharpToken;
 using System.Collections;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 
 namespace QuickerExpressionAgent.Server.Agent;
@@ -20,6 +22,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
 {
     private readonly Kernel _kernel;
     private readonly ChatCompletionAgent _agent;
+    private readonly ILogger<ExpressionAgent>? _logger;
 
     /// <summary>
     /// Expression executor for executing expressions (can be modified at runtime)
@@ -110,12 +113,27 @@ public partial class ExpressionAgent : IToolHandlerProvider
         private string? _result;
     }
 
+    /// <summary>
+    /// Stream item for token usage information
+    /// </summary>
+    public partial class TokenUsageStreamItem : StreamItem
+    {
+        [ObservableProperty]
+        private int _inputTokenCount;
 
-    public ExpressionAgent(Kernel kernel, IExpressionExecutor executor, IExpressionAgentToolHandler? toolHandler = null)
+        [ObservableProperty]
+        private int _outputTokenCount;
+
+        [ObservableProperty]
+        private int _totalTokenCount;
+    }
+
+    public ExpressionAgent(Kernel kernel, IExpressionExecutor executor, IExpressionAgentToolHandler? toolHandler = null, ILogger<ExpressionAgent>? logger = null)
     {
         _kernel = kernel;
         Executor = executor;
         ToolHandler = toolHandler!;
+        _logger = logger;
 
         // Initialize token encoder (most modern models use cl100k_base encoding)
         // This includes: gpt-4, gpt-3.5-turbo, gpt-4-turbo, and most OpenAI-compatible models
@@ -269,6 +287,9 @@ public partial class ExpressionAgent : IToolHandlerProvider
         // Track function call items using queue (FIFO for sequential matching)
         Queue<FunctionCallStreamItem> functionCallQueue = new();
 
+        // Track last role to detect role changes (similar to GenerateExpressionWithConsoleOutputAsync)
+        AuthorRole? lastRole = null;
+
         // Stream response from chat completion service
         // Note: Cannot use try-catch with yield return, so exceptions will propagate to caller
         await foreach (var chatUpdate in chatCompletion.GetStreamingChatMessageContentsAsync(
@@ -277,7 +298,6 @@ public partial class ExpressionAgent : IToolHandlerProvider
             _kernel,
             cancellationToken))
         {
-
             // Check for new messages in chat history (likely tool call results)
             if (chatHistory.Count > lastMessageCount)
             {
@@ -314,12 +334,74 @@ public partial class ExpressionAgent : IToolHandlerProvider
                 lastMessageCount = chatHistory.Count;
             }
 
-            // Process regular content updates
+            // Check if role changed - if so, mark current content item as complete and reset
+            // This ensures each role change starts a new ContentStreamItem (similar to GenerateExpressionWithConsoleOutputAsync)
+            if (chatUpdate.Role is not null && chatUpdate.Role != lastRole)
+            {
+                // Role changed, mark current content item as complete if exists
+                if (currentContentItem != null)
+                {
+                    currentContentItem.IsComplete = true;
+                    currentContentItem.Timestamp = DateTime.Now;
+                    currentContentItem = null; // Reset to start new content item for new role
+                }
+                lastRole = chatUpdate.Role;
+            }
+
+            // Process function call updates FIRST (before content updates)
+            // Function calls should reset content items
+            var functionCallUpdates = chatUpdate.Items.OfType<StreamingFunctionCallUpdateContent>();
+            bool hasFunctionCallUpdates = functionCallUpdates.Any();
+            
+            if (hasFunctionCallUpdates)
+            {
+                // Reset current content item when processing function call
+                if (currentContentItem != null)
+                {
+                    currentContentItem.IsComplete = true;
+                    currentContentItem.Timestamp = DateTime.Now;
+                    currentContentItem = null;
+                }
+
+                foreach (var update in functionCallUpdates)
+                {
+                    FunctionCallStreamItem functionCallItem;
+                    
+                    // Check if this is a new function call (has CallId or Name)
+                    if (!string.IsNullOrEmpty(update.CallId) || !string.IsNullOrEmpty(update.Name))
+                    {
+                        // New function call - create new item
+                        functionCallItem = new FunctionCallStreamItem()
+                        {
+                            FunctionName = update.Name ?? string.Empty,
+                            FunctionCallId = update.CallId ?? string.Empty,
+                            Arguments = update.Arguments ?? string.Empty,
+                            IsComplete = false,
+                            Timestamp = DateTime.Now
+                        };
+                        functionCallQueue.Enqueue(functionCallItem);
+                        yield return functionCallItem;
+                    }
+                    else
+                    {
+                        // Update existing function call (arguments streaming)
+                        functionCallItem = functionCallQueue.LastOrDefault();
+                        if (functionCallItem != null && !string.IsNullOrEmpty(update.Arguments))
+                        {
+                            functionCallItem.Arguments += update.Arguments;
+                            functionCallItem.Timestamp = DateTime.Now;
+                        }
+                    }
+                }
+            }
+
+            // Process content updates ONLY if Content is not empty
+            // Many chatUpdate messages have empty Content, these should be ignored
             if (!string.IsNullOrEmpty(chatUpdate.Content))
             {
                 if (currentContentItem == null)
                 {
-                    // Create new content item
+                    // Create new content item (either first time or after role change)
                     currentContentItem = new ContentStreamItem
                     {
                         Text = chatUpdate.Content,
@@ -336,31 +418,81 @@ public partial class ExpressionAgent : IToolHandlerProvider
                 }
             }
 
-            // Process function call updates
-            var functionCallUpdates = chatUpdate.Items.OfType<StreamingFunctionCallUpdateContent>();
-            foreach (var update in functionCallUpdates)
+            // Check for FinishReason in Metadata to mark completion
+            // The last message typically contains FinishReason and Usage information
+            // Metadata is a dictionary, use TryGetValue to access FinishReason
+            if (chatUpdate.Metadata != null && 
+                chatUpdate.Metadata.TryGetValue("FinishReason", out var finishReasonObj) && 
+                finishReasonObj != null)
             {
-                currentContentItem = null; // Reset current content item when processing function call
-                // Get the last incomplete function call item in queue (for updating arguments)
-                FunctionCallStreamItem functionCallItem;
-                if (!string.IsNullOrEmpty(update.CallId) || !string.IsNullOrEmpty(update.Name))
+                // Mark current content item as complete if exists
+                if (currentContentItem != null)
+            {
+                    currentContentItem.IsComplete = true;
+                    currentContentItem.Timestamp = DateTime.Now;
+                    currentContentItem = null;
+                }
+
+                // Extract Usage information from Metadata if available
+                if (chatUpdate.Metadata.TryGetValue("Usage", out var usageObj) && usageObj != null)
                 {
-                    // Try to find by CallId first
-                    functionCallItem = new FunctionCallStreamItem()
+                    // Usage can be a dictionary or an object with token counts
+                    int inputTokens = 0;
+                    int outputTokens = 0;
+                    int totalTokens = 0;
+
+                    // Try dictionary access first
+                    if (usageObj is System.Collections.Generic.IDictionary<string, object?> usageDict)
+                {
+                        if (usageDict.TryGetValue("InputTokenCount", out var inputObj) && inputObj != null)
+                        {
+                            if (inputObj is int inputInt)
+                                inputTokens = inputInt;
+                            else
+                                int.TryParse(inputObj.ToString(), out inputTokens);
+                        }
+                        if (usageDict.TryGetValue("OutputTokenCount", out var outputObj) && outputObj != null)
                     {
-                        FunctionName = update.Name!,
-                        FunctionCallId = update.CallId!,
-                    };
-                    functionCallQueue.Enqueue(functionCallItem);
-                    yield return functionCallItem;
+                            if (outputObj is int outputInt)
+                                outputTokens = outputInt;
+                            else
+                                int.TryParse(outputObj.ToString(), out outputTokens);
+                        }
+                        if (usageDict.TryGetValue("TotalTokenCount", out var totalObj) && totalObj != null)
+                        {
+                            if (totalObj is int totalInt)
+                                totalTokens = totalInt;
+                            else
+                                int.TryParse(totalObj.ToString(), out totalTokens);
+                        }
                 }
                 else
                 {
-                    functionCallItem = functionCallQueue.LastOrDefault() ?? throw new InvalidOperationException("No function call item found to update.");
-                    if (!string.IsNullOrEmpty(update.Arguments))
+                        // Try reflection for object properties
+                        var usageType = usageObj.GetType();
+                        var inputProp = usageType.GetProperty("InputTokenCount");
+                        var outputProp = usageType.GetProperty("OutputTokenCount");
+                        var totalProp = usageType.GetProperty("TotalTokenCount");
+
+                        if (inputProp != null && inputProp.GetValue(usageObj) is int inputVal)
+                            inputTokens = inputVal;
+                        if (outputProp != null && outputProp.GetValue(usageObj) is int outputVal)
+                            outputTokens = outputVal;
+                        if (totalProp != null && totalProp.GetValue(usageObj) is int totalVal)
+                            totalTokens = totalVal;
+                    }
+
+                    // Yield token usage item if we have valid token counts
+                    if (totalTokens > 0 || inputTokens > 0 || outputTokens > 0)
                     {
-                        functionCallItem.Arguments += update.Arguments;
-                        functionCallItem.Timestamp = DateTime.Now;
+                        yield return new TokenUsageStreamItem
+                        {
+                            InputTokenCount = inputTokens,
+                            OutputTokenCount = outputTokens,
+                            TotalTokenCount = totalTokens,
+                            IsComplete = true,
+                            Timestamp = DateTime.Now
+                        };
                     }
                 }
             }
@@ -388,6 +520,7 @@ public partial class ExpressionAgent : IToolHandlerProvider
         {
             // Track the last processed message count to detect new tool call results in real-time
             int lastMessageCount = chatHistory.Count;
+            AuthorRole? lastRole = null; // Track last role to avoid repeated output
 
             // Stream response from chat completion service
             await foreach (var chatUpdate in chatCompletion.GetStreamingChatMessageContentsAsync(
@@ -396,6 +529,9 @@ public partial class ExpressionAgent : IToolHandlerProvider
                 _kernel,
                 cancellationToken))
             {
+                // Log chatUpdate JSON to file for debugging (to see streaming output details)
+                LogChatUpdateJson(chatUpdate);
+
                 // Check for tool call updates in streaming content
                 var functionCallUpdates = chatUpdate.Items.OfType<StreamingFunctionCallUpdateContent>();
                 foreach (var update in functionCallUpdates)
@@ -433,17 +569,22 @@ public partial class ExpressionAgent : IToolHandlerProvider
                     lastMessageCount = chatHistory.Count;
                 }
 
+                // Print role information only when it changes (first time or role switch)
+                if (chatUpdate.Role is not null && chatUpdate.Role != lastRole)
+                {
+                    if (lastRole != null)
+                    {
+                        // Role changed, add newline before new role
+                        Console.WriteLine();
+                    }
+                    Console.Write($"[{chatUpdate.Role}] ");
+                    lastRole = chatUpdate.Role;
+                }
+
                 // Real-time streaming output - print incremental content
                 if (!string.IsNullOrEmpty(chatUpdate.Content))
                 {
                     Console.Write(chatUpdate.Content);
-                }
-
-                // Print role information if available
-                if (chatUpdate.Role is not null)
-                {
-                    Console.WriteLine();
-                    Console.Write($"[{chatUpdate.Role}] ");
                 }
             }
 
@@ -497,20 +638,11 @@ public partial class ExpressionAgent : IToolHandlerProvider
             9. **Output final result** - Once the expression executes successfully and produces the expected result, the expression is automatically set by {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}}. Variables should already be created/updated using {{nameof(ExpressionAgentPlugin.CreateVariable)}} method. **No need to call {{nameof(ExpressionAgentPlugin.SetExpression)}} separately.**
             
             ## External Variable Access - CRITICAL:
-            **MOST IMPORTANT: To access external variables in expressions, you MUST use {variableName} format with curly braces.**
-            - **Format**: `{variableName}` - Use curly braces around the variable name
-            - **Example**: `"Hello, " + {userName} + "!"` - This accesses the external variable `userName`
-            - **This is the ONLY way to access external variables** - You cannot use variables without curly braces
-            - **Think of {variableName} as function parameters** - They are inputs to your expression
-            - **You CANNOT assign to {variableName} directly** - `{varname} = value` is NOT allowed
-            - **Exception**: For reference types (Dictionary, List, Object), you CAN modify properties/members: `{dict}["key"] = value` or `{list}.Add(item)`
-            
-            **Common mistakes to avoid:**
-            - ❌ WRONG: `userName` (without curly braces) - This will NOT work
-            - ❌ WRONG: `{outputVar} = {inputVar}` - Cannot assign to {variableName}
-            - ✅ CORRECT: `"Hello, " + {userName}` - Accessing external variable correctly
-            - ✅ CORRECT: `{dict}["key"]` - Accessing dictionary value
-            - ✅ CORRECT: `{list}.Count` - Accessing list property
+            **MUST use {variableName} format with curly braces to access external variables.**
+            - Format: `{variableName}` (e.g., `"Hello, " + {userName}`)
+            - Cannot assign directly: `{varname} = value` is NOT allowed
+            - Exception: Reference types (Dictionary, List, Object) can modify members: `{dict}["key"] = value` or `{list}.Add(item)`
+            - ❌ WRONG: `userName` (without braces) | ✅ CORRECT: `{userName}`
             
             ## Expression Format Reference:
             **IMPORTANT: For detailed expression format specifications, including {variableName} syntax, registered namespaces, variable reference rules, and examples, please refer to the {{nameof(ExpressionAgentPlugin.TestExpressionAsync)}} tool description.** The tool descriptions contain comprehensive information about expression format that you should follow.
@@ -610,5 +742,30 @@ public partial class ExpressionAgent : IToolHandlerProvider
     public int GetChatHistoryCount(ChatHistory chatHistory)
     {
         return chatHistory.Count;
+    }
+
+    /// <summary>
+    /// Logs chatUpdate as JSON to file for debugging
+    /// </summary>
+    private void LogChatUpdateJson(object chatUpdate)
+    {
+        try
+        {
+            var chatUpdateJson = chatUpdate.ToJson(indented: true);
+            // Log to file - output JSON directly as raw string (not structured logging)
+            if (_logger != null)
+            {
+                _logger.LogInformation(chatUpdateJson);
+            }
+            else
+            {
+                // Fallback to console if logger is null (should not happen in normal operation)
+                Console.WriteLine($"{chatUpdateJson}\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error serializing chatUpdate to JSON");
+        }
     }
 }

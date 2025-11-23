@@ -1,12 +1,20 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using System;
+using System.Text.Json.Serialization;
 
 namespace QuickerExpressionAgent.Server.Services;
 
 /// <summary>
 /// Model API configuration for different model providers (e.g., OpenAI, DeepSeek, etc.)
 /// </summary>
-public partial class ModelApiConfig : ObservableObject
+public partial class ModelApiConfig : ObservableObject, IEquatable<ModelApiConfig>
 {
+    /// <summary>
+    /// Unique identifier for this configuration (GUID string)
+    /// </summary>
+    [ObservableProperty]
+    private string _id = string.Empty;
+
     /// <summary>
     /// API key for the model provider
     /// </summary>
@@ -32,6 +40,24 @@ public partial class ModelApiConfig : ObservableObject
     private string _title = string.Empty;
 
     /// <summary>
+    /// Whether this config is read-only (built-in configs from developer)
+    /// </summary>
+    [ObservableProperty]
+    private bool _isReadOnly = false;
+
+    /// <summary>
+    /// Constructor for new instances and JSON deserialization
+    /// If id is null or empty, generates a new GUID
+    /// Other properties will be set via property setters by System.Text.Json during deserialization
+    /// </summary>
+    [JsonConstructor]
+    public ModelApiConfig(string? id = null)
+    {
+        // Use provided ID from JSON, or generate GUID if not provided
+        _id = string.IsNullOrEmpty(id) ? Guid.NewGuid().ToString() : id;
+    }
+
+    /// <summary>
     /// Visual title for display (auto-generated from Title or ModelId)
     /// </summary>
     public string VisualTitle => string.IsNullOrWhiteSpace(Title) ? ModelId : Title;
@@ -50,6 +76,47 @@ public partial class ModelApiConfig : ObservableObject
     partial void OnModelIdChanged(string value)
     {
         OnPropertyChanged(nameof(VisualTitle));
+    }
+
+    /// <summary>
+    /// Compare two ModelApiConfig instances by Id
+    /// </summary>
+    public bool Equals(ModelApiConfig? other)
+    {
+        if (other == null) return false;
+        return Id == other.Id;
+    }
+
+    /// <summary>
+    /// Override Equals for object comparison
+    /// </summary>
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ModelApiConfig);
+    }
+
+    /// <summary>
+    /// Get hash code based on Id
+    /// </summary>
+    public override int GetHashCode()
+    {
+        return Id.GetHashCode();
+    }
+
+    /// <summary>
+    /// Create a clone of this config (with same Id)
+    /// </summary>
+    public ModelApiConfig Clone()
+    {
+        return new ModelApiConfig
+        {
+            Id = Id,
+            ApiKey = ApiKey,
+            ModelId = ModelId,
+            BaseUrl = BaseUrl,
+            Title = Title,
+            IsReadOnly = IsReadOnly
+        };
     }
 }
 

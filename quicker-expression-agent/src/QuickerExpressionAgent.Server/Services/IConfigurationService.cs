@@ -17,5 +17,10 @@ public interface IConfigurationService
     /// Priority: EmbeddedConfig -> Environment Variables -> Defaults
     /// </summary>
     ModelApiConfig GetConfig();
+
+    /// <summary>
+    /// Gets all built-in configurations provided by developer (read-only)
+    /// </summary>
+    IReadOnlyList<ModelApiConfig> GetBuiltInConfigs();
 }
 

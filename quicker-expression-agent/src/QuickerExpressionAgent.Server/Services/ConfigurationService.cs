@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using QuickerExpressionAgent.Server.Generated;
+using System.Collections.Generic;
 
 namespace QuickerExpressionAgent.Server.Services;
 
@@ -52,6 +53,17 @@ public class ConfigurationService : IConfigurationService
             BaseUrl = GetBaseUrl(),
             ModelId = GetModelId()
         };
+    }
+
+    public IReadOnlyList<ModelApiConfig> GetBuiltInConfigs()
+    {
+        // Return built-in configurations provided by developer
+        // Currently returns one default config, but can be extended to return multiple
+        var defaultConfig = GetConfig();
+        defaultConfig.IsReadOnly = true;
+        defaultConfig.Title = "试用配置";
+        
+        return new List<ModelApiConfig> { defaultConfig }.AsReadOnly();
     }
 }
 
