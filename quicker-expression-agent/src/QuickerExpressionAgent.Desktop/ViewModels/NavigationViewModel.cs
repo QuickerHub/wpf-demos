@@ -18,7 +18,8 @@ public partial class NavigationViewModel : ObservableObject
     {
         new NavigationViewItem("表达式生成器", SymbolRegular.Code24, typeof(ExpressionGeneratorPage)),
         new NavigationViewItem("API 配置", SymbolRegular.Settings24, typeof(ApiConfigPage)),
-        new NavigationViewItem("测试", SymbolRegular.Beaker24, typeof(TestPage))
+        new NavigationViewItem("测试", SymbolRegular.Beaker24, typeof(TestPage)),
+        new NavigationViewItem("关于", SymbolRegular.Info24, typeof(InfoPage))
     };
 
     [ObservableProperty]

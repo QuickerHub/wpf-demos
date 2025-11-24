@@ -209,17 +209,26 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         /// <summary>
-        /// Stop generation (called when code editor window is closed)
+        /// Stop generation (called when code editor window is closed or chat window is closing)
         /// </summary>
-        public void StopGeneration()
+        /// <param name="reason">Reason for stopping (optional, for custom messages)</param>
+        public void StopGeneration(string? reason = null)
         {
             if (IsGenerating)
             {
                 _cancellationTokenSource?.Cancel();
                 RunOnUIThread(() =>
                 {
-                    StatusText = "Code Editor 窗口已关闭，生成已停止";
-                    AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 窗口已关闭，生成已停止");
+                    if (string.IsNullOrEmpty(reason))
+                    {
+                        StatusText = "Code Editor 窗口已关闭，生成已停止";
+                        AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 窗口已关闭，生成已停止");
+                    }
+                    else
+                    {
+                        StatusText = reason;
+                        AddChatMessage(ChatMessageType.Assistant, $"✗ {reason}");
+                    }
                 });
             }
         }

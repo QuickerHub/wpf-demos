@@ -58,6 +58,7 @@ public static class ServiceCollectionExtensions
                services.AddTransient<ExpressionGeneratorPageViewModel>();
                services.AddTransient<QuickerServiceTestViewModel>();
                services.AddTransient<ChatWindowViewModel>();
+               services.AddTransient<InfoPageViewModel>();
                // ApiConfigListViewModel needs IConfigurationService to provide AvailableApiConfigs
                services.AddSingleton<ApiConfigListViewModel>(provider => 
                    new ApiConfigListViewModel(
@@ -70,6 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ExpressionGeneratorPage>();
         services.AddSingleton<ApiConfigPage>();
         services.AddSingleton<TestPage>();
+        services.AddSingleton<InfoPage>();
         
         // Register Windows
         services.AddSingleton<MainWindow>();

@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using CommunityToolkit.Mvvm.Input;
 using QuickerExpressionAgent.Desktop.Extensions;
 using QuickerExpressionAgent.Desktop.ViewModels;
 using WindowAttach.Extensions;
@@ -40,6 +41,11 @@ namespace QuickerExpressionAgent.Desktop
             // Subscribe to handler ID changes to attach to CodeEditor window
             ViewModel.CodeEditorHandlerIdChanged += ViewModel_CodeEditorHandlerIdChanged;
         }
+
+        /// <summary>
+        /// Command to close the window (bound to ESC key)
+        /// </summary>
+        public ICommand CloseCommand => new RelayCommand(() => Close());
 
         private void ChatWindow_SourceInitialized(object? sender, EventArgs e)
         {
@@ -231,6 +237,12 @@ namespace QuickerExpressionAgent.Desktop
 
         protected override void OnClosed(EventArgs e)
         {
+            // Stop generation if window is closing while generating
+            if (ViewModel.IsGenerating)
+            {
+                ViewModel.StopGeneration("窗口已关闭，生成已停止");
+            }
+
             // Unregister window attachment for this window
             if (_codeEditorHandle != IntPtr.Zero && _chatWindowHandle != IntPtr.Zero)
             {

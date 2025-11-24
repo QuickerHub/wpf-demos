@@ -44,5 +44,11 @@ public interface IDesktopService
     /// </summary>
     /// <returns>True if service is alive</returns>
     Task<bool> PingAsync();
+
+    /// <summary>
+    /// Shutdown the Desktop application gracefully
+    /// </summary>
+    /// <returns>True if shutdown was successful</returns>
+    Task<bool> ShutdownAsync();
 }
 

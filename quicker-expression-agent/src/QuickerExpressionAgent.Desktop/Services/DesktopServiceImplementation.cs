@@ -210,5 +210,33 @@ public class DesktopServiceImplementation : IDesktopService
     {
         return Task.FromResult(true);
     }
+
+    public Task<bool> ShutdownAsync()
+    {
+        // Use BeginInvoke to asynchronously trigger shutdown
+        // This ensures the return value can be sent before the connection closes
+        try
+        {
+            Application.Current.Dispatcher.BeginInvoke(new System.Action(() =>
+            {
+                try
+                {
+                    // Shutdown the application gracefully
+                    Application.Current.Shutdown();
+                }
+                catch
+                {
+                    // Ignore errors during shutdown
+                }
+            }), System.Windows.Threading.DispatcherPriority.Normal);
+            
+            // Return immediately, shutdown will happen asynchronously
+            return Task.FromResult(true);
+        }
+        catch
+        {
+            return Task.FromResult(false);
+        }
+    }
 }
 
