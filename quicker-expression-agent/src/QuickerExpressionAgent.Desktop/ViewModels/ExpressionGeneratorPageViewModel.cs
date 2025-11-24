@@ -4,7 +4,6 @@ using DynamicData;
 using DynamicData.Binding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop;
 using QuickerExpressionAgent.Desktop.Services;
@@ -13,35 +12,17 @@ using QuickerExpressionAgent.Server.Services;
 using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using System.Text.Json;
-using System.Windows;
 using System.Windows.Media;
+using static QuickerExpressionAgent.Server.Agent.ExpressionAgent;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels
 {
-    public partial class MainWindowViewModel : ObservableObject, IExpressionAgentToolHandler
+    public partial class ExpressionGeneratorPageViewModel : ChatBoxViewModel, IExpressionAgentToolHandler
     {
-        private readonly ExpressionAgentViewModel _agentViewModel;
         private readonly ExpressionExecutor _executor;
-        private readonly ILogger<MainWindowViewModel> _logger;
-        
-        // Chat history managed by caller
-        private readonly ChatHistory _chatHistory = new();
 
         // Cancellation token for auto-execution
         private System.Threading.CancellationTokenSource? _autoExecutionCancellationTokenSource;
-
-        // Chat messages and input
-        [ObservableProperty]
-        public partial ObservableCollection<ChatMessageViewModel> ChatMessages { get; set; } = new();
-
-        [ObservableProperty]
-        public partial string ChatInputText { get; set; } = string.Empty;
-
-        // Subscription for scroll-to-bottom signal using DynamicData
-        private IDisposable? _scrollThrottleSubscription;
-
-        // Event to signal that chat should scroll to bottom
-        public event EventHandler? ChatScrollToBottomRequested;
 
         [ObservableProperty]
         private string _expression = string.Empty;
@@ -53,58 +34,30 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private string _executionResult = string.Empty;
 
         [ObservableProperty]
-        private string _statusText = "就绪";
-
-        [ObservableProperty]
-        private bool _isGenerating = false;
-
-        [ObservableProperty]
         private Brush _resultForeground = Brushes.Black;
 
         [ObservableProperty]
         private string _currentApiDisplayText = "未配置";
 
-        /// <summary>
-        /// Expose ExpressionAgentViewModel for binding
-        /// </summary>
-        public ExpressionAgentViewModel AgentViewModel => _agentViewModel;
-
         private readonly IServiceProvider _serviceProvider;
 
-        public MainWindowViewModel(
+        public ExpressionGeneratorPageViewModel(
             ExpressionAgentViewModel agentViewModel,
             ExpressionExecutor executor,
-            ILogger<MainWindowViewModel> logger,
+            ILogger<ExpressionGeneratorPageViewModel> logger,
             IServiceProvider serviceProvider)
+            : base(agentViewModel, logger)
         {
-            _logger = logger;
             _executor = executor;
             _serviceProvider = serviceProvider;
-            _agentViewModel = agentViewModel;
 
             // Set this as tool handler for the agent
             _agentViewModel.SetToolHandler(this);
-
-            // Listen for agent recreation events
-            _agentViewModel.AgentRecreated += OnAgentRecreated;
-
-            // Update status text from agent view model
-            StatusText = _agentViewModel.StatusText;
 
             // Update display
             UpdateCurrentApiDisplay();
 
             StatusText = "已就绪，可以开始生成表达式";
-
-            // Initialize chat messages monitoring for auto-scroll
-            var dispatcher = System.Windows.Application.Current.Dispatcher;
-            _scrollThrottleSubscription = ChatMessages
-                .ToObservableChangeSet()
-                .Where(changes => changes.Any(c => c.Reason is ListChangeReason.Add or
-                                                   ListChangeReason.Replace))
-                .Throttle(TimeSpan.FromMilliseconds(200))
-                .ObserveOnDispatcher()
-                .Subscribe(_ => ChatScrollToBottomRequested?.Invoke(this, EventArgs.Empty));
 
             // Monitor variable value changes using DynamicData
             VariableList
@@ -117,91 +70,10 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             AddChatMessage(ChatMessageType.Assistant, "Agent 已就绪，等待您的指令...");
         }
 
-        /// <summary>
-        /// Add a chat message to the conversation
-        /// </summary>
-        public void AddChatMessage(ChatMessageType messageType, string content)
+        protected override async Task GenerateInternalAsync(string text)
         {
-            ChatMessages.Add(new ChatMessageViewModel(messageType, content));
-        }
-
-        [RelayCommand]
-        private async Task GenerateAsync()
-        {
-            var text = ChatInputText.Trim();
-            ChatInputText = "";
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                ExecutionResult = "请输入自然语言描述";
-                ResultForeground = Brushes.Orange;
-                return;
-            }
-
-            // Check if agent is initialized
-            var agent = _agentViewModel.Agent;
-            if (agent == null)
-            {
-                ExecutionResult = "✗ Agent 未初始化，请先配置 API Key";
-                ResultForeground = Brushes.Red;
-                StatusText = "Agent 未初始化";
-                return;
-            }
-
-            // Update UI state
-            IsGenerating = true;
-            StatusText = "正在生成表达式...";
-
-            // Add user message
-            AddChatMessage(ChatMessageType.User, text);
-
-            // Create assistant message for streaming content
-            var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, string.Empty);
-            ChatMessages.Add(assistantMessage);
-
-            try
-            {
-                // Streaming callback - append content to assistant message (like demo project)
-                ExpressionAgent.AgentStreamingCallback? streamingCallback = (stepType, partialContent, isComplete) =>
-                {
-                    if (!string.IsNullOrEmpty(partialContent))
-                    {
-                        // Append content to assistant message on UI thread
-                        Application.Current.Dispatcher.Invoke(
-                            System.Windows.Threading.DispatcherPriority.Background, () =>
-                            {
-                                assistantMessage.Content += partialContent;
-                            });
-                    }
-                };
-
-                // Progress callback for tool calls (optional, can be used for tool call display)
-                ExpressionAgent.AgentProgressCallback? progressCallback = null;
-
-                // Agent will call tools (SetExpression, TestExpression, etc.) to complete the work
-                // Agent can get existing variables via GetExternalVariables tool
-                // No need to process result - tools have already updated the UI
-                await agent.GenerateExpressionAsync(
-                    text,
-                    _chatHistory,
-                    progressCallback: progressCallback,
-                    streamingCallback: streamingCallback,
-                    cancellationToken: CancellationToken.None);
-
-                // Agent has completed - tools have already updated expression and variables
-                StatusText = "Agent 已完成";
-            }
-            catch (System.Exception ex)
-            {
-                ExecutionResult = $"✗ 发生异常: {ex.Message}";
-                ResultForeground = Brushes.Red;
-                StatusText = "发生错误";
-                _logger?.LogError(ex, "Error generating expression");
-                assistantMessage.Content += $"\n\n发生异常: {ex.Message}";
-            }
-            finally
-            {
-                IsGenerating = false;
-            }
+            // Call base implementation to handle generation
+            await base.GenerateInternalAsync(text);
         }
 
         [RelayCommand]
@@ -285,13 +157,6 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
         }
 
-        /// <summary>
-        /// Run action on UI thread asynchronously (for use in tool handlers called from background threads)
-        /// </summary>
-        private void RunOnUIThread(Action action, System.Windows.Threading.DispatcherPriority priority = System.Windows.Threading.DispatcherPriority.Background)
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(priority, action);
-        }
 
 
 
@@ -319,10 +184,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         /// <summary>
         /// Handle agent recreation events
         /// </summary>
-        private void OnAgentRecreated(object? sender, ExpressionAgent? agent)
+        protected override void OnAgentRecreated(object? sender, ExpressionAgent? agent)
         {
-            // Update status text from agent view model
-            StatusText = _agentViewModel.StatusText;
+            base.OnAgentRecreated(sender, agent);
             UpdateCurrentApiDisplay();
         }
 
@@ -374,13 +238,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         /// <summary>
         /// Cleanup resources
         /// </summary>
-        public void Dispose()
+        public override void Dispose()
         {
-            if (_agentViewModel != null)
-            {
-                _agentViewModel.AgentRecreated -= OnAgentRecreated;
-            }
-            _scrollThrottleSubscription?.Dispose();
+            base.Dispose();
             _autoExecutionCancellationTokenSource?.Dispose();
         }
 

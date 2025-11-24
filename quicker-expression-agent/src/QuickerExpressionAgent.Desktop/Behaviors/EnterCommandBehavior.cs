@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DependencyPropertyGenerator;
+using Control = System.Windows.Controls.Control;
 
 namespace QuickerExpressionAgent.Desktop.Behaviors;
 
@@ -25,11 +26,22 @@ public static partial class EnterCommandBehavior
         }
     }
 
-    private static void Control_PreviewKeyDown(object sender, KeyEventArgs e)
+    private static void Control_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == Key.Enter && Keyboard.Modifiers != ModifierKeys.Shift)
         {
             var control = (Control)sender;
+            
+            // Check if text is empty - if empty, allow default newline behavior
+            if (control is TextBox textBox)
+            {
+                var text = textBox.Text?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    return; // Don't handle - allow default newline behavior
+                }
+            }
+            
             var command = GetEnterCommand(control);
             
             if (command?.CanExecute(null) == true)

@@ -2,14 +2,15 @@
     x:Class="QuickerExpressionAgent.Desktop.ChatWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:behaviors="clr-namespace:QuickerExpressionAgent.Desktop.Behaviors"
     xmlns:controls="clr-namespace:QuickerExpressionAgent.Desktop.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="clr-namespace:MdXaml;assembly=MdXaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-    Title="Quicker Expression Agent - Chat"
-    Width="1000"
+    Title="QuickerAgent - Chat"
+    Width="600"
     Height="700"
     d:DataContext="{Binding RelativeSource={RelativeSource Self}}"
     WindowStartupLocation="CenterScreen"
@@ -311,7 +312,7 @@
                                 Padding="10,8"
                                 AcceptsReturn="True"
                                 FontSize="14"
-                                PreviewKeyDown="ChatInputTextBox_PreviewKeyDown"
+                                behaviors:EnterCommandBehavior.EnterCommand="{Binding ViewModel.GenerateFromTextBoxCommand}"
                                 Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
                                 TextWrapping="Wrap"
                                 VerticalScrollBarVisibility="Auto" />
@@ -377,6 +378,41 @@
         <StatusBar Grid.Row="2">
             <StatusBarItem>
                 <TextBlock Text="{Binding ViewModel.StatusText, Mode=OneWay}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse
+                        Width="8"
+                        Height="8"
+                        Margin="0,0,6,0"
+                        VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="Gray" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ViewModel.IsCodeEditorConnected}" Value="True">
+                                        <Setter Property="Fill" Value="Green" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock
+                        FontSize="11"
+                        Foreground="#666666">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="未连接代码窗口" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ViewModel.IsCodeEditorConnected}" Value="True">
+                                        <Setter Property="Text" Value="已连接代码窗口" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
             </StatusBarItem>
             <Separator />
             <StatusBarItem>

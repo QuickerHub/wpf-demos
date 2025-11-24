@@ -11,7 +11,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels;
 public partial class NavigationViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string _applicationTitle = "Quicker Expression Agent";
+    private string _applicationTitle = "QuickerAgent";
 
     [ObservableProperty]
     private ObservableCollection<object> _menuItems = new()

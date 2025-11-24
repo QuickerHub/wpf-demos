@@ -107,6 +107,12 @@ public interface IQuickerService
     /// Test an expression for a specific handler
     /// </summary>
     Task<ExpressionResult> TestExpressionForWrapperAsync(string handlerId, ExpressionRequest request);
+
+    /// <summary>
+    /// Get window handle for a specific handler
+    /// Returns IntPtr.Zero if handler is not found or handle is not available
+    /// </summary>
+    Task<long> GetWindowHandleAsync(string handlerId);
 }
 
 /// <summary>

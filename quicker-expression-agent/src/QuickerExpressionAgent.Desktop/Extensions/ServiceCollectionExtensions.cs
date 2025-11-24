@@ -4,6 +4,7 @@ using QuickerExpressionAgent.Desktop.Pages;
 using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Desktop.ViewModels;
 using QuickerExpressionAgent.Server.Services;
+using WindowAttach.Services;
 using Wpf.Ui;
 
 namespace QuickerExpressionAgent.Desktop.Extensions;
@@ -27,9 +28,14 @@ public static class ServiceCollectionExtensions
         // Expression executor
         services.AddSingleton<ExpressionExecutor>();
         
-        // Quicker service connector (reuse from Server project)
-        services.AddSingleton<QuickerServerClientConnector>();
-        services.AddHostedService(provider => provider.GetRequiredService<QuickerServerClientConnector>());
+        // Communication services (Desktop <-> Quicker)
+        services.AddCommunicationServices();
+
+        // Window attach service
+        services.AddSingleton<WindowAttachService>();
+
+        // Tray icon service
+        services.AddSingleton<NotifyIconService>();
 
         // Logging
         services.AddLogging(builder =>
@@ -46,7 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Wpf.Ui.Abstractions.INavigationViewPageProvider>(provider => provider.GetRequiredService<Services.PageService>());
         
                // Register ViewModels
-               services.AddTransient<MainWindowViewModel>();
+               services.AddTransient<ExpressionGeneratorPageViewModel>();
                services.AddTransient<QuickerServiceTestViewModel>();
                services.AddTransient<ChatWindowViewModel>();
                // ApiConfigListViewModel needs IConfigurationService to provide AvailableApiConfigs
@@ -67,6 +73,26 @@ public static class ServiceCollectionExtensions
         services.AddTransient<QuickerServiceTestWindow>();
         services.AddTransient<ChatWindow>();
         
+        return services;
+    }
+    
+    /// <summary>
+    /// Adds communication services for Desktop project
+    /// Registers:
+    /// - QuickerServerClientConnector: Desktop calls Quicker
+    /// - DesktopServiceServer: Quicker calls Desktop
+    /// </summary>
+    public static IServiceCollection AddCommunicationServices(this IServiceCollection services)
+    {
+        // Desktop calls Quicker (client connector)
+        services.AddSingleton<QuickerServerClientConnector>();
+        services.AddHostedService(provider => provider.GetRequiredService<QuickerServerClientConnector>());
+
+        // Quicker calls Desktop (server)
+        services.AddSingleton<DesktopServiceImplementation>();
+        services.AddSingleton<DesktopServiceServer>();
+        services.AddHostedService(provider => provider.GetRequiredService<DesktopServiceServer>());
+
         return services;
     }
     

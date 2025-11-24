@@ -2,10 +2,12 @@ using System.ComponentModel;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using QuickerExpressionAgent.Desktop.ViewModels;
+using QuickerExpressionAgent.Desktop.Services;
 using Wpf.Ui;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 using Wpf.Ui.Abstractions;
+using Wpf.Ui.Tray.Controls;
 
 namespace QuickerExpressionAgent.Desktop;
 
@@ -15,6 +17,7 @@ namespace QuickerExpressionAgent.Desktop;
 public partial class MainWindow : FluentWindow, INavigationWindow
 {
     public NavigationViewModel ViewModel { get; }
+    private readonly IServiceProvider _serviceProvider;
 
     public MainWindow(
         NavigationViewModel viewModel,
@@ -25,6 +28,7 @@ public partial class MainWindow : FluentWindow, INavigationWindow
     {
         ViewModel = viewModel;
         DataContext = this;
+        _serviceProvider = serviceProvider;
         SystemThemeWatcher.Watch(this);
 
         InitializeComponent();
@@ -32,6 +36,16 @@ public partial class MainWindow : FluentWindow, INavigationWindow
         SetServiceProvider(serviceProvider);
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
         navigationService.SetNavigationControl(RootNavigation);
+        
+        // Setup NotifyIcon menu after window is loaded
+        Loaded += (s, e) =>
+        {
+            var notifyIconService = _serviceProvider.GetService<NotifyIconService>();
+            if (notifyIconService != null && TheNotifyIcon != null)
+            {
+                TheNotifyIcon.Menu = notifyIconService.GetMenu();
+            }
+        };
     }
 
     #region INavigationWindow methods
@@ -55,13 +69,15 @@ public partial class MainWindow : FluentWindow, INavigationWindow
     #endregion INavigationWindow methods
 
     /// <summary>
-    /// Raises the closed event.
+    /// Raises the closing event.
     /// </summary>
-    protected override void OnClosed(EventArgs e)
+    protected override void OnClosing(CancelEventArgs e)
     {
-        base.OnClosed(e);
-        // Make sure that closing this window will begin the process of closing the application.
-        Application.Current.Shutdown();
+        // Cancel the close operation and hide window to tray instead
+        // Only shutdown if explicitly requested (e.g., from tray menu)
+        e.Cancel = true;
+        Hide();
+        base.OnClosing(e);
     }
 }
 

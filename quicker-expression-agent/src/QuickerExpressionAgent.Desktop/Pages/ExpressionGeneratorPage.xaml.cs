@@ -11,9 +11,9 @@ namespace QuickerExpressionAgent.Desktop.Pages;
 /// </summary>
 public partial class ExpressionGeneratorPage : Page
 {
-    public MainWindowViewModel ViewModel { get; }
+    public ExpressionGeneratorPageViewModel ViewModel { get; }
 
-    public ExpressionGeneratorPage(MainWindowViewModel vm)
+    public ExpressionGeneratorPage(ExpressionGeneratorPageViewModel vm)
     {
         InitializeComponent();
         ViewModel = vm;

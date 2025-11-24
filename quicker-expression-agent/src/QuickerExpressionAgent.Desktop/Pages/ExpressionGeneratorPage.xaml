@@ -14,12 +14,99 @@
     Title="表达式生成器"
     d:DataContext="{d:DesignInstance local:ExpressionGeneratorPage,
                                      IsDesignTimeCreatable=False}"
+    ScrollViewer.CanContentScroll="False"
     mc:Ignorable="d">
     <Page.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <localConverters:InvertBooleanConverter x:Key="InvertBooleanConverter" />
         <localConverters:MessageTypeConverter x:Key="MessageTypeConverter" />
         <localConverters:NullToBoolConverter x:Key="NullToBoolConverter" />
+
+        <!--  Custom Expander Style for ToolCall - Transparent, no border, minimal  -->
+        <Style x:Key="ToolCallExpanderStyle" TargetType="Expander">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ExpandDirection" Value="Down" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Grid Background="Transparent">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <!--  Header ToggleButton - Transparent with expander icon  -->
+                            <ToggleButton
+                                x:Name="ExpanderToggleButton"
+                                Grid.Row="0"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=Expander}, Mode=TwoWay}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <!--  Header Content  -->
+                                                <ContentPresenter
+                                                    Grid.Column="0"
+                                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                    Content="{TemplateBinding Content}"
+                                                    ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                                <!--  Expander Icon - Right side, show on hover  -->
+                                                <ui:SymbolIcon
+                                                    x:Name="ExpanderIcon"
+                                                    Grid.Column="1"
+                                                    Width="12"
+                                                    Height="12"
+                                                    Margin="6,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    FontSize="10"
+                                                    Foreground="#999999"
+                                                    Opacity="0"
+                                                    Symbol="ChevronRight12">
+                                                    <ui:SymbolIcon.Style>
+                                                        <Style TargetType="ui:SymbolIcon">
+                                                            <Style.Triggers>
+                                                                <!--  Show on hover - bind to parent ToggleButton  -->
+                                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                                    <Setter Property="Opacity" Value="1" />
+                                                                </DataTrigger>
+                                                                <!--  Change symbol when expanded  -->
+                                                                <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                                    <Setter Property="Symbol" Value="ChevronDown12" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ui:SymbolIcon.Style>
+                                                </ui:SymbolIcon>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <ContentPresenter Content="{TemplateBinding Header}" />
+                            </ToggleButton>
+                            <!--  Content  -->
+                            <ContentPresenter
+                                Grid.Row="1"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Visibility="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=Expander}, Converter={StaticResource BoolToVis}}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -66,9 +153,9 @@
             <Grid Margin="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="150" />
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="180" />
+                    <ColumnDefinition Width="5" />
                     <ColumnDefinition Width="350" />
                 </Grid.ColumnDefinitions>
 
@@ -137,10 +224,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock
-                            Grid.Column="0"
-                            FontWeight="SemiBold"
-                            Text="变量测试值" />
+
                         <ui:Button
                             Grid.Column="1"
                             Margin="10,0,0,0"
@@ -154,7 +238,7 @@
                     <ListBox
                         Grid.Row="1"
                         Background="Transparent"
-                        BorderBrush="LightGray"
+                        BorderBrush="Black"
                         BorderThickness="1"
                         ItemsSource="{Binding ViewModel.VariableList}"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -282,86 +366,67 @@
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="Padding" Value="0" />
                                     <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVis}}" />
                                 </Style>
                             </ListBox.ItemContainerStyle>
                             <ListBox.Resources>
                                 <!--  Default template for text messages  -->
                                 <DataTemplate x:Key="TextMessageTemplate">
                                     <Border
-                                        Margin="0,5,0,5"
-                                        Padding="12,8"
-                                        Background="{Binding BackgroundBrush}"
-                                        CornerRadius="8">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-
-                                            <!--  Message Header  -->
-                                            <Grid Grid.Row="0" Margin="0,0,0,5">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <TextBlock
-                                                    Grid.Column="0"
-                                                    Margin="0,0,8,0"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="16"
-                                                    Text="{Binding Icon}" />
-
-                                                <TextBlock
-                                                    Grid.Column="1"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="12"
-                                                    FontWeight="SemiBold"
-                                                    Text="{Binding MessageType, Converter={StaticResource MessageTypeConverter}}" />
-
-                                                <TextBlock
-                                                    Grid.Column="2"
-                                                    VerticalAlignment="Center"
-                                                    FontSize="10"
-                                                    Foreground="#666666"
-                                                    Text="{Binding Timestamp, StringFormat='HH:mm:ss'}" />
-                                            </Grid>
-
-                                            <!--  Message Content  -->
-                                            <ContentControl Grid.Row="1" Content="{Binding}">
-                                                <ContentControl.Style>
-                                                    <Style TargetType="ContentControl">
-                                                        <!--  Default: TextBlock for User messages  -->
-                                                        <Setter Property="ContentTemplate">
-                                                            <Setter.Value>
-                                                                <DataTemplate>
+                                        Margin="0,1,0,1"
+                                        Padding="0"
+                                        CornerRadius="6">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <!--  Default: User messages - White box  -->
+                                                <Setter Property="Background" Value="White" />
+                                                <Setter Property="BorderBrush" Value="#E0E0E0" />
+                                                <Setter Property="BorderThickness" Value="1" />
+                                                <!--  Assistant messages - Transparent, blend with background  -->
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding MessageType}" Value="Assistant">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <!--  Message Content  -->
+                                        <ContentControl VerticalContentAlignment="Center" Content="{Binding}">
+                                            <ContentControl.Style>
+                                                <Style TargetType="ContentControl">
+                                                    <!--  Default: TextBlock for User messages  -->
+                                                    <Setter Property="ContentTemplate">
+                                                        <Setter.Value>
+                                                            <DataTemplate>
+                                                                <Border Padding="12">
                                                                     <TextBlock
-                                                                        FontFamily="Segoe UI, Microsoft YaHei, sans-serif"
-                                                                        FontSize="14"
+                                                                        FontSize="12"
                                                                         Foreground="{Binding ForegroundBrush}"
-                                                                        LineHeight="24"
                                                                         Text="{Binding Content}"
                                                                         TextWrapping="Wrap" />
-                                                                </DataTemplate>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                        <!--  Markdown for Assistant messages  -->
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding MessageType}" Value="Assistant">
-                                                                <Setter Property="ContentTemplate">
-                                                                    <Setter.Value>
-                                                                        <DataTemplate>
-                                                                            <md:MarkdownScrollViewer Background="Transparent" Markdown="{Binding Content}" />
-                                                                        </DataTemplate>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </ContentControl.Style>
-                                            </ContentControl>
-                                        </Grid>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <!--  Markdown for Assistant messages  -->
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding MessageType}" Value="Assistant">
+                                                            <Setter Property="ContentTemplate">
+                                                                <Setter.Value>
+                                                                    <DataTemplate>
+                                                                        <md:MarkdownScrollViewer
+                                                                            Background="Transparent"
+                                                                            IsEnabled="False"
+                                                                            Markdown="{Binding Content}" />
+                                                                    </DataTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ContentControl.Style>
+                                        </ContentControl>
                                     </Border>
                                 </DataTemplate>
 
@@ -417,50 +482,38 @@
                                 <!--  Template for ToolCall messages with ToolCallItem  -->
                                 <DataTemplate x:Key="ToolCallTemplate">
                                     <Border
-                                        Margin="0,5,0,5"
-                                        Padding="12,8"
-                                        Background="{Binding BackgroundBrush}"
-                                        CornerRadius="8">
-                                        <Expander IsExpanded="{Binding ToolCallItem.IsExpanded}">
-                                            <!--  Expander Header  -->
+                                        Margin="0,1,0,1"
+                                        Padding="0"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                        <Expander
+                                            Margin="0"
+                                            IsExpanded="{Binding ToolCallItem.IsExpanded}"
+                                            Style="{StaticResource ToolCallExpanderStyle}">
+                                            <!--  Expander Header - Simplified and subtle  -->
                                             <Expander.Header>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <TextBlock
-                                                        Grid.Column="0"
-                                                        Margin="0,0,8,0"
-                                                        VerticalAlignment="Center"
-                                                        FontSize="16"
-                                                        Text="🔧" />
-
-                                                    <TextBlock
-                                                        Grid.Column="1"
-                                                        VerticalAlignment="Center"
-                                                        FontSize="12"
-                                                        FontWeight="SemiBold"
-                                                        Text="{Binding ToolCallItem.FunctionName, StringFormat='工具调用: {0}'}" />
-
-                                                    <TextBlock
-                                                        Grid.Column="2"
-                                                        VerticalAlignment="Center"
-                                                        FontSize="10"
-                                                        Foreground="#666666"
-                                                        Text="{Binding Timestamp, StringFormat='HH:mm:ss'}" />
-                                                </Grid>
+                                                <TextBlock
+                                                    Padding="12,0"
+                                                    VerticalAlignment="Center"
+                                                    FontSize="10"
+                                                    Foreground="#999999"
+                                                    Text="{Binding ToolCallItem.FunctionName}" />
                                             </Expander.Header>
 
                                             <!--  Expander Content - Markdown Display  -->
-                                            <md:MarkdownScrollViewer
-                                                Margin="0,8,0,0"
-                                                Background="Transparent"
-                                                Markdown="{Binding ToolCallItem.MarkdownContent}"
-                                                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                                ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+                                            <Border
+                                                Margin="12,6"
+                                                BorderBrush="LightGray"
+                                                BorderThickness="1"
+                                                CornerRadius="6">
+                                                <md:MarkdownScrollViewer
+                                                    Margin="12,4,12,0"
+                                                    Background="Transparent"
+                                                    IsEnabled="False"
+                                                    Markdown="{Binding ToolCallItem.MarkdownContent}"
+                                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                    ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+                                            </Border>
                                         </Expander>
                                     </Border>
                                 </DataTemplate>

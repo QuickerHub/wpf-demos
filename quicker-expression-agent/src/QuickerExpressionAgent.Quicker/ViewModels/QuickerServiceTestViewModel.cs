@@ -47,7 +47,19 @@ public partial class QuickerServiceTestViewModel : ObservableObject
 
     public bool HasCodeEditorHandler => !string.IsNullOrEmpty(HandlerId) && HandlerId != "standalone";
 
-    public VariableType[] VariableTypes => Enum.GetValues<VariableType>();
+    public VariableType[] VariableTypes
+    {
+        get
+        {
+#if NET8_0_OR_GREATER
+            return Enum.GetValues<VariableType>();
+#elif NET472_OR_GREATER
+            return [.. Enum.GetValues(typeof(VariableType)).Cast<VariableType>()];
+#else
+            return Enum.GetValues(typeof(VariableType)).Cast<VariableType>().ToArray();
+#endif
+        }
+    }
 
     partial void OnHandlerIdChanged(string value)
     {

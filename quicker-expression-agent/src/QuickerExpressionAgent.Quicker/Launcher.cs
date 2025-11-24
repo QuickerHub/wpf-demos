@@ -9,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
+using QuickerExpressionAgent.Quicker.Extensions;
+using QuickerExpressionAgent.Quicker.Services;
 using log4net;
 using Microsoft.VisualStudio.Threading;
 
@@ -36,18 +38,17 @@ public static class Launcher
             // Set minimum level to Trace so Debug and Trace logs are output
             logging.SetMinimumLevel(LogLevel.Trace);
         })
-        .ConfigureServices((context, services) =>
-        {
-            services.AddLogging();
-            services.AddSingleton<ConfigService>();
-            services.AddSingleton<ApplicationLauncher>();
-            services.AddSingleton<ExpressionAgentToolHandlerService>();
-            services.AddSingleton<QuickerServiceImplementation>();
-            // Register IQuickerService interface
-            services.AddSingleton<IQuickerService>(s => s.GetRequiredService<QuickerServiceImplementation>());
-            // Register as singleton and hosted service
-            services.AddSingleton<QuickerServiceServer>();
-            services.AddHostedService(s => s.GetRequiredService<QuickerServiceServer>());
+               .ConfigureServices((context, services) =>
+               {
+                   services.AddLogging();
+                   services.AddSingleton<ConfigService>();
+                   services.AddSingleton<ApplicationLauncher>();
+                   services.AddSingleton<ExpressionAgentToolHandlerService>();
+                   services.AddSingleton<DesktopProcessManager>();
+                   
+                   // Communication services (Desktop <-> Quicker)
+                   services.AddCommunicationServices();
+            
             // Register MainWindow and ViewModel
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<MainWindow>();
@@ -60,6 +61,20 @@ public static class Launcher
     private static LauncherStatus _status = LauncherStatus.NotStarted;
     private static readonly object _lockObject = new();
     private static MainWindow? _mainWindow;
+
+    /// <summary>
+    /// Get the current launcher status
+    /// </summary>
+    public static LauncherStatus Status
+    {
+        get
+        {
+            lock (_lockObject)
+            {
+                return _status;
+            }
+        }
+    }
 
     /// <summary>
     /// Get a service from the dependency injection container
@@ -87,7 +102,7 @@ public static class Launcher
             if (_status == LauncherStatus.Stopped)
             {
                 _log.Warn("Launcher has been stopped, cannot start again");
-                return;
+                throw new InvalidOperationException("Launcher has been stopped and cannot be started again");
             }
 
             try

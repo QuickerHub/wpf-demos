@@ -8,8 +8,16 @@
 		<LangVersion>preview</LangVersion>
 		<UseWPF>true</UseWPF>
 		<Version Condition="'$(Version)' == ''">1.0.0.0</Version>
-		<ApplicationIcon Condition="Exists('app-icon.ico')">app-icon.ico</ApplicationIcon>
+		<ApplicationIcon>app-icon.ico</ApplicationIcon>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<None Update="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<Content Include="app-icon.ico" />
+		<Resource Include="app-icon.png" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="AvalonEdit" Version="6.3.1.120" />
@@ -29,20 +37,16 @@
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
 		<PackageReference Include="WPF-UI" Version="4.0.3" />
 		<PackageReference Include="WPF-UI.Abstractions" Version="4.0.3" />
+		<PackageReference Include="WPF-UI.Tray" Version="4.0.3" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\QuickerExpressionAgent.Server\QuickerExpressionAgent.Server.csproj" />
 		<ProjectReference Include="..\QuickerExpressionAgent.Common\QuickerExpressionAgent.Common.csproj" />
+		<ProjectReference Include="..\WindowAttach\WindowAttach.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<None Update="appsettings.json">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<Resource Include="app-icon.ico" />
-		<Resource Include="app-icon.png" />
-	</ItemGroup>
+
 
 	<!-- Exclude Server's appsettings.json from publish to avoid conflict -->
 	<Target Name="ExcludeServerAppSettingsFromPublish" BeforeTargets="GetCopyToPublishDirectoryItems">

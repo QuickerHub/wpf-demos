@@ -18,6 +18,11 @@ public static class Constants
     public static readonly string ServerName = GetPipeName("Server");
 
     /// <summary>
+    /// Desktop service server name (for Quicker to connect to Desktop)
+    /// </summary>
+    public static readonly string DesktopServerName = GetPipeName("DesktopServer");
+
+    /// <summary>
     /// Mutex name for ensuring only one instance of the application is running
     /// </summary>
     public static readonly string AppMutexName = GetPipeName("AppMutex");

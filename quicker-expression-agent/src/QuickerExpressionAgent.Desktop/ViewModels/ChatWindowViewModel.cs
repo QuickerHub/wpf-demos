@@ -1,77 +1,52 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DynamicData;
-using DynamicData.Binding;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel.ChatCompletion;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using WindowAttach.Utils;
 using System.ComponentModel;
-using System.Reactive.Linq;
-using System.Windows;
-using System.Windows.Threading;
 using static QuickerExpressionAgent.Server.Agent.ExpressionAgent;
 
 namespace QuickerExpressionAgent.Desktop.ViewModels
 {
-    public partial class ChatWindowViewModel : ObservableObject
+    public partial class ChatWindowViewModel : ChatBoxViewModel
     {
-        private readonly ExpressionAgentViewModel _agentViewModel;
         private readonly QuickerServerClientConnector _connector;
-        private readonly ILogger<ChatWindowViewModel> _logger;
         private readonly ServerToolHandler _defaultToolHandler;
         private QuickerCodeEditorToolHandler? _quickerToolHandler;
-        
-        // Chat history managed by caller
-        private readonly ChatHistory _chatHistory = new();
-        
-        // Cancellation token source for stopping generation
-        private CancellationTokenSource? _cancellationTokenSource;
-
-        // Chat messages and input
-        [ObservableProperty]
-        public partial ObservableCollection<ChatMessageViewModel> ChatMessages { get; set; } = new();
-
-        [ObservableProperty]
-        public partial string ChatInputText { get; set; } = string.Empty;
-
-        // Subscription for scroll-to-bottom signal using DynamicData
-        private IDisposable? _scrollThrottleSubscription;
-
-        // Event to signal that chat should scroll to bottom
-        public event EventHandler? ChatScrollToBottomRequested;
-
-        [ObservableProperty]
-        private string _statusText = "正在连接 Quicker 服务...";
-
-        [ObservableProperty]
-        private bool _isGenerating = false;
 
         [ObservableProperty]
         private bool _isConnected = false;
+
+        /// <summary>
+        /// Whether the chat window is connected to a code editor window
+        /// </summary>
+        [ObservableProperty]
+        private bool _isCodeEditorConnected = false;
 
         [ObservableProperty]
         private string _tokenUsageText = "Token: 0";
 
         /// <summary>
-        /// Expose ExpressionAgentViewModel for binding
+        /// CodeEditor handler ID (for window attachment)
         /// </summary>
-        public ExpressionAgentViewModel AgentViewModel => _agentViewModel;
+        public string? CodeEditorHandlerId { get; private set; }
+
+        /// <summary>
+        /// Event raised when CodeEditor handler ID changes
+        /// </summary>
+        public event EventHandler<string>? CodeEditorHandlerIdChanged;
 
         public ChatWindowViewModel(
             ExpressionAgentViewModel agentViewModel,
             ExpressionExecutor executor,
             QuickerServerClientConnector connector,
             ILogger<ChatWindowViewModel> logger)
+            : base(agentViewModel, logger)
         {
             _connector = connector;
-            _logger = logger;
-            _agentViewModel = agentViewModel;
             
             // Create default tool handler using script engine (ServerToolHandler)
             // This is independent of Quicker connection and uses ExpressionExecutor
@@ -80,21 +55,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             // Set default tool handler to agent view model
             _agentViewModel.SetToolHandler(_defaultToolHandler);
             
-            // Listen for agent recreation events
-            _agentViewModel.AgentRecreated += OnAgentRecreated;
-            
-            // Update status text from agent view model
-            StatusText = _agentViewModel.StatusText;
-
-            // Initialize chat messages monitoring for auto-scroll
-            // Use ObserveOnDispatcher to ensure UI updates happen on UI thread
-            _scrollThrottleSubscription = ChatMessages
-                .ToObservableChangeSet()
-                .Where(changes => changes.Any(c => c.Reason is ListChangeReason.Add or
-                                                   ListChangeReason.Replace))
-                .Throttle(TimeSpan.FromMilliseconds(200))
-                .ObserveOnDispatcher()
-                .Subscribe(_ => ChatScrollToBottomRequested?.Invoke(this, EventArgs.Empty));
+            // Override initial status text
+            StatusText = "正在连接 Quicker 服务...";
 
             // Monitor connection status
             _connector.ConnectionStatusChanged += Connector_ConnectionStatusChanged;
@@ -125,6 +87,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     _agentViewModel.SetToolHandler(_defaultToolHandler);
                         _quickerToolHandler = null;
                     }
+                    // Clear CodeEditor handler ID on disconnect
+                    CodeEditorHandlerId = null;
+                    IsCodeEditorConnected = false; // Update code editor connection status
                     StatusText = "未连接到 Quicker 服务";
                     AddChatMessage(ChatMessageType.Assistant, "✗ 与 Quicker 服务断开连接");
                 }
@@ -144,6 +109,17 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     {
                         StatusText = "无法连接到 Quicker 服务";
                         AddChatMessage(ChatMessageType.Assistant, "✗ 无法连接到 Quicker 服务，请确保 Quicker 应用程序正在运行");
+                    });
+                    return;
+                }
+
+                // Skip auto-creation if CodeEditorHandlerId is already set (e.g., set via OpenChatWindowAsync)
+                if (!string.IsNullOrEmpty(CodeEditorHandlerId))
+                {
+                    RunOnUIThread(() =>
+                    {
+                        IsConnected = true;
+                        StatusText = "已就绪，可以开始生成表达式";
                     });
                     return;
                 }
@@ -176,8 +152,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     RunOnUIThread(() =>
                     {
                         IsConnected = true; // Update connection status
+                        IsCodeEditorConnected = true; // Update code editor connection status
                         StatusText = "已就绪，可以开始生成表达式";
                         AddChatMessage(ChatMessageType.Assistant, $"✓ Code Editor 已打开 (Handler ID: {handlerId})，可以开始生成表达式");
+                        
+                        // Update CodeEditor handler ID and raise event
+                        CodeEditorHandlerId = handlerId;
+                        CodeEditorHandlerIdChanged?.Invoke(this, handlerId);
                     });
                 }
                 catch (Exception ex)
@@ -201,237 +182,90 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             }
         }
 
-        /// <summary>
-        /// Add a chat message to the conversation
-        /// </summary>
-        public void AddChatMessage(ChatMessageType messageType, string content)
-        {
-            // Skip empty messages (streaming API may return empty messages)
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                return;
-            }
-            ChatMessages.Add(new ChatMessageViewModel(messageType, content));
-            UpdateTokenUsage();
-        }
-
         [RelayCommand(AllowConcurrentExecutions = true)]
-        private async Task GenerateAsync()
+        private async Task GenerateFromTextBoxAsync()
         {
-            // If already generating, cancel the current operation
+            var text = ChatInputText.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return; // TextBox: don't handle empty text, allow default newline behavior
+            }
+
+            // If already generating, cancel the current operation (stop + send combination)
             if (IsGenerating)
             {
                 _cancellationTokenSource?.Cancel();
                 StatusText = "正在停止...";
-                return;
+                // Wait a bit for cancellation to complete
+                await Task.Delay(100);
             }
 
-            var text = ChatInputText.Trim();
             ChatInputText = "";
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return;
-            }
+            await GenerateInternalAsync(text);
+        }
 
-            // Check if agent is initialized
-            var agent = _agentViewModel.Agent;
-            if (agent == null)
-            {
-                AddChatMessage(ChatMessageType.Assistant, "✗ Agent 未初始化，请先配置 API Key");
-                return;
-            }
-
+        protected override bool CanGenerate()
+        {
             // Check if Quicker tool handler is available (prefer Quicker over standalone)
             if (_quickerToolHandler == null)
             {
-                AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 未就绪，无法生成表达式");
-                return;
+                // If Quicker is still connected, try to get or create code editor window
+                if (IsConnected && _connector?.ServiceClient != null)
+                {
+                    // Note: CanGenerate is synchronous, so we can't await here
+                    // The actual reconnection will happen in GenerateInternalAsync if needed
+                    return false;
+                }
+                else
+                {
+                    // Ensure state is consistent: if no Quicker handler, code editor is not connected
+                    if (IsCodeEditorConnected)
+                    {
+                        IsCodeEditorConnected = false;
+                        CodeEditorHandlerId = null;
+                    }
+                    AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 未就绪，无法生成表达式");
+                    return false;
+                }
             }
 
-            // Create new cancellation token source
-            _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = new CancellationTokenSource();
-            var cancellationToken = _cancellationTokenSource.Token;
+            // Verify code editor window is still valid (synchronous check only)
+            // Full verification will happen in GenerateInternalAsync
+            return true;
+        }
 
-            // Update UI state
-            IsGenerating = true;
-            StatusText = "正在生成表达式...";
-
-            // Add user message
-            AddChatMessage(ChatMessageType.User, text);
-
-            // Track stream items for property change notifications
-            ContentStreamItem? currentContentItem = null;
-            Dictionary<string, (ChatMessageViewModel message, ToolCallViewModel viewModel, FunctionCallStreamItem item)> functionCallMessages = new();
-
-            try
+        protected override async Task GenerateInternalAsync(string text)
+        {
+            // Verify code editor window is still valid before generation
+            if (!string.IsNullOrEmpty(CodeEditorHandlerId))
             {
-                // Use GenerateExpressionAsStreamAsync to get stream items
-                // Ensure UI updates happen on UI thread
-                await foreach (var item in agent.GenerateExpressionAsStreamAsync(text, _chatHistory, cancellationToken))
+                if (!await VerifyCodeEditorWindowAsync(CodeEditorHandlerId))
                 {
-                    // Check if cancellation was requested
-                    if (cancellationToken.IsCancellationRequested)
+                    // Code editor window has been closed, try to reconnect if Quicker is still connected
+                    if (IsConnected && _connector?.ServiceClient != null)
                     {
-                        break;
-                    }
-                    // Update UI on UI thread
-                    RunOnUIThread(() =>
-                    {
-                        switch (item)
+                        if (!await TryReconnectCodeEditorAsync())
                         {
-                            case ContentStreamItem contentItem:
-                                // Track content item and subscribe to property changes for real-time updates
-                                if (currentContentItem != contentItem)
-                                {
-                                    // Unsubscribe from previous item if exists
-                                    if (currentContentItem != null)
-                                    {
-                                        currentContentItem.PropertyChanged -= ContentItem_PropertyChanged;
-                                    }
-                                    
-                                    // Subscribe to new item's property changes
-                                    currentContentItem = contentItem;
-                                    contentItem.PropertyChanged += ContentItem_PropertyChanged;
-
-                                    // Set initial value
-                                    var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, contentItem.Text);
-                                    ChatMessages.Add(assistantMessage);
-                                    UpdateTokenUsage();
-                                }
-                                break;
-
-                            case FunctionCallStreamItem functionCallItem:
-                                // Track function call item and subscribe to property changes for real-time updates
-                                if (!functionCallMessages.ContainsKey(functionCallItem.FunctionCallId))
-                                {
-                                    // New function call - create message and subscribe
-                                    var toolCallViewModel = new ToolCallViewModel
-                                    {
-                                        FunctionName = functionCallItem.FunctionName,
-                                        Arguments = functionCallItem.Arguments,
-                                        FunctionCallId = functionCallItem.FunctionCallId,
-                                        Result = functionCallItem.Result
-                                    };
-                                    var toolCallMessage = new ChatMessageViewModel(ChatMessageType.Tool, toolCallViewModel);
-                                    ChatMessages.Add(toolCallMessage);
-                                    UpdateTokenUsage();
-                                    
-                                    // Subscribe to property changes for real-time updates
-                                    PropertyChangedEventHandler handler = (s, e) => FunctionCallItem_PropertyChanged(
-                                        e, functionCallItem, toolCallViewModel);
-                                    functionCallItem.PropertyChanged += handler;
-                                    
-                                    functionCallMessages[functionCallItem.FunctionCallId] = (toolCallMessage, toolCallViewModel, functionCallItem);
-                                }
-                                break;
-
-                            case TokenUsageStreamItem tokenUsageItem:
-                                // Update token usage display with actual API usage information
-                                UpdateTokenUsageFromStreamItem(tokenUsageItem);
-                                break;
+                            // Failed to reconnect
+                            return;
                         }
-                    });
-                }
-
-                RunOnUIThread(() =>
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        StatusText = "已停止生成";
+                        // Successfully reconnected, continue with generation
                     }
                     else
                     {
-                StatusText = "Agent 已完成";
+                        return;
                     }
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                RunOnUIThread(() =>
-                {
-                    StatusText = "已停止生成";
-                });
-            }
-            catch (Exception ex)
-            {
-                RunOnUIThread(() =>
-            {
-                StatusText = "发生错误";
-                _logger?.LogError(ex, "Error generating expression");
-                var assistantMessage = new ChatMessageViewModel(ChatMessageType.Assistant, $"发生异常: {ex.Message}");
-                ChatMessages.Add(assistantMessage);
-                UpdateTokenUsage();
-                });
-            }
-            finally
-            {
-                // Cleanup: unsubscribe from property changes
-                if (currentContentItem != null)
-                {
-                    currentContentItem.PropertyChanged -= ContentItem_PropertyChanged;
                 }
-                IsGenerating = false;
             }
-        }
-        
-        /// <summary>
-        /// Handle ContentStreamItem property changes for real-time UI updates
-        /// </summary>
-        private void ContentItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(ContentStreamItem.Text) && sender is ContentStreamItem item)
-            {
-                RunOnUIThread(() =>
-                {
-                    // Find the last assistant message (the one we're currently updating)
-                    var assistantMessage = ChatMessages.LastOrDefault(m => m.MessageType == ChatMessageType.Assistant);
-                    if (assistantMessage != null)
-                    {
-                        assistantMessage.Content = item.Text;
-                        // Update token usage when content changes
-                        UpdateTokenUsage();
-                    }
-                });
-            }
-        }
-        
-        /// <summary>
-        /// Handle FunctionCallStreamItem property changes for real-time UI updates
-        /// </summary>
-        private void FunctionCallItem_PropertyChanged(
-            System.ComponentModel.PropertyChangedEventArgs e,
-            FunctionCallStreamItem functionCallItem,
-            ToolCallViewModel toolCallViewModel)
-        {
-            RunOnUIThread(() =>
-            {
-                if (e.PropertyName == nameof(FunctionCallStreamItem.Arguments))
-                {
-                    toolCallViewModel.Arguments = functionCallItem.Arguments;
-                    UpdateTokenUsage();
-                }
-                else if (e.PropertyName == nameof(FunctionCallStreamItem.Result))
-                {
-                    toolCallViewModel.Result = functionCallItem.Result;
-                    // UpdateMarkdownContent will be called automatically by OnResultChanged
-                    UpdateTokenUsage();
-                }
-            });
-        }
 
-        /// <summary>
-        /// Run action on UI thread
-        /// </summary>
-        private void RunOnUIThread(Action action, DispatcherPriority priority = DispatcherPriority.Background)
-        {
-            Application.Current.Dispatcher.Invoke(action, priority);
+            // Call base implementation to handle actual generation
+            await base.GenerateInternalAsync(text);
         }
 
         /// <summary>
         /// Update token usage display based on current chat history
         /// </summary>
-        private void UpdateTokenUsage()
+        protected override void UpdateTokenUsage()
         {
             try
             {
@@ -456,7 +290,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         /// <summary>
         /// Update token usage display from TokenUsageStreamItem (actual API usage)
         /// </summary>
-        private void UpdateTokenUsageFromStreamItem(TokenUsageStreamItem tokenUsageItem)
+        protected override void UpdateTokenUsageFromStreamItem(TokenUsageStreamItem tokenUsageItem)
         {
             try
             {
@@ -474,12 +308,23 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         /// <summary>
         /// Handle agent recreation events
         /// </summary>
-        private void OnAgentRecreated(object? sender, ExpressionAgent? agent)
+        protected override void OnAgentRecreated(object? sender, ExpressionAgent? agent)
         {
             // Update tool handler if Quicker is connected
             if (_quickerToolHandler != null && agent != null)
             {
                 _agentViewModel.SetToolHandler(_quickerToolHandler);
+            }
+            else if (_quickerToolHandler == null && agent != null)
+            {
+                // If Quicker handler is not available, use default handler
+                _agentViewModel.SetToolHandler(_defaultToolHandler);
+                // Ensure state is consistent
+                if (IsCodeEditorConnected)
+                {
+                    IsCodeEditorConnected = false;
+                    CodeEditorHandlerId = null;
+                }
             }
             
             // Update status text from agent view model
@@ -488,19 +333,188 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         /// <summary>
+        /// Get CodeEditor window handle by handler ID
+        /// </summary>
+        public async Task<long> GetCodeEditorWindowHandleAsync(string handlerId)
+        {
+            try
+            {
+                if (_connector?.ServiceClient == null)
+                    return 0;
+
+                return await _connector.ServiceClient.GetWindowHandleAsync(handlerId);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Set CodeEditor handler ID from window handle (to prevent auto-creation)
+        /// This method tries to get handler ID from the window handle and sets it to prevent automatic CodeEditor creation
+        /// </summary>
+        /// <param name="windowHandle">Window handle to get handler ID from</param>
+        /// <returns>True if handler ID was found and set, false otherwise</returns>
+        public async Task<bool> SetCodeEditorHandlerIdFromWindowHandleAsync(long windowHandle)
+        {
+            try
+            {
+                // Wait for connection if not connected yet
+                if (!IsConnected && _connector != null)
+                {
+                    var connected = await _connector.WaitConnectAsync(TimeSpan.FromSeconds(5));
+                    if (!connected)
+                    {
+                        return false;
+                    }
+                }
+
+                if (_connector?.ServiceClient == null)
+                    return false;
+
+                // Try to get handler ID from window handle
+                var handlerId = await _connector.ServiceClient.GetCodeWrapperIdAsync(windowHandle.ToString());
+                
+                if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                {
+                    return false;
+                }
+
+                // Set handler ID to prevent auto-creation
+                RunOnUIThread(() =>
+                {
+                    CodeEditorHandlerId = handlerId;
+                    CodeEditorHandlerIdChanged?.Invoke(this, handlerId);
+                    
+                    // Create handler using handlerId
+                    _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
+                    _agentViewModel.SetToolHandler(_quickerToolHandler);
+                    
+                    IsConnected = true;
+                    IsCodeEditorConnected = true;
+                    StatusText = "已连接到 Code Editor";
+                });
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Try to reconnect to code editor window (get existing or create new)
+        /// </summary>
+        private async Task<bool> TryReconnectCodeEditorAsync()
+        {
+            try
+            {
+                RunOnUIThread(() =>
+                {
+                    StatusText = "正在重新连接 Code Editor...";
+                });
+
+                var handlerId = await _connector.ServiceClient.GetOrCreateCodeEditorAsync();
+                
+                if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                {
+                    RunOnUIThread(() =>
+                    {
+                        StatusText = "无法创建 Code Editor";
+                        AddChatMessage(ChatMessageType.Assistant, "✗ 无法创建 Code Editor 窗口");
+                    });
+                    return false;
+                }
+
+                // Create handler using handlerId
+                _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
+                _agentViewModel.SetToolHandler(_quickerToolHandler);
+
+                RunOnUIThread(() =>
+                {
+                    IsCodeEditorConnected = true; // Update code editor connection status
+                    StatusText = "已重新连接 Code Editor";
+                    AddChatMessage(ChatMessageType.Assistant, $"✓ Code Editor 已重新连接 (Handler ID: {handlerId})");
+                    
+                    // Update CodeEditor handler ID and raise event
+                    CodeEditorHandlerId = handlerId;
+                    CodeEditorHandlerIdChanged?.Invoke(this, handlerId);
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reconnecting to Code Editor");
+                RunOnUIThread(() =>
+                {
+                    StatusText = "无法重新连接 Code Editor";
+                    AddChatMessage(ChatMessageType.Assistant, "✗ 无法重新连接 Code Editor 窗口");
+                });
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Verify if code editor window is still valid
+        /// </summary>
+        private async Task<bool> VerifyCodeEditorWindowAsync(string handlerId)
+        {
+            try
+            {
+                var windowHandle = await GetCodeEditorWindowHandleAsync(handlerId);
+                if (windowHandle == 0)
+                {
+                    // Window handle is zero, window is closed
+                    HandleCodeEditorWindowClosed();
+                    return false;
+                }
+
+                // Verify window actually exists using WindowHelper
+                var codeEditorHandle = new IntPtr(windowHandle);
+                if (!WindowHelper.IsWindow(codeEditorHandle))
+                {
+                    // Window handle is invalid, window is closed
+                    HandleCodeEditorWindowClosed();
+                    return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                // If we can't verify, assume it's still valid and continue
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Handle code editor window closed event
+        /// </summary>
+        private void HandleCodeEditorWindowClosed()
+        {
+            RunOnUIThread(() =>
+            {
+                IsCodeEditorConnected = false;
+                CodeEditorHandlerId = null;
+                _quickerToolHandler = null;
+                _agentViewModel.SetToolHandler(_defaultToolHandler);
+                StatusText = "Code Editor 窗口已关闭";
+                AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 窗口已关闭");
+            });
+        }
+
+        /// <summary>
         /// Cleanup resources
         /// </summary>
-        public void Dispose()
+        public override void Dispose()
         {
-            if (_agentViewModel != null)
-            {
-                _agentViewModel.AgentRecreated -= OnAgentRecreated;
-            }
-            _scrollThrottleSubscription?.Dispose();
+            base.Dispose();
             _connector.ConnectionStatusChanged -= Connector_ConnectionStatusChanged;
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
         }
     }
 }
+
 

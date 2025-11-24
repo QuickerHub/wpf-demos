@@ -22,10 +22,10 @@ public partial class ChatMessageViewModel : ObservableObject
     private string _icon = "💬";
 
     [ObservableProperty]
-    private Brush _backgroundBrush = Brushes.White;
+    private System.Windows.Media.Brush _backgroundBrush = System.Windows.Media.Brushes.White;
 
     [ObservableProperty]
-    private Brush _foregroundBrush = Brushes.Black;
+    private System.Windows.Media.Brush _foregroundBrush = System.Windows.Media.Brushes.Black;
 
     [ObservableProperty]
     private ExpressionItemViewModel? _expressionItem;

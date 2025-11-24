@@ -153,6 +153,19 @@ public class QuickerServiceImplementation : IQuickerService
         return GetHandler(handlerId).TestExpressionAsync(request.Code, request.VariableList);
     }
 
+    public Task<long> GetWindowHandleAsync(string handlerId)
+    {
+        return RunOnUIThreadAsync(() =>
+        {
+            var handler = GetHandler(handlerId);
+            if (handler is CodeEditorExpressionToolHandler codeEditorHandler)
+            {
+                return codeEditorHandler.WindowHandle.ToInt64();
+            }
+            return 0L;
+        });
+    }
+
     #endregion
 }
 
