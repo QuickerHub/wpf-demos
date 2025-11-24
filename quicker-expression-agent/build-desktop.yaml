@@ -14,14 +14,11 @@ uploadDir: cea.quicker-expression-agent.desktop
 packageName: cea.quicker-expression-agent.desktop
 instruction: Quicker Expression Agent Desktop Application
 
-# 混淆配置（可选）
-obfuscate: true
-toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
-  - "QuickerExpressionAgent.Server.dll"
-copyAllFiles: true
-# 测试配置（可选）
-testDir: "Quicker/_packages/cea.quicker-expression-agent.desktop"
+# 文件处理配置
+copyAllFiles: true                 # 是否复制所有文件（true: 所有文件，false: 仅 DLL 和 EXE）
 
-# 构建控制
-enabled: true
+# 混淆配置（可选）
+obfuscate: true                    # 是否启用混淆
+toConfuse:                         # 要混淆的文件列表（当 obfuscate: true 时）
+  - "QuickerExpressionAgent.Server.dll"
 

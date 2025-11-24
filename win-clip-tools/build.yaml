@@ -15,20 +15,13 @@ packageName: cea.win-clip-tools
 instruction: Windows clipboard tools
 
 # 文件处理配置
-filesToInclude:
+filesToInclude:                    # 要包含的文件（支持通配符，如果指定则只包含匹配的文件）
   - "WClipTools*.dll"
-binaryFilter: "WClipTools*"
-filesToExclude:               # 要排除的文件
+filesToExclude:                    # 要排除的文件（支持通配符）
   - "*.pdb"
   - "*.xml"
 
 # 混淆配置（可选）
-obfuscate: true
-toConfuse:                    # 要混淆的文件（当 obfuscate: true 时）
+obfuscate: true                    # 是否启用混淆
+toConfuse:                         # 要混淆的文件列表（当 obfuscate: true 时）
   - "WClipTools.{version}.dll"
-
-# 测试配置（可选）
-testDir: "Quicker/_packages/cea.win-clip-tools"
-
-# 构建控制
-enabled: true
