@@ -37,6 +37,9 @@ public static class ServiceCollectionExtensions
         // Tray icon service
         services.AddSingleton<NotifyIconService>();
 
+        // MainWindow service
+        services.AddSingleton<MainWindowService>();
+
         // Logging
         services.AddLogging(builder =>
         {
@@ -63,10 +66,10 @@ public static class ServiceCollectionExtensions
                services.AddSingleton<NavigationViewModel>();
                services.AddTransient<ExpressionAgentViewModel>();
         
-        // Register Pages
-        services.AddTransient<ExpressionGeneratorPage>();
-        services.AddTransient<ApiConfigPage>();
-        services.AddTransient<TestPage>();
+        // Register Pages as Singleton to maintain state when navigating
+        services.AddSingleton<ExpressionGeneratorPage>();
+        services.AddSingleton<ApiConfigPage>();
+        services.AddSingleton<TestPage>();
         
         // Register Windows
         services.AddSingleton<MainWindow>();

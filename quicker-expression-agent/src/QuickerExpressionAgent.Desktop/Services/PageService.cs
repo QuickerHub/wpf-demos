@@ -1,4 +1,5 @@
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using Wpf.Ui.Abstractions;
 
 namespace QuickerExpressionAgent.Desktop.Services;
@@ -28,7 +29,8 @@ public class PageService : INavigationViewPageProvider
         if (!typeof(FrameworkElement).IsAssignableFrom(pageType))
             throw new InvalidOperationException("The page should be a WPF control.");
 
-        return _serviceProvider.GetService(pageType);
+        // Use GetRequiredService to ensure we get the registered Singleton instance
+        return _serviceProvider.GetRequiredService(pageType);
     }
 }
 

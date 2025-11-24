@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "QuickerExpressionAgent.Desktop": {
+      "commandName": "Project",
+      "commandLineArgs": "-s"
+    }
+  }
+}

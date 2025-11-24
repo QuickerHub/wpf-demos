@@ -122,6 +122,7 @@ namespace QuickerExpressionAgent.Desktop
             _codeEditorHandle = codeEditorHandle;
 
             // Attach ChatWindow to CodeEditor window
+            // Add callback to stop generation when code editor window is closed
             _windowAttachService.Register(
                 codeEditorHandle,  // window1: CodeEditor (target window to follow)
                 _chatWindowHandle, // window2: ChatWindow (window that follows)
@@ -129,7 +130,15 @@ namespace QuickerExpressionAgent.Desktop
                 offsetX: 0,
                 offsetY: 0,
                 restrictToSameScreen: true,
-                autoOptimizePosition: false
+                autoOptimizePosition: false,
+                callbackAction: () =>
+                {
+                    // Stop generation when code editor window is closed
+                    Dispatcher.Invoke(() =>
+                    {
+                        ViewModel.StopGeneration();
+                    });
+                }
             );
 
             // Bring CodeEditor window to foreground on first attachment
@@ -177,6 +186,7 @@ namespace QuickerExpressionAgent.Desktop
             _codeEditorHandle = targetWindowHandle;
 
             // Attach ChatWindow to target window
+            // Add callback to stop generation when target window is closed
             _windowAttachService.Register(
                 targetWindowHandle,  // window1: Target window (window to follow)
                 _chatWindowHandle,   // window2: ChatWindow (window that follows)
@@ -184,7 +194,15 @@ namespace QuickerExpressionAgent.Desktop
                 offsetX: 0,
                 offsetY: 0,
                 restrictToSameScreen: true,
-                autoOptimizePosition: false
+                autoOptimizePosition: false,
+                callbackAction: () =>
+                {
+                    // Stop generation when target window is closed
+                    Dispatcher.Invoke(() =>
+                    {
+                        ViewModel.StopGeneration();
+                    });
+                }
             );
 
             // Bring target window to foreground on first attachment

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Wpf.Ui.Tray;
 using Wpf.Ui.Tray.Controls;
 using Wpf.Ui.Controls;
@@ -20,13 +19,13 @@ public class NotifyIconService : Wpf.Ui.Tray.NotifyIconService, IDisposable
 {
     private readonly ContextMenu _menu;
     private readonly ILogger<NotifyIconService>? _logger;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly MainWindowService _mainWindowService;
     private bool _disposed;
 
-    public NotifyIconService(IServiceProvider serviceProvider, ILogger<NotifyIconService>? logger = null)
+    public NotifyIconService(MainWindowService mainWindowService, ILogger<NotifyIconService>? logger = null)
     {
         _logger = logger;
-        _serviceProvider = serviceProvider;
+        _mainWindowService = mainWindowService;
         _menu = new ContextMenu();
         TooltipText = "QuickerAgent";
         
@@ -112,39 +111,15 @@ public class NotifyIconService : Wpf.Ui.Tray.NotifyIconService, IDisposable
 
     private void ShowMainWindow()
     {
-        // Try to get existing main window
-        var mainWindow = Application.Current.MainWindow;
-        
-        // If main window doesn't exist, create it
-        if (mainWindow == null)
+        try
         {
-            try
-            {
-                mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-                Application.Current.MainWindow = mainWindow;
-                mainWindow.Show();
-                
-                // Navigate to default page
-                var navigationService = _serviceProvider.GetRequiredService<Wpf.Ui.INavigationService>();
-                navigationService.Navigate(typeof(QuickerExpressionAgent.Desktop.Pages.ExpressionGeneratorPage));
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to create main window");
-                return;
-            }
+            _mainWindowService.ShowAndNavigate<QuickerExpressionAgent.Desktop.Pages.ExpressionGeneratorPage>();
+            _logger?.LogInformation("Tray icon clicked - showing main window");
         }
-
-        if (mainWindow != null)
+        catch (Exception ex)
         {
-            if (mainWindow.WindowState == WindowState.Minimized)
-            {
-                mainWindow.WindowState = WindowState.Normal;
-            }
-            mainWindow.Show();
-            mainWindow.Activate();
+            _logger?.LogError(ex, "Failed to show main window");
         }
-        _logger?.LogInformation("Tray icon clicked - showing main window");
     }
 
     private void OnMenuItemClick(object sender, RoutedEventArgs e)

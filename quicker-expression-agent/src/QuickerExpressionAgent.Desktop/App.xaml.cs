@@ -21,7 +21,7 @@ namespace QuickerExpressionAgent.Desktop
             base.OnStartup(e);
 
             // Check for silent start argument
-            _isSilentStart = e.Args.Length > 0 && 
+            _isSilentStart = e.Args.Length > 0 &&
                            (e.Args[0] == "--silent" || e.Args[0] == "-s" || e.Args[0].ToLower() == "silent");
 
             // Build host using Host Builder pattern
@@ -38,21 +38,21 @@ namespace QuickerExpressionAgent.Desktop
             // Always create MainWindow (even in silent start) so NotifyIcon can be registered
             var mainWindow = _host.Services.GetRequiredService<MainWindow>();
             MainWindow = mainWindow;
-            
+
             // Initialize and show tray icon (NotifyIcon is in MainWindow)
             _notifyIconService = _host.Services.GetRequiredService<NotifyIconService>();
-            
+
             // Wait for MainWindow to load before showing tray icon
             mainWindow.Loaded += (s, e) =>
             {
                 _notifyIconService.Show();
             };
-            
+
             // Only show main window if not silent start
             if (!_isSilentStart)
             {
                 mainWindow.ShowWindow();
-                
+
                 // Navigate to default page
                 var navigationService = _host.Services.GetRequiredService<Wpf.Ui.INavigationService>();
                 navigationService.Navigate(typeof(QuickerExpressionAgent.Desktop.Pages.ExpressionGeneratorPage));
@@ -61,18 +61,15 @@ namespace QuickerExpressionAgent.Desktop
             {
                 // In silent start, still need to show window (but hidden) so NotifyIcon can be registered
                 // The window will be hidden immediately after loading
-                mainWindow.Loaded += (s, e) =>
-                {
-                    mainWindow.Hide();
-                };
                 mainWindow.Show(); // Show briefly to trigger Loaded event, then hide
+                mainWindow.Hide();
             }
         }
 
         protected override async void OnExit(ExitEventArgs e)
         {
             _notifyIconService?.Dispose();
-            
+
             if (_host != null)
             {
                 await _host.StopAsync();

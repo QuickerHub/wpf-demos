@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
+using QuickerExpressionAgent.Desktop.Pages;
 using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
@@ -16,6 +17,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private readonly QuickerServerClientConnector _connector;
         private readonly ServerToolHandler _defaultToolHandler;
         private QuickerCodeEditorToolHandler? _quickerToolHandler;
+        private readonly MainWindowService _mainWindowService;
 
         [ObservableProperty]
         private bool _isConnected = false;
@@ -43,10 +45,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             ExpressionAgentViewModel agentViewModel,
             ExpressionExecutor executor,
             QuickerServerClientConnector connector,
+            MainWindowService mainWindowService,
             ILogger<ChatWindowViewModel> logger)
             : base(agentViewModel, logger)
         {
             _connector = connector;
+            _mainWindowService = mainWindowService;
             
             // Create default tool handler using script engine (ServerToolHandler)
             // This is independent of Quicker connection and uses ExpressionExecutor
@@ -202,6 +206,48 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             ChatInputText = "";
             await GenerateInternalAsync(text);
+        }
+
+        /// <summary>
+        /// Stop generation (called when code editor window is closed)
+        /// </summary>
+        public void StopGeneration()
+        {
+            if (IsGenerating)
+            {
+                _cancellationTokenSource?.Cancel();
+                RunOnUIThread(() =>
+                {
+                    StatusText = "Code Editor 窗口已关闭，生成已停止";
+                    AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 窗口已关闭，生成已停止");
+                });
+            }
+        }
+
+        /// <summary>
+        /// Open API configuration page in MainWindow
+        /// </summary>
+        [RelayCommand]
+        private void OpenApiConfig()
+        {
+            try
+            {
+                if (!_mainWindowService.ShowAndNavigate<ApiConfigPage>())
+                {
+                    RunOnUIThread(() =>
+                    {
+                        AddChatMessage(ChatMessageType.Assistant, "✗ 无法打开 API 配置页面");
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to open API config page");
+                RunOnUIThread(() =>
+                {
+                    AddChatMessage(ChatMessageType.Assistant, $"✗ 无法打开 API 配置页面: {ex.Message}");
+                });
+            }
         }
 
         protected override bool CanGenerate()

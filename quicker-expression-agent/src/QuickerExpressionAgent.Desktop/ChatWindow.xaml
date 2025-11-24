@@ -9,10 +9,11 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:md="clr-namespace:MdXaml;assembly=MdXaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-    Title="QuickerAgent - Chat"
+    Title="AI表达式生成器"
     Width="600"
     Height="700"
     d:DataContext="{Binding RelativeSource={RelativeSource Self}}"
+    Topmost="True"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
     <Window.Resources>
@@ -113,7 +114,7 @@
         </Grid.RowDefinitions>
 
         <!--  Title  -->
-        <Grid Grid.Row="0" Margin="0,0,0,15">
+        <!--<Grid Grid.Row="0" Margin="0,0,0,15">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -128,7 +129,7 @@
                 FontSize="12"
                 Foreground="{Binding ViewModel.IsConnected, Converter={StaticResource BoolToVis}, ConverterParameter=Green|Red}"
                 Text="{Binding ViewModel.StatusText}" />
-        </Grid>
+        </Grid>-->
 
         <!--  Chat Section  -->
         <GroupBox
@@ -290,39 +291,23 @@
                 <Border
                     Grid.Row="1"
                     Margin="0,10,0,0"
-                    Padding="10,8"
-                    Background="#F5F5F5"
-                    BorderBrush="#E0E0E0"
+                    Background="Transparent"
                     BorderThickness="0,1,0,0">
                     <Grid>
                         <!--  Message Input Row  -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <ui:TextBox
-                                x:Name="ChatInputTextBox"
-                                Grid.Column="1"
-                                MinHeight="40"
-                                MaxHeight="100"
-                                Margin="0,0,10,0"
-                                Padding="10,8"
-                                AcceptsReturn="True"
-                                FontSize="14"
-                                behaviors:EnterCommandBehavior.EnterCommand="{Binding ViewModel.GenerateFromTextBoxCommand}"
-                                Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
-                                TextWrapping="Wrap"
-                                VerticalScrollBarVisibility="Auto" />
-
                             <ComboBox
                                 x:Name="ApiConfigComboBox"
                                 Grid.Column="0"
-                                MinWidth="120"
-                                MaxWidth="150"
-                                Margin="0,0,10,0"
+                                MinWidth="80"
+                                MaxWidth="120"
                                 VerticalAlignment="Center"
                                 FontSize="11"
                                 ItemsSource="{Binding ViewModel.AgentViewModel.AvailableApiConfigs}"
@@ -335,7 +320,31 @@
                             </ComboBox>
 
                             <ui:Button
+                                Grid.Column="1"
+                                Width="32"
+                                Height="32"
+                                Margin="0,0,4,0"
+                                Padding="6"
+                                VerticalAlignment="Center"
+                                Command="{Binding ViewModel.OpenApiConfigCommand}"
+                                ToolTip="配置 API">
+                                <ui:SymbolIcon Symbol="Settings24" />
+                            </ui:Button>
+
+                            <ui:TextBox
+                                x:Name="ChatInputTextBox"
                                 Grid.Column="2"
+                                MaxHeight="100"
+                                Padding="10,8"
+                                behaviors:EnterCommandBehavior.EnterCommand="{Binding ViewModel.GenerateFromTextBoxCommand}"
+                                AcceptsReturn="True"
+                                FontSize="14"
+                                Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
+                                TextWrapping="Wrap"
+                                VerticalScrollBarVisibility="Auto" />
+
+                            <ui:Button
+                                Grid.Column="3"
                                 Width="36"
                                 Height="36"
                                 Padding="8"
@@ -398,9 +407,7 @@
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
-                    <TextBlock
-                        FontSize="11"
-                        Foreground="#666666">
+                    <TextBlock FontSize="11" Foreground="#666666">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Text" Value="未连接代码窗口" />
