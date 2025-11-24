@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Quicker.Extensions;
+using QuickerExpressionAgent.Quicker.Logging;
 using QuickerExpressionAgent.Quicker.Services;
 using log4net;
 using Microsoft.VisualStudio.Threading;
@@ -33,18 +34,27 @@ public static class Launcher
         .ConfigureLogging(logging =>
         {
             logging.ClearProviders();
-            // AddDebug outputs to Visual Studio Debug Output window
-            logging.AddDebug();
-            // Set minimum level to Trace so Debug and Trace logs are output
+            // Add Log4Net provider to forward all logs to log4net LogManager
+            // This will output logs to the injected process's log file (Quicker's log file)
+            logging.AddProvider(new Log4NetLoggerProvider());
+            // Set minimum level to Trace so all logs are output
             logging.SetMinimumLevel(LogLevel.Trace);
         })
                .ConfigureServices((context, services) =>
                {
                    services.AddLogging();
                    services.AddSingleton<ConfigService>();
+                   
+                   // Desktop application configuration
+                   services.AddSingleton<Services.DesktopAppConfig>();
+                   
+                   // .NET version checker
+                   services.AddSingleton<Services.DotNetVersionChecker>();
+                   
                    services.AddSingleton<ApplicationLauncher>();
                    services.AddSingleton<ExpressionAgentToolHandlerService>();
                    services.AddSingleton<DesktopProcessManager>();
+                   services.AddSingleton<Services.DesktopStartupService>();
                    
                    // Communication services (Desktop <-> Quicker)
                    services.AddCommunicationServices();

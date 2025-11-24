@@ -22,24 +22,45 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  Connection Status Bar  -->
-        <Border
-            Grid.Row="0"
-            Padding="10,5"
-            Background="{Binding ViewModel.IsConnected, Converter={StaticResource BooleanToBrushConverter}}">
-            <StackPanel Orientation="Horizontal">
-                <Ellipse
-                    Width="10"
-                    Height="10"
-                    Margin="0,0,8,0"
-                    Fill="{Binding ViewModel.IsConnected, Converter={StaticResource BooleanToBrushConverter}}" />
+        <!--  Status Bar  -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <!--  Connection Status  -->
+            <Border
+                Grid.Column="0"
+                Padding="10,5"
+                Background="{Binding ViewModel.IsConnected, Converter={StaticResource BooleanToBrushConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse
+                        Width="10"
+                        Height="10"
+                        Margin="0,0,8,0"
+                        Fill="{Binding ViewModel.IsConnected, Converter={StaticResource BooleanToBrushConverter}}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        Foreground="White"
+                        Text="{Binding ViewModel.ConnectionStatus}" />
+                </StackPanel>
+            </Border>
+            
+            <!--  .NET Version Status  -->
+            <Border
+                Grid.Column="1"
+                Margin="10,5,10,5"
+                Padding="10,5"
+                Background="{Binding ViewModel.IsDotNet80Installed, Converter={StaticResource BooleanToBrushConverter}}">
                 <TextBlock
                     VerticalAlignment="Center"
-                    FontSize="14"
+                    FontSize="12"
                     Foreground="White"
-                    Text="{Binding ViewModel.ConnectionStatus}" />
-            </StackPanel>
-        </Border>
+                    Text="{Binding ViewModel.DotNetVersionStatus}" />
+            </Border>
+        </Grid>
 
         <!--  Main Content  -->
         <Grid Grid.Row="1">
@@ -47,20 +68,44 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Button
+            <StackPanel
                 Grid.Row="0"
+                Orientation="Horizontal"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Margin="10"
-                Padding="10,5"
-                Command="{Binding ViewModel.OpenTestWindowCommand}"
-                Content="测试窗口" />
-            <TextBlock
-                Grid.Row="1"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                FontSize="24"
-                Text="Quicker Expression Agent" />
+                Margin="10">
+                <Button
+                    Margin="0,0,10,0"
+                    Padding="10,5"
+                    Command="{Binding ViewModel.StartDesktopCommand}"
+                    Content="启动 Desktop" />
+                <Button
+                    Margin="0,0,10,0"
+                    Padding="10,5"
+                    Command="{Binding ViewModel.OpenDotNetInstallWindowCommand}"
+                    Content="安装 .NET 8.0" />
+                <Button
+                    Padding="10,5"
+                    Command="{Binding ViewModel.OpenTestWindowCommand}"
+                    Content="测试窗口" />
+            </StackPanel>
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Button
+                    Grid.Row="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    MinWidth="200"
+                    MinHeight="60"
+                    Padding="20,15"
+                    FontSize="18"
+                    Command="{Binding ViewModel.ShutdownDesktopCommand}"
+                    Content="退出 Desktop" />
+            </Grid>
         </Grid>
     </Grid>
 </Window>

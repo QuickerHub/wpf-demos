@@ -1,0 +1,81 @@
+<Window
+    x:Class="QuickerExpressionAgent.Quicker.DotNetInstallWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="需要安装 .NET 8.0 运行时"
+    Width="500"
+    Height="350"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Title  -->
+        <TextBlock
+            Grid.Row="0"
+            Margin="0,0,0,20"
+            FontSize="18"
+            FontWeight="Bold"
+            Text="需要安装 .NET 8.0 运行时" />
+
+        <!--  Description  -->
+        <TextBlock
+            Grid.Row="1"
+            Margin="0,0,0,20"
+            Text="Desktop 应用需要 .NET 8.0 或更高版本的运行时才能运行。请选择以下方式之一进行安装："
+            TextWrapping="Wrap" />
+
+        <!--  Options  -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,20">
+            <!--  Auto Install  -->
+            <Button
+                Margin="0,0,0,10"
+                HorizontalAlignment="Stretch"
+                Command="{Binding AutoInstallCommand}"
+                Content="自动安装（命令行安装）" />
+            <Button
+                Margin="0,0,0,10"
+                HorizontalAlignment="Stretch"
+                Command="{Binding OpenDownloadPageCommand}"
+                Content="手动安装（浏览器下载）" />
+        </StackPanel>
+
+        <!--  Status  -->
+        <TextBlock
+            Grid.Row="3"
+            Margin="0,0,0,10"
+            Foreground="Gray"
+            Text="{Binding StatusMessage}"
+            TextWrapping="Wrap"
+            Visibility="{Binding HasStatusMessage, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+        <!--  Bottom Buttons  -->
+        <StackPanel
+            Grid.Row="4"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                MinWidth="100"
+                Margin="0,0,10,0"
+                Padding="15,5"
+                Command="{Binding CheckAndCloseCommand}"
+                Content="我已安装"
+                Style="{StaticResource ButtonPrimary}" />
+            <Button
+                MinWidth="100"
+                Padding="15,5"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+        </StackPanel>
+    </Grid>
+</Window>
+
