@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Extensions.Logging;
@@ -17,8 +18,9 @@ public class DesktopStartupService
     private readonly DesktopAppConfig _appConfig;
     private readonly ILogger<DesktopStartupService>? _logger;
 
-    // Static field to store version check dialog result (only show once)
-    private static bool? _versionCheckDialogResult = null;
+    // Static dictionary to store version check dialog results (keyed by version combination)
+    // Key format: "runningVersion->targetVersion"
+    private static readonly Dictionary<string, VersionMismatchDialog.VersionChoice> _versionCheckDialogResults = new();
 
     public DesktopStartupService(
         DesktopServiceClientConnector desktopServiceClientConnector,
@@ -147,12 +149,20 @@ public class DesktopStartupService
                     if (!_processManager.VersionsMatch(targetVersion, runningVersion))
                     {
                         // Versions don't match, check if user wants to restart
-                        if (!await CheckAndHandleVersionMismatchAsync(runningVersion, targetVersion))
+                        var versionChoice = await CheckAndHandleVersionMismatchAsync(runningVersion, targetVersion);
+                        if (versionChoice == null)
                         {
-                            // User cancelled or already skipped
+                            // Dialog was cancelled (should not happen with new dialog)
                             return false;
                         }
 
+                        if (versionChoice == VersionMismatchDialog.VersionChoice.ContinueOldVersion)
+                        {
+                            // User chose to continue using old version, already connected
+                            return true;
+                        }
+
+                        // User chose to start new version
                         // Shutdown old version gracefully
                         await ShutdownOldVersionAsync(runningProcess);
                         
@@ -252,12 +262,20 @@ public class DesktopStartupService
                 if (!_processManager.VersionsMatch(targetVersion, runningVersion))
                 {
                     // Versions don't match, check if user wants to restart
-                    if (!await CheckAndHandleVersionMismatchAsync(runningVersion, targetVersion))
+                    var versionChoice = await CheckAndHandleVersionMismatchAsync(runningVersion, targetVersion);
+                    if (versionChoice == null)
                     {
-                        // User cancelled or already skipped
+                        // Dialog was cancelled (should not happen with new dialog)
                         return false;
                     }
 
+                    if (versionChoice == VersionMismatchDialog.VersionChoice.ContinueOldVersion)
+                    {
+                        // User chose to continue using old version, already connected
+                        return true;
+                    }
+
+                    // User chose to start new version
                     // Shutdown old version gracefully
                     await ShutdownOldVersionAsync(runningProcess);
                     
@@ -362,35 +380,48 @@ public class DesktopStartupService
 
     /// <summary>
     /// Check and handle version mismatch between running and target versions
-    /// Shows confirmation dialog only once (result is cached in static field)
+    /// Shows confirmation dialog with options to start new version or continue using old version
+    /// Result is cached per version combination
     /// </summary>
     /// <param name="runningVersion">Currently running version</param>
     /// <param name="targetVersion">Target version to start</param>
-    /// <returns>True if user wants to restart, false if cancelled or already skipped</returns>
-    private async Task<bool> CheckAndHandleVersionMismatchAsync(System.Version runningVersion, System.Version targetVersion)
+    /// <returns>User's choice: StartNewVersion, ContinueOldVersion, or null if cancelled</returns>
+    private async Task<VersionMismatchDialog.VersionChoice?> CheckAndHandleVersionMismatchAsync(System.Version runningVersion, System.Version targetVersion)
     {
-        // If dialog result is already cached, use it
-        if (_versionCheckDialogResult.HasValue)
+        // Create a key for this version combination
+        var versionKey = $"{runningVersion}->{targetVersion}";
+        
+        // If user previously made a choice for this version combination, use cached result
+        lock (_versionCheckDialogResults)
         {
-            return _versionCheckDialogResult.Value;
+            if (_versionCheckDialogResults.TryGetValue(versionKey, out var cachedResult))
+            {
+                return cachedResult;
+            }
         }
 
         // Show confirmation dialog on UI thread
-        bool? dialogResult = false;
+        VersionMismatchDialog.VersionChoice? dialogResult = null;
         Application.Current?.Dispatcher.Invoke(() =>
         {
             var message = $"已经启动版本 {runningVersion}，是否退出并启动新版本 {targetVersion}？";
-            var result = MessageBox.Show(
-                message,
-                "版本不匹配",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            dialogResult = result == MessageBoxResult.Yes;
+            var dialog = new VersionMismatchDialog(message);
+            if (dialog.ShowDialog() == true && dialog.Result.HasValue)
+            {
+                dialogResult = dialog.Result.Value;
+            }
         });
 
-        // Cache the result
-        _versionCheckDialogResult = dialogResult;
-        return dialogResult.Value;
+        // Cache the result if user made a choice
+        if (dialogResult.HasValue)
+        {
+            lock (_versionCheckDialogResults)
+            {
+                _versionCheckDialogResults[versionKey] = dialogResult.Value;
+            }
+        }
+        
+        return dialogResult;
     }
 }
 

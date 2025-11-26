@@ -14,6 +14,7 @@
       Microsoft.Win32.Registry*
       Microsoft.VisualStudio.Validation*
       Microsoft.VisualStudio.Threading*
+      System.IO.Pipelines*
     </IncludeAssemblies>
   </Costura>
 </Weavers>

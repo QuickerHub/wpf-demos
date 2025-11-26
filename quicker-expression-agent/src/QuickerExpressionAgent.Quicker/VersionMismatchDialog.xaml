@@ -1,0 +1,50 @@
+<Window
+    x:Class="QuickerExpressionAgent.Quicker.VersionMismatchDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="版本不匹配"
+    Width="450"
+    Height="200"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterScreen"
+    Style="{StaticResource WindowBaseStyle}"
+    mc:Ignorable="d">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Message -->
+        <TextBlock
+            Grid.Row="0"
+            Margin="0,0,0,20"
+            FontSize="14"
+            Text="{Binding Message}"
+            TextWrapping="Wrap" />
+
+        <!-- Buttons -->
+        <StackPanel
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                x:Name="StartNewVersionButton"
+                MinWidth="120"
+                Margin="0,0,10,0"
+                Padding="15,5"
+                Click="StartNewVersionButton_Click"
+                Content="启动新版本" />
+            <Button
+                x:Name="ContinueOldVersionButton"
+                MinWidth="120"
+                Padding="15,5"
+                Click="ContinueOldVersionButton_Click"
+                Content="继续使用旧版本" />
+        </StackPanel>
+    </Grid>
+</Window>
+

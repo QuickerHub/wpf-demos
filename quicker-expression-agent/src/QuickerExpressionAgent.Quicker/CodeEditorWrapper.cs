@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Remoting.Contexts;
 using System.Text;
 using System.Threading.Tasks;
@@ -30,7 +31,7 @@ public class CodeEditorWrapper
     public CodeEditorWindow TheWindow { get; }
     private readonly ListBox _theVarListBox;
     private readonly FullyObservableCollection<ExpressionInputParam> _variableList = null!; // Initialized in constructor
-    private readonly List<ActionVariable> _sourceVarList;
+    private readonly ICollection<ActionVariable> _sourceVarList;
     private readonly TextEditor _textEditor;
     private readonly ContextMenu _theListBoxMenu;
     private readonly IActionContext? _context;
@@ -42,16 +43,19 @@ public class CodeEditorWrapper
     {
         _context = context;
 
-        // Initialize _sourceVarList first (readonly field must be initialized once)
-        _sourceVarList = new List<ActionVariable>();
-
         if (existingWindow != null)
         {
             // Use existing window
             TheWindow = existingWindow;
+            
+            // Get the first private readonly ICollection<ActionVariable> property from the window using reflection
+            _sourceVarList = GetActionVariableCollectionFromWindow(existingWindow) ?? new List<ActionVariable>();
         }
         else
         {
+            // Initialize _sourceVarList first (readonly field must be initialized once)
+            _sourceVarList = new List<ActionVariable>();
+            
             // Create new window
             TheWindow = new CodeEditorWindow(_sourceVarList, true, "")
             {
@@ -68,24 +72,6 @@ public class CodeEditorWrapper
         _variableList = (FullyObservableCollection<ExpressionInputParam>?)_theVarListBox.ItemsSource 
             ?? new FullyObservableCollection<ExpressionInputParam>();
 
-        if (existingWindow != null)
-        {
-            // Sync variables from existing window's ItemsSource
-            if (_variableList != null)
-            {
-                foreach (var param in _variableList)
-                {
-                    _sourceVarList.Add(new ActionVariable
-                    {
-                        Key = param.Key,
-                        Type = param.VarType,
-                        DefaultValue = param.SampleValue,
-                        Desc = param.Description ?? ""
-                    });
-                }
-            }
-        }
-
         _theListBoxMenu = new ContextMenu();
         CreateContextMenu();
         _theVarListBox.ContextMenu = _theListBoxMenu;
@@ -101,6 +87,45 @@ public class CodeEditorWrapper
         }
     }
 
+    /// <summary>
+    /// Get the first private readonly ICollection<ActionVariable> property/field from the window using reflection
+    /// </summary>
+    private static ICollection<ActionVariable>? GetActionVariableCollectionFromWindow(CodeEditorWindow window)
+    {
+        if (window == null) return null;
+
+        var windowType = window.GetType();
+        var targetType = typeof(ICollection<ActionVariable>);
+        var flags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+
+        // Check properties first
+        var property = windowType.GetProperties(flags)
+            .FirstOrDefault(p => targetType.IsAssignableFrom(p.PropertyType));
+        
+        if (property != null)
+        {
+            try
+            {
+                return property.GetValue(window) as ICollection<ActionVariable>;
+            }
+            catch { }
+        }
+
+        // Check fields if property not found
+        var field = windowType.GetFields(flags)
+            .FirstOrDefault(f => targetType.IsAssignableFrom(f.FieldType));
+        
+        if (field != null)
+        {
+            try
+            {
+                return field.GetValue(window) as ICollection<ActionVariable>;
+            }
+            catch { }
+        }
+
+        return null;
+    }
 
     public static bool CheckIsInQuicker() => Assembly.GetEntryAssembly()?.GetName().Name == "Quicker";
 
@@ -140,7 +165,19 @@ public class CodeEditorWrapper
 
         // Set variables using Clear + Add
         _sourceVarList.Clear();
-        _sourceVarList.AddRange(variables);
+        
+        // Use AddRange if it's a List, otherwise add items one by one
+        if (_sourceVarList is List<ActionVariable> list)
+        {
+            list.AddRange(variables);
+        }
+        else
+        {
+            foreach (var variable in variables)
+            {
+                _sourceVarList.Add(variable);
+            }
+        }
 
         // Set input params using Clear + Reset (only if list is initialized)
         if (_variableList != null)
@@ -164,8 +201,17 @@ public class CodeEditorWrapper
         if (existingVar != null)
         {
             // Update existing variable
-            var index = _sourceVarList.IndexOf(existingVar);
-            _sourceVarList[index] = variable;
+            // Use IList<T> if available for index access, otherwise use Remove + Add
+            if (_sourceVarList is IList<ActionVariable> list)
+            {
+                var index = list.IndexOf(existingVar);
+                list[index] = variable;
+            }
+            else
+            {
+                _sourceVarList.Remove(existingVar);
+                _sourceVarList.Add(variable);
+            }
 
             // Update ExpressionInputParam if exists
             var existingParam = _variableList.FirstOrDefault(p => p.Key == variable.Key);
@@ -218,7 +264,7 @@ public class CodeEditorWrapper
     /// </summary>
     public List<ActionVariable> GetAllVariables()
     {
-        return _sourceVarList.ToList();
+        return _sourceVarList?.ToList() ?? new List<ActionVariable>();
     }
 
     /// <summary>
