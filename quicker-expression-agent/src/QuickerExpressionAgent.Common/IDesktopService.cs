@@ -6,31 +6,6 @@ namespace QuickerExpressionAgent.Common;
 /// </summary>
 public interface IDesktopService
 {
-    /// <summary>
-    /// Send a message to the chat window
-    /// </summary>
-    /// <param name="message">Message content to send</param>
-    /// <returns>True if message was sent successfully</returns>
-    Task<bool> SendChatMessageAsync(string message);
-
-    /// <summary>
-    /// Show or hide the chat window
-    /// </summary>
-    /// <param name="show">True to show, false to hide</param>
-    /// <returns>True if operation was successful</returns>
-    Task<bool> ShowChatWindowAsync(bool show);
-
-    /// <summary>
-    /// Get the chat window handle
-    /// </summary>
-    /// <returns>Window handle as long, or 0 if not available</returns>
-    Task<long> GetChatWindowHandleAsync();
-
-    /// <summary>
-    /// Check if the chat window is connected to a code editor
-    /// </summary>
-    /// <returns>True if connected, false otherwise</returns>
-    Task<bool> IsChatWindowConnectedAsync();
 
     /// <summary>
     /// Open chat window and optionally attach it to the specified window handle
@@ -50,5 +25,12 @@ public interface IDesktopService
     /// </summary>
     /// <returns>True if shutdown was successful</returns>
     Task<bool> ShutdownAsync();
+
+    /// <summary>
+    /// Notify that a CodeEditorWindow was created/activated
+    /// </summary>
+    /// <param name="windowHandle">Window handle of the CodeEditorWindow (as long)</param>
+    /// <returns>True if notification was processed successfully</returns>
+    Task<bool> NotifyCodeEditorWindowCreatedAsync(long windowHandle);
 }
 

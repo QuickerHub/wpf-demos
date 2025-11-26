@@ -71,7 +71,7 @@ public class DesktopServiceClientConnector : IHostedService
         {
             try
             {
-                await EnsureConnectedAsync();
+                await MaintainConnectionAsync();
             }
             catch (Exception ex)
             {
@@ -114,10 +114,10 @@ public class DesktopServiceClientConnector : IHostedService
     }
 
     /// <summary>
-    /// Ensure connection to the Desktop service
-    /// Automatically reconnects on disconnection
+    /// Maintain connection to the Desktop service in a loop
+    /// Automatically connects and reconnects on disconnection
     /// </summary>
-    private async Task EnsureConnectedAsync()
+    private async Task MaintainConnectionAsync()
     {
         while (!_cancellationTokenSource.Token.IsCancellationRequested)
         {
@@ -157,20 +157,39 @@ public class DesktopServiceClientConnector : IHostedService
             }
             catch (OperationCanceledException)
             {
-                _logger.LogDebug("Connection timeout to desktop service, will retry");
+                // Connection timeout - don't log, just retry silently
+                // Only log when connection state actually changes
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to connect to desktop service, will retry");
+                // Only log non-timeout connection failures (actual errors)
+                // This indicates a real problem, not just Desktop service not running
+                if (IsConnected)
+                {
+                    // Connection was established but lost - log the disconnection
+                    _logger.LogWarning(ex, "Connection to desktop service lost");
+                }
+                else
+                {
+                    // First connection attempt failed with error (not timeout)
+                    // Don't log here - will be logged when connection state changes
+                }
             }
             finally
             {
+                var wasConnected = IsConnected;
                 IsConnected = false;
                 _service = null;
                 _jsonRpc?.Dispose();
                 _pipeStream?.Dispose();
                 _jsonRpc = null;
                 _pipeStream = null;
+                
+                // Only log disconnection if we were actually connected
+                if (wasConnected)
+                {
+                    _logger.LogInformation("Disconnected from desktop service");
+                }
             }
 
             // Wait before retrying

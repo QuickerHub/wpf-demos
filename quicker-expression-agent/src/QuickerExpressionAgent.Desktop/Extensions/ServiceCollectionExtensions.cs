@@ -40,6 +40,9 @@ public static class ServiceCollectionExtensions
         // MainWindow service
         services.AddSingleton<MainWindowService>();
 
+        // ChatWindow service (manages ChatWindow instances)
+        services.AddSingleton<ChatWindowService>();
+
         // Logging
         services.AddLogging(builder =>
         {
@@ -86,6 +89,7 @@ public static class ServiceCollectionExtensions
     /// Registers:
     /// - QuickerServerClientConnector: Desktop calls Quicker
     /// - DesktopServiceServer: Quicker calls Desktop
+    /// - CodeEditorWindowMonitorService: Monitors CodeEditorWindow creation events
     /// </summary>
     public static IServiceCollection AddCommunicationServices(this IServiceCollection services)
     {
@@ -97,6 +101,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DesktopServiceImplementation>();
         services.AddSingleton<DesktopServiceServer>();
         services.AddHostedService(provider => provider.GetRequiredService<DesktopServiceServer>());
+
+        // Note: CodeEditorWindowMonitorService is no longer needed
+        // ChatWindowService directly subscribes to DesktopServiceImplementation.CodeEditorWindowCreated event
 
         return services;
     }

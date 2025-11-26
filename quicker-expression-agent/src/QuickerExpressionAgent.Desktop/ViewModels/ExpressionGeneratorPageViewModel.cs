@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop;
+using QuickerExpressionAgent.Desktop.Extensions;
 using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Server.Agent;
 using QuickerExpressionAgent.Server.Services;
@@ -40,16 +41,19 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private string _currentApiDisplayText = "未配置";
 
         private readonly IServiceProvider _serviceProvider;
+        private readonly ChatWindowService _chatWindowService;
 
         public ExpressionGeneratorPageViewModel(
             ExpressionAgentViewModel agentViewModel,
             ExpressionExecutor executor,
             ILogger<ExpressionGeneratorPageViewModel> logger,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            ChatWindowService chatWindowService)
             : base(agentViewModel, logger)
         {
             _executor = executor;
             _serviceProvider = serviceProvider;
+            _chatWindowService = chatWindowService ?? throw new ArgumentNullException(nameof(chatWindowService));
 
             // Set this as tool handler for the agent
             _agentViewModel.SetToolHandler(this);
@@ -369,41 +373,48 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     expression,
                     variablesToUse);
 
-                // Add chat message to show test result (UI update, keep in ViewModel)
-                RunOnUIThread(() =>
-                {
-                    if (result.Success)
-                    {
-                        // Create ExpressionItemViewModel for display
-                        var expressionItem = new ExpressionItemViewModel();
-                        expressionItem.Executor = _executor; // Inject executor for execution
-                        expressionItem.Initialize(result.UsedVariables, expression);
-                        expressionItem.SetExecutionResult(true, result.Value);
-
-                        // Add ExpressionItem to chat message
-                        var chatMessage = new ChatMessageViewModel(ChatMessageType.Assistant, expressionItem);
-                        ChatMessages.Add(chatMessage);
-                    }
-                    else
-                    {
-                        // Create ExpressionItemViewModel for display even on failure
-                        var expressionItem = new ExpressionItemViewModel();
-                        expressionItem.Executor = _executor; // Inject executor for execution
-                        expressionItem.Initialize(result.UsedVariables, expression);
-                        expressionItem.SetExecutionResult(false, null, result.Error);
-
-                        // Add ExpressionItem to chat message
-                        var chatMessage = new ChatMessageViewModel(ChatMessageType.Assistant, expressionItem);
-                        ChatMessages.Add(chatMessage);
-                    }
-                });
-
                 return result;
             }
             catch (Exception ex)
             {
                 return new ExpressionResultError($"Error testing expression: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// [Backup Method] Add expression test control to chat dialog
+        /// This method is kept as backup for potential future use
+        /// </summary>
+        private void AddExpressionTestControlToChat(ExpressionResult result, string expression)
+        {
+            // Add chat message to show test result (UI update, keep in ViewModel)
+            RunOnUIThread(() =>
+            {
+                if (result.Success)
+                {
+                    // Create ExpressionItemViewModel for display
+                    var expressionItem = new ExpressionItemViewModel();
+                    expressionItem.Executor = _executor; // Inject executor for execution
+                    expressionItem.Initialize(result.UsedVariables, expression);
+                    expressionItem.SetExecutionResult(true, result.Value);
+
+                    // Add ExpressionItem to chat message
+                    var chatMessage = new ChatMessageViewModel(ChatMessageType.Assistant, expressionItem);
+                    ChatMessages.Add(chatMessage);
+                }
+                else
+                {
+                    // Create ExpressionItemViewModel for display even on failure
+                    var expressionItem = new ExpressionItemViewModel();
+                    expressionItem.Executor = _executor; // Inject executor for execution
+                    expressionItem.Initialize(result.UsedVariables, expression);
+                    expressionItem.SetExecutionResult(false, null, result.Error);
+
+                    // Add ExpressionItem to chat message
+                    var chatMessage = new ChatMessageViewModel(ChatMessageType.Assistant, expressionItem);
+                    ChatMessages.Add(chatMessage);
+                }
+            });
         }
 
         #endregion
@@ -433,22 +444,11 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [RelayCommand]
         private void OpenChatWindow()
         {
-            // Check if window is already open
-            var existingWindow = System.Windows.Application.Current.Windows.OfType<ChatWindow>().FirstOrDefault();
-            if (existingWindow != null)
+            // Get or create standalone ChatWindow using ChatWindowService
+            var chatWindow = _chatWindowService.GetOrCreateStandaloneChatWindow();
+            if (chatWindow != null)
             {
-                // Window already exists, activate it
-                existingWindow.Activate();
-                if (existingWindow.WindowState == System.Windows.WindowState.Minimized)
-                {
-                    existingWindow.WindowState = System.Windows.WindowState.Normal;
-                }
-            }
-            else
-            {
-                // Create new window
-                var chatWindow = _serviceProvider.GetRequiredService<ChatWindow>();
-                chatWindow.Show();
+                chatWindow.ShowAndActivate();
             }
         }
 

@@ -18,157 +18,29 @@ namespace QuickerExpressionAgent.Desktop.Services;
 public class DesktopServiceImplementation : IDesktopService
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly ChatWindowService _chatWindowService;
 
-    public DesktopServiceImplementation(IServiceProvider serviceProvider)
+    public DesktopServiceImplementation(
+        IServiceProvider serviceProvider,
+        ChatWindowService chatWindowService)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _chatWindowService = chatWindowService ?? throw new ArgumentNullException(nameof(chatWindowService));
     }
 
-    /// <summary>
-    /// Get the ChatWindow instance (create if not exists)
-    /// </summary>
-    private ChatWindow? GetChatWindow()
-    {
-        return Application.Current.Dispatcher.Invoke(() =>
-        {
-            // Try to find existing ChatWindow
-            var existingWindow = Application.Current.Windows.OfType<ChatWindow>().FirstOrDefault();
-            if (existingWindow != null)
-            {
-                return existingWindow;
-            }
-
-            // Create new ChatWindow if not exists
-            try
-            {
-                var chatWindow = _serviceProvider.GetRequiredService<ChatWindow>();
-                return chatWindow;
-            }
-            catch
-            {
-                return null;
-            }
-        });
-    }
-
-    public Task<bool> SendChatMessageAsync(string message)
-    {
-        return Task.Run(() =>
-        {
-            return Application.Current.Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    var chatWindow = GetChatWindow();
-                    if (chatWindow == null)
-                    {
-                        return false;
-                    }
-
-                    // Set the message and trigger generate command
-                    chatWindow.ViewModel.ChatInputText = message;
-                    chatWindow.ViewModel.GenerateCommand.Execute(null);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
-        });
-    }
-
-    public Task<bool> ShowChatWindowAsync(bool show)
-    {
-        return Task.Run(() =>
-        {
-            return Application.Current.Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    var chatWindow = GetChatWindow();
-                    if (chatWindow == null)
-                    {
-                        return false;
-                    }
-
-                    if (show)
-                    {
-                        chatWindow.ShowAndActivate();
-                    }
-                    else
-                    {
-                        chatWindow.Hide();
-                    }
-
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
-        });
-    }
-
-    public Task<long> GetChatWindowHandleAsync()
-    {
-        return Task.Run(() =>
-        {
-            return Application.Current.Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    var chatWindow = GetChatWindow();
-                    if (chatWindow == null)
-                    {
-                        return 0L;
-                    }
-
-                    var windowInteropHelper = new WindowInteropHelper(chatWindow);
-                    return windowInteropHelper.Handle.ToInt64();
-                }
-                catch
-                {
-                    return 0L;
-                }
-            });
-        });
-    }
-
-    public Task<bool> IsChatWindowConnectedAsync()
-    {
-        return Task.Run(() =>
-        {
-            return Application.Current.Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    var chatWindow = GetChatWindow();
-                    if (chatWindow == null)
-                    {
-                        return false;
-                    }
-
-                    return chatWindow.ViewModel.IsCodeEditorConnected;
-                }
-                catch
-                {
-                    return false;
-                }
-            });
-        });
-    }
 
     public async Task<bool> OpenChatWindowAsync(long? windowHandle = null)
     {
-        return await Task.Run(async () =>
+        return await Application.Current.Dispatcher.Invoke(async () =>
         {
-            return await Application.Current.Dispatcher.Invoke(async () =>
+            try
             {
-                try
+                ChatWindow? chatWindow;
+
+                if (windowHandle.HasValue && windowHandle.Value != 0)
                 {
-                    var chatWindow = GetChatWindow();
+                    // Get or create ChatWindow for this specific CodeEditorWindow
+                    chatWindow = _chatWindowService.GetOrCreateChatWindow(windowHandle.Value);
                     if (chatWindow == null)
                     {
                         return false;
@@ -177,32 +49,38 @@ public class DesktopServiceImplementation : IDesktopService
                     // Show and activate the chat window
                     chatWindow.ShowAndActivate();
 
-                    // If windowHandle is provided and valid, attach to it
-                    if (windowHandle.HasValue && windowHandle.Value != 0)
+                    var targetWindowHandle = new IntPtr(windowHandle.Value);
+                    
+                    // Check if window handle is valid
+                    if (WindowHelper.IsWindow(targetWindowHandle))
                     {
-                        var targetWindowHandle = new IntPtr(windowHandle.Value);
-                        
-                        // Check if window handle is valid
-                        if (WindowHelper.IsWindow(targetWindowHandle))
-                        {
-                            // Try to get handler ID from window handle to prevent auto-creation
-                            // This will set CodeEditorHandlerId if the window is a CodeEditor
-                            await chatWindow.ViewModel.SetCodeEditorHandlerIdFromWindowHandleAsync(windowHandle.Value);
+                        // Try to get handler ID from window handle to prevent auto-creation
+                        // This will set CodeEditorHandlerId if the window is a CodeEditor
+                        await chatWindow.ViewModel.SetCodeEditorHandlerIdFromWindowHandleAsync(windowHandle.Value);
 
-                            // Use ChatWindow's built-in attachment method
-                            chatWindow.AttachToWindow(targetWindowHandle, bringToForeground: true);
-                        }
-                        // If window handle is invalid, just show the window without attachment
+                        // Use ChatWindow's built-in attachment method
+                        chatWindow.AttachToWindow(targetWindowHandle, bringToForeground: true);
                     }
-                    // If windowHandle is null or 0, just show the window without attachment
-
-                    return true;
                 }
-                catch
+                else
                 {
-                    return false;
+                    // No specific window handle, get or create standalone ChatWindow
+                    chatWindow = _chatWindowService.GetOrCreateStandaloneChatWindow();
+                    if (chatWindow == null)
+                    {
+                        return false;
+                    }
+
+                    // Show and activate the chat window
+                    chatWindow.ShowAndActivate();
                 }
-            });
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         });
     }
 
@@ -236,6 +114,21 @@ public class DesktopServiceImplementation : IDesktopService
         catch
         {
             return Task.FromResult(false);
+        }
+    }
+
+    public async Task<bool> NotifyCodeEditorWindowCreatedAsync(long windowHandle)
+    {
+        try
+        {
+            // Directly call ChatWindowService to handle CodeEditorWindow creation
+            // This avoids circular dependency and event subscription complexity
+            await _chatWindowService.HandleCodeEditorWindowCreatedAsync(windowHandle);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

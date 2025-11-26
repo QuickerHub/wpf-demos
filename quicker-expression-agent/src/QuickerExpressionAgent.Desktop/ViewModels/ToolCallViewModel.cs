@@ -2,7 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using QuickerExpressionAgent.Common;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -222,11 +224,76 @@ public partial class ToolCallViewModel : ObservableObject
         {
             markdown.AppendLine("**输入参数**:");
             markdown.AppendLine();
-            markdown.AppendLine("```json");
-            // Use formatted arguments if available, otherwise use original
-            markdown.AppendLine(_formattedArguments ?? Arguments);
-            markdown.AppendLine("```");
-            markdown.AppendLine();
+            
+            // Try to extract expression field separately
+            string? expressionValue = null;
+            string? otherArgumentsJson = null;
+            
+            try
+            {
+                // Deserialize to dictionary
+                var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Arguments);
+                if (dict != null && dict.Count > 0)
+                {
+                    // Extract expression field if exists
+                    if (dict.TryGetValue("expression", out var expressionElement))
+                    {
+                        // Get string value, or raw text if not a string
+                        expressionValue = expressionElement.ValueKind == JsonValueKind.String
+                            ? expressionElement.GetString()
+                            : expressionElement.GetRawText();
+                        
+                        // Remove expression from dictionary
+                        dict.Remove("expression");
+                        
+                        // Serialize remaining dictionary if any properties left
+                        if (dict.Count > 0)
+                        {
+                            var options = new JsonSerializerOptions
+                            {
+                                WriteIndented = true,
+                                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                            };
+                            otherArgumentsJson = JsonSerializer.Serialize(dict, options);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // If parsing fails, fall back to original behavior
+            }
+            
+            // Display expression field separately if exists
+            if (!string.IsNullOrWhiteSpace(expressionValue))
+            {
+                markdown.AppendLine("**Expression**:");
+                markdown.AppendLine();
+                markdown.AppendLine("```csharp");
+                markdown.AppendLine(expressionValue);
+                markdown.AppendLine("```");
+                markdown.AppendLine();
+            }
+            
+            // Display other arguments if any
+            if (!string.IsNullOrWhiteSpace(otherArgumentsJson))
+            {
+                markdown.AppendLine("**其他参数**:");
+                markdown.AppendLine();
+                markdown.AppendLine("```json");
+                markdown.AppendLine(otherArgumentsJson);
+                markdown.AppendLine("```");
+                markdown.AppendLine();
+            }
+            else if (string.IsNullOrWhiteSpace(expressionValue))
+            {
+                // No expression field, show all arguments as before
+                markdown.AppendLine("```json");
+                // Use formatted arguments if available, otherwise use original
+                markdown.AppendLine(_formattedArguments ?? Arguments);
+                markdown.AppendLine("```");
+                markdown.AppendLine();
+            }
         }
         else if (InputParameters.Count > 0)
         {

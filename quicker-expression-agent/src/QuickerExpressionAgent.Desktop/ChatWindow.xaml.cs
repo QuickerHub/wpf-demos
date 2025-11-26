@@ -5,7 +5,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using QuickerExpressionAgent.Desktop.Extensions;
+using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Desktop.ViewModels;
 using WindowAttach.Extensions;
 using WindowAttach.Models;
@@ -21,14 +23,19 @@ namespace QuickerExpressionAgent.Desktop
     {
         public ChatWindowViewModel ViewModel { get; }
         private readonly WindowAttachService _windowAttachService;
+        private readonly ChatWindowService _chatWindowService;
         private IntPtr _chatWindowHandle = IntPtr.Zero;
         private IntPtr _codeEditorHandle = IntPtr.Zero;
 
-        public ChatWindow(ChatWindowViewModel vm, WindowAttachService windowAttachService)
+        public ChatWindow(
+            ChatWindowViewModel vm,
+            WindowAttachService windowAttachService,
+            ChatWindowService chatWindowService)
         {
             InitializeComponent();
             ViewModel = vm;
             _windowAttachService = windowAttachService ?? throw new ArgumentNullException(nameof(windowAttachService));
+            _chatWindowService = chatWindowService ?? throw new ArgumentNullException(nameof(chatWindowService));
             DataContext = this; // Set DataContext to this, not ViewModel (following WPF coding standards)
 
             // Subscribe to chat messages collection changes for auto-scroll
@@ -113,45 +120,12 @@ namespace QuickerExpressionAgent.Desktop
                 return;
             }
 
+            // Register ChatWindow for this CodeEditorWindow in ChatWindowService
+            // This ensures that when CodeEditorWindow is detected, HasChatWindow will return true
+            _chatWindowService.RegisterChatWindowForCodeEditor(this, windowHandleValue);
+
             var codeEditorHandle = new IntPtr(windowHandleValue);
-
-            // Check if this is the first attachment (no previous attachment)
-            bool isFirstAttachment = _codeEditorHandle == IntPtr.Zero;
-
-            // Unregister previous attachment if exists
-            if (_codeEditorHandle != IntPtr.Zero)
-            {
-                _windowAttachService.Unregister(_codeEditorHandle, _chatWindowHandle);
-            }
-
-            // Store current CodeEditor handle
-            _codeEditorHandle = codeEditorHandle;
-
-            // Attach ChatWindow to CodeEditor window
-            // Add callback to stop generation when code editor window is closed
-            _windowAttachService.Register(
-                codeEditorHandle,  // window1: CodeEditor (target window to follow)
-                _chatWindowHandle, // window2: ChatWindow (window that follows)
-                placement: WindowPlacement.RightTop,
-                offsetX: 0,
-                offsetY: 0,
-                restrictToSameScreen: true,
-                autoOptimizePosition: false,
-                callbackAction: () =>
-                {
-                    // Stop generation when code editor window is closed
-                    Dispatcher.Invoke(() =>
-                    {
-                        ViewModel.StopGeneration();
-                    });
-                }
-            );
-
-            // Bring CodeEditor window to foreground on first attachment
-            if (isFirstAttachment)
-            {
-                WindowHelper.BringWindowToForeground(codeEditorHandle);
-            }
+            AttachToWindowInternal(codeEditorHandle, bringToForeground: true);
         }
 
         private void TryAttachToCodeEditor()
@@ -179,6 +153,16 @@ namespace QuickerExpressionAgent.Desktop
                 }
             }
 
+            AttachToWindowInternal(targetWindowHandle, bringToForeground);
+        }
+
+        /// <summary>
+        /// Internal method to attach ChatWindow to a target window
+        /// </summary>
+        /// <param name="targetWindowHandle">Target window handle to attach to</param>
+        /// <param name="bringToForeground">Whether to bring target window to foreground</param>
+        private void AttachToWindowInternal(IntPtr targetWindowHandle, bool bringToForeground)
+        {
             // Check if this is the first attachment
             bool isFirstAttachment = _codeEditorHandle == IntPtr.Zero;
 
@@ -192,7 +176,7 @@ namespace QuickerExpressionAgent.Desktop
             _codeEditorHandle = targetWindowHandle;
 
             // Attach ChatWindow to target window
-            // Add callback to stop generation when target window is closed
+            // Add callback to stop generation and close window when target window is closed
             _windowAttachService.Register(
                 targetWindowHandle,  // window1: Target window (window to follow)
                 _chatWindowHandle,   // window2: ChatWindow (window that follows)
@@ -203,10 +187,11 @@ namespace QuickerExpressionAgent.Desktop
                 autoOptimizePosition: false,
                 callbackAction: () =>
                 {
-                    // Stop generation when target window is closed
+                    // Stop generation and close window when target window is closed
                     Dispatcher.Invoke(() =>
                     {
                         ViewModel.StopGeneration();
+                        Close();
                     });
                 }
             );

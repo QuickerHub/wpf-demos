@@ -40,25 +40,25 @@ public static class Launcher
             // Set minimum level to Trace so all logs are output
             logging.SetMinimumLevel(LogLevel.Trace);
         })
-               .ConfigureServices((context, services) =>
-               {
-                   services.AddLogging();
-                   services.AddSingleton<ConfigService>();
-                   
-                   // Desktop application configuration
-                   services.AddSingleton<Services.DesktopAppConfig>();
-                   
-                   // .NET version checker
-                   services.AddSingleton<Services.DotNetVersionChecker>();
-                   
-                   services.AddSingleton<ApplicationLauncher>();
-                   services.AddSingleton<ExpressionAgentToolHandlerService>();
-                   services.AddSingleton<DesktopProcessManager>();
-                   services.AddSingleton<Services.DesktopStartupService>();
-                   
-                   // Communication services (Desktop <-> Quicker)
-                   services.AddCommunicationServices();
-            
+        .ConfigureServices((context, services) =>
+        {
+            services.AddLogging();
+            services.AddSingleton<ConfigService>();
+
+            // Desktop application configuration
+            services.AddSingleton<Services.DesktopAppConfig>();
+
+            // .NET version checker
+            services.AddSingleton<Services.DotNetVersionChecker>();
+
+            services.AddSingleton<ApplicationLauncher>();
+            services.AddSingleton<ExpressionAgentToolHandlerService>();
+            services.AddSingleton<DesktopProcessManager>();
+            services.AddSingleton<Services.DesktopStartupService>();
+
+            // Communication services (Desktop <-> Quicker)
+            services.AddCommunicationServices();
+
             // Register MainWindow and ViewModel
             services.AddTransient<MainWindowViewModel>();
             services.AddTransient<MainWindow>();

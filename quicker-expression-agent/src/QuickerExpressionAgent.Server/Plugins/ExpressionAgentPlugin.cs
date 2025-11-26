@@ -116,6 +116,12 @@ public class ExpressionAgentPlugin
         - Examples: `text`, `list1`, `dict`, `num`, `flag`, `date`, `obj`
         """;
     
+    /// <summary>
+    /// Description of defaultValue parameter format
+    /// </summary>
+    private const string DefaultValueParameterDescription = 
+        "Default value (anyOf: string, number, boolean, array, object). Use native types directly, not JSON strings. Auto-converted to match variable type.";
+    
     private readonly IToolHandlerProvider _toolHandlerProvider;
 
     public ExpressionAgentPlugin(IToolHandlerProvider toolHandlerProvider)
@@ -155,7 +161,7 @@ public class ExpressionAgentPlugin
     public string CreateVariable(
         [Description("Variable name")] string name,
         [Description("Variable type: String, Int, Double, Bool, DateTime, ListString, Dictionary, Object")] VariableType varType,
-        [Description("Default value (can be any type matching the variable type)")] object? defaultValue = null)
+        [Description(DefaultValueParameterDescription)] object? defaultValue = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -199,17 +205,28 @@ public class ExpressionAgentPlugin
     
     [KernelFunction]
     [Description("Get a specific variable's information including its default value. Use this when you need to see the actual default value of a variable, especially when processing format strings or when you need to understand the variable's content. Returns the variable information with full default value.")]
-    public VariableClass? GetVariable(
+    public VariableClassWithObjectValue? GetVariable(
     [Description("Name of the variable to retrieve")] string variableName)
     {
-        return ToolHandler.GetVariable(variableName);
+        var variable = ToolHandler.GetVariable(variableName);
+        if (variable == null)
+        {
+            return null;
+        }
+        
+        return new VariableClassWithObjectValue
+        {
+            VarName = variable.VarName,
+            VarType = variable.VarType,
+            DefaultValue = variable.GetDefaultValue()
+        };
     }
     
     [KernelFunction]
     [Description($"Set or update the default value of an **existing** external variable. **This is primarily used to modify variables that already exist** (created via {nameof(CreateVariable)}). The default value can be of any type: string, number (int/double), boolean, DateTime, array (List<string>), object (Dictionary), or null. Useful for updating variable values before testing expressions without recreating the variable.")]
     public string SetVarDefaultValue(
         [Description("Variable name")] string name,
-        [Description("Default value (can be any type matching the variable type)")] object? defaultValue = null)
+        [Description(DefaultValueParameterDescription)] object? defaultValue = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {

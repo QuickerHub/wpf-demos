@@ -18,6 +18,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         private readonly ServerToolHandler _defaultToolHandler;
         private QuickerCodeEditorToolHandler? _quickerToolHandler;
         private readonly MainWindowService _mainWindowService;
+        private readonly ChatWindowService _chatWindowService;
 
         [ObservableProperty]
         private bool _isConnected = false;
@@ -46,11 +47,13 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             ExpressionExecutor executor,
             QuickerServerClientConnector connector,
             MainWindowService mainWindowService,
+            ChatWindowService chatWindowService,
             ILogger<ChatWindowViewModel> logger)
             : base(agentViewModel, logger)
         {
             _connector = connector;
             _mainWindowService = mainWindowService;
+            _chatWindowService = chatWindowService ?? throw new ArgumentNullException(nameof(chatWindowService));
             
             // Create default tool handler using script engine (ServerToolHandler)
             // This is independent of Quicker connection and uses ExpressionExecutor
@@ -128,42 +131,67 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     return;
                 }
 
-                // Use GetOrCreateCodeEditorAsync to get or create Code Editor (similar to .Server project)
+                // Use ChatWindowService to get an available CodeEditorWindow (one without ChatWindow)
                 try
                 {
                     RunOnUIThread(() =>
                     {
-                        StatusText = "正在打开 Code Editor...";
+                        StatusText = "正在查找可用的 Code Editor...";
                     });
 
-                    var handlerId = await _connector.ServiceClient.GetOrCreateCodeEditorAsync();
+                    // Get available CodeEditorWindow handle (one without ChatWindow)
+                    var availableWindowHandle = await _chatWindowService.GetAvailableCodeEditorWindowHandleAsync();
                     
-                    if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                    string? handlerId = null;
+
+                    if (availableWindowHandle == 0)
                     {
+                        // No available CodeEditorWindow (all existing ones have ChatWindows)
+                        // Create a new CodeEditorWindow
                         RunOnUIThread(() =>
                         {
-                            StatusText = "无法创建 Code Editor";
-                            AddChatMessage(ChatMessageType.Assistant, "✗ 无法创建 Code Editor 窗口");
+                            StatusText = "正在创建新的 Code Editor...";
                         });
-                        return;
+
+                        handlerId = await _connector.ServiceClient.GetOrCreateCodeEditorAsync();
+                        
+                        if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                        {
+                            RunOnUIThread(() =>
+                            {
+                                StatusText = "无法创建 Code Editor";
+                                AddChatMessage(ChatMessageType.Assistant, "✗ 无法创建 Code Editor 窗口");
+                            });
+                            return;
+                        }
+
+                        // Note: ChatWindow will automatically register itself when it gets the window handle
+                        // via CodeEditorHandlerIdChanged event -> TryAttachToCodeEditorAsync -> RegisterChatWindowForCodeEditor
+                    }
+                    else
+                    {
+                        // Found an available CodeEditorWindow without ChatWindow
+                        // Get handler ID from window handle
+                        handlerId = await _connector.ServiceClient.GetCodeWrapperIdAsync(availableWindowHandle.ToString());
+                        if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                        {
+                            RunOnUIThread(() =>
+                            {
+                                StatusText = "无法获取 Code Editor Handler ID";
+                                AddChatMessage(ChatMessageType.Assistant, "✗ 无法获取 Code Editor Handler ID");
+                            });
+                            return;
+                        }
+
+                        // Note: ChatWindow will automatically register itself when it gets the window handle
+                        // via CodeEditorHandlerIdChanged event -> TryAttachToCodeEditorAsync -> RegisterChatWindowForCodeEditor
                     }
 
-                    // Create handler using handlerId (similar to .Server project)
-                    // Replace standalone tool handler with Quicker tool handler
-                    _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
-                    _agentViewModel.SetToolHandler(_quickerToolHandler);
-
-                    RunOnUIThread(() =>
+                    if (handlerId != null)
                     {
-                        IsConnected = true; // Update connection status
-                        IsCodeEditorConnected = true; // Update code editor connection status
-                        StatusText = "已就绪，可以开始生成表达式";
-                        AddChatMessage(ChatMessageType.Assistant, $"✓ Code Editor 已打开 (Handler ID: {handlerId})，可以开始生成表达式");
-                        
-                        // Update CodeEditor handler ID and raise event
-                        CodeEditorHandlerId = handlerId;
-                        CodeEditorHandlerIdChanged?.Invoke(this, handlerId);
-                    });
+                        // Setup connection with the CodeEditorWindow
+                        await SetupCodeEditorConnectionAsync(handlerId);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -460,6 +488,40 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         /// <summary>
+        /// Setup connection with CodeEditorWindow using handler ID
+        /// </summary>
+        private async Task SetupCodeEditorConnectionAsync(string handlerId)
+        {
+            try
+            {
+                // Create handler using handlerId
+                _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
+                _agentViewModel.SetToolHandler(_quickerToolHandler);
+
+                RunOnUIThread(() =>
+                {
+                    IsConnected = true; // Update connection status
+                    IsCodeEditorConnected = true; // Update code editor connection status
+                    StatusText = "已就绪，可以开始生成表达式";
+                    AddChatMessage(ChatMessageType.Assistant, $"✓ Code Editor 已打开 (Handler ID: {handlerId})，可以开始生成表达式");
+                    
+                    // Update CodeEditor handler ID and raise event
+                    CodeEditorHandlerId = handlerId;
+                    CodeEditorHandlerIdChanged?.Invoke(this, handlerId);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting up Code Editor connection");
+                RunOnUIThread(() =>
+                {
+                    StatusText = "无法设置 Code Editor 连接";
+                    AddChatMessage(ChatMessageType.Assistant, $"✗ 无法设置 Code Editor 连接: {ex.Message}");
+                });
+            }
+        }
+
+        /// <summary>
         /// Try to reconnect to code editor window (get existing or create new)
         /// </summary>
         private async Task<bool> TryReconnectCodeEditorAsync()
@@ -471,33 +533,34 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     StatusText = "正在重新连接 Code Editor...";
                 });
 
-                var handlerId = await _connector.ServiceClient.GetOrCreateCodeEditorAsync();
+                // Use ChatWindowService to get an available CodeEditorWindow
+                var availableWindowHandle = await _chatWindowService.GetAvailableCodeEditorWindowHandleAsync();
+                
+                if (availableWindowHandle == 0)
+                {
+                    RunOnUIThread(() =>
+                    {
+                        StatusText = "无法获取 Code Editor";
+                        AddChatMessage(ChatMessageType.Assistant, "✗ 无法获取 Code Editor 窗口");
+                    });
+                    return false;
+                }
+
+                // Get handler ID from window handle
+                var handlerId = await _connector.ServiceClient.GetCodeWrapperIdAsync(availableWindowHandle.ToString());
                 
                 if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
                 {
                     RunOnUIThread(() =>
                     {
-                        StatusText = "无法创建 Code Editor";
-                        AddChatMessage(ChatMessageType.Assistant, "✗ 无法创建 Code Editor 窗口");
+                        StatusText = "无法获取 Code Editor Handler ID";
+                        AddChatMessage(ChatMessageType.Assistant, "✗ 无法获取 Code Editor Handler ID");
                     });
                     return false;
                 }
 
-                // Create handler using handlerId
-                _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
-                _agentViewModel.SetToolHandler(_quickerToolHandler);
-
-                RunOnUIThread(() =>
-                {
-                    IsCodeEditorConnected = true; // Update code editor connection status
-                    StatusText = "已重新连接 Code Editor";
-                    AddChatMessage(ChatMessageType.Assistant, $"✓ Code Editor 已重新连接 (Handler ID: {handlerId})");
-                    
-                    // Update CodeEditor handler ID and raise event
-                    CodeEditorHandlerId = handlerId;
-                    CodeEditorHandlerIdChanged?.Invoke(this, handlerId);
-                });
-
+                // Setup connection
+                await SetupCodeEditorConnectionAsync(handlerId);
                 return true;
             }
             catch (Exception ex)
