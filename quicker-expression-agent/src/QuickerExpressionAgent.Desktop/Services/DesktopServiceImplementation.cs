@@ -46,20 +46,25 @@ public class DesktopServiceImplementation : IDesktopService
                         return false;
                     }
 
-                    // Show and activate the chat window
-                    chatWindow.ShowAndActivate();
-
                     var targetWindowHandle = new IntPtr(windowHandle.Value);
                     
                     // Check if window handle is valid
                     if (WindowHelper.IsWindow(targetWindowHandle))
                     {
+                        // Show at off-screen position to avoid flashing before attachment
+                        chatWindow.ShowWithPosition(centerOnScreen: false);
+
                         // Try to get handler ID from window handle to prevent auto-creation
                         // This will set CodeEditorHandlerId if the window is a CodeEditor
                         await chatWindow.ViewModel.SetCodeEditorHandlerIdFromWindowHandleAsync(windowHandle.Value);
 
                         // Use ChatWindow's built-in attachment method
                         chatWindow.AttachToWindow(targetWindowHandle, bringToForeground: true);
+                    }
+                    else
+                    {
+                        // Invalid window handle, show as standalone (centered)
+                        chatWindow.ShowWithPosition(centerOnScreen: true);
                     }
                 }
                 else
@@ -71,8 +76,8 @@ public class DesktopServiceImplementation : IDesktopService
                         return false;
                     }
 
-                    // Show and activate the chat window
-                    chatWindow.ShowAndActivate();
+                    // Show as standalone window (centered on screen)
+                    chatWindow.ShowWithPosition(centerOnScreen: true);
                 }
 
                 return true;
