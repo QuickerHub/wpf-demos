@@ -172,6 +172,9 @@ namespace WindowAttach.Services
                 WindowHelper.SetWindowExStyle(window2Handle, WINDOW_EX_STYLE.WS_EX_TOOLWINDOW, true);
             }
             
+            // Set window2 owner to window1 using Win32 API
+            // This sets GWLP_HWNDPARENT which makes window2 follow window1's virtual desktop
+            // and ensures proper window hierarchy
             WindowHelper.SetWindowOwner(window2Handle, window1Handle, preventActivation: _preventActivation);
 
             // Start event hooks

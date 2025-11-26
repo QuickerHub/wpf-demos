@@ -15,7 +15,7 @@
     d:DataContext="{Binding RelativeSource={RelativeSource Self}}"
     Topmost="True"
     WindowStartupLocation="CenterScreen"
-    ShowInTaskbar="False"
+    ShowInTaskbar="True"
     mc:Ignorable="d">
     <Window.InputBindings>
         <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />

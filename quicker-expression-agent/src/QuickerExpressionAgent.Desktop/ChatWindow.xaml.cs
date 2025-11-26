@@ -38,6 +38,9 @@ namespace QuickerExpressionAgent.Desktop
             _chatWindowService = chatWindowService ?? throw new ArgumentNullException(nameof(chatWindowService));
             DataContext = this; // Set DataContext to this, not ViewModel (following WPF coding standards)
 
+            // Set ChatWindow reference in ViewModel for pre-registration
+            ViewModel.SetChatWindow(this);
+
             // Subscribe to chat messages collection changes for auto-scroll
             ViewModel.ChatMessages.CollectionChanged += ChatMessages_CollectionChanged;
             ViewModel.ChatScrollToBottomRequested += ChatScrollToBottomRequested;
@@ -53,6 +56,30 @@ namespace QuickerExpressionAgent.Desktop
         /// Command to close the window (bound to ESC key)
         /// </summary>
         public ICommand CloseCommand => new RelayCommand(() => Close());
+
+        /// <summary>
+        /// Show and activate the window with specified position
+        /// </summary>
+        /// <param name="centerOnScreen">If true, center on screen; if false, position at -4000,-4000 (for attachment scenarios)</param>
+        public void ShowWithPosition(bool centerOnScreen = true)
+        {
+
+            // Topmost = true;
+
+            Show();
+            
+            // Only activate if centerOnScreen is true (for standalone windows)
+            // When centerOnScreen is false, window is being attached, don't activate to avoid stealing focus
+            if (centerOnScreen)
+            {
+                Activate();
+            }
+            
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+        }
 
         private void ChatWindow_SourceInitialized(object? sender, EventArgs e)
         {
@@ -120,9 +147,22 @@ namespace QuickerExpressionAgent.Desktop
                 return;
             }
 
-            // Register ChatWindow for this CodeEditorWindow in ChatWindowService
+            // Complete registration of pre-registered ChatWindow or register new
             // This ensures that when CodeEditorWindow is detected, HasChatWindow will return true
-            _chatWindowService.RegisterChatWindowForCodeEditor(this, windowHandleValue);
+            // If registration fails (another ChatWindow already registered), prevent attachment
+            bool registered = _chatWindowService.CompleteChatWindowRegistration(this, windowHandleValue);
+            if (!registered)
+            {
+                // Try normal registration if pre-registration didn't work
+                registered = _chatWindowService.RegisterChatWindowForCodeEditor(this, windowHandleValue);
+            }
+            
+            if (!registered)
+            {
+                // Another ChatWindow is already registered for this CodeEditorWindow
+                // Prevent this ChatWindow from attaching to avoid one-to-many relationship
+                return;
+            }
 
             var codeEditorHandle = new IntPtr(windowHandleValue);
             AttachToWindowInternal(codeEditorHandle, bringToForeground: true);
@@ -153,7 +193,30 @@ namespace QuickerExpressionAgent.Desktop
                 }
             }
 
+            // Check if another ChatWindow is already attached to this CodeEditorWindow
+            // Prevent multiple ChatWindows from attaching to the same CodeEditorWindow
+            var targetWindowHandleLong = targetWindowHandle.ToInt64();
+            var existingChatWindow = _chatWindowService.GetChatWindow(targetWindowHandleLong);
+            if (existingChatWindow != null && existingChatWindow != this)
+            {
+                // Another ChatWindow is already attached, prevent this attachment
+                // This ensures one ChatWindow per CodeEditorWindow
+                return;
+            }
+
             AttachToWindowInternal(targetWindowHandle, bringToForeground);
+        }
+
+        /// <summary>
+        /// Detach ChatWindow from the current target window
+        /// </summary>
+        internal void DetachFromWindow()
+        {
+            if (_codeEditorHandle != IntPtr.Zero && _chatWindowHandle != IntPtr.Zero)
+            {
+                _windowAttachService.Unregister(_codeEditorHandle, _chatWindowHandle);
+                _codeEditorHandle = IntPtr.Zero;
+            }
         }
 
         /// <summary>
@@ -176,6 +239,7 @@ namespace QuickerExpressionAgent.Desktop
             _codeEditorHandle = targetWindowHandle;
 
             // Attach ChatWindow to target window
+            // Note: Window.Owner is set in WindowAttachService.WindowAttachment constructor
             // Add callback to stop generation and close window when target window is closed
             _windowAttachService.Register(
                 targetWindowHandle,  // window1: Target window (window to follow)
@@ -233,6 +297,9 @@ namespace QuickerExpressionAgent.Desktop
             {
                 _windowAttachService.Unregister(_codeEditorHandle, _chatWindowHandle);
             }
+
+            // Unregister from ChatWindowService
+            _chatWindowService.UnregisterChatWindow(this);
 
             ViewModel.Dispose();
             base.OnClosed(e);

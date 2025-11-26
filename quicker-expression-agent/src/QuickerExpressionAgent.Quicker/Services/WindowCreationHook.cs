@@ -7,29 +7,29 @@ using static Windows.Win32.PInvoke;
 namespace QuickerExpressionAgent.Quicker.Services;
 
 /// <summary>
-/// Hook to monitor active window (foreground window) changes
-/// Raises ActiveWindowChanged event when foreground window changes
+/// Hook to monitor window creation events
+/// Raises WindowCreated event when a window is created
 /// </summary>
-public class ActiveWindowHook : IDisposable
+public class WindowCreationHook : IDisposable
 {
     private HWINEVENTHOOK _hook;
     private readonly WINEVENTPROC _winEventProc;
 
     // Windows Event Constants
-    private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    private const uint EVENT_OBJECT_CREATE = 0x8000;
 
     /// <summary>
-    /// Event raised when the active (foreground) window changes
+    /// Event raised when a window is created
     /// </summary>
-    public event Action<IntPtr>? ActiveWindowChanged;
+    public event Action<IntPtr>? WindowCreated;
 
-    public ActiveWindowHook()
+    public WindowCreationHook()
     {
         _winEventProc = new WINEVENTPROC(WinEventProc);
     }
 
     /// <summary>
-    /// Start the hook to monitor foreground window changes
+    /// Start the hook to monitor window creation events
     /// </summary>
     public void StartHook()
     {
@@ -39,13 +39,13 @@ public class ActiveWindowHook : IDisposable
             return; // Already started
         }
 
-        // Set hook for system-wide foreground window events
+        // Set hook for system-wide window creation events
         // Flags: 0 = WINEVENT_OUTOFCONTEXT (hook runs in separate thread)
         // Note: WINEVENT_OUTOFCONTEXT means the hook callback runs in a separate thread
         // but it still requires the thread to have a message loop or proper thread context
         _hook = SetWinEventHook(
-            EVENT_SYSTEM_FOREGROUND,  // Min event: foreground window change
-            EVENT_SYSTEM_FOREGROUND,  // Max event: foreground window change
+            EVENT_OBJECT_CREATE,  // Min event: window creation
+            EVENT_OBJECT_CREATE,  // Max event: window creation
             new HINSTANCE(IntPtr.Zero),
             _winEventProc,
             0,  // processId: 0 = all processes
@@ -54,7 +54,7 @@ public class ActiveWindowHook : IDisposable
 
         if (_hook.Value == IntPtr.Zero)
         {
-            throw new InvalidOperationException("Failed to set WinEvent hook for foreground monitoring");
+            throw new InvalidOperationException("Failed to set WinEvent hook for window creation monitoring");
         }
     }
 
@@ -67,48 +67,56 @@ public class ActiveWindowHook : IDisposable
         uint idEventThread,
         uint dwmsEventTime)
     {
-        // Only process EVENT_SYSTEM_FOREGROUND events
-        if (@event != EVENT_SYSTEM_FOREGROUND)
+        // CRITICAL: Hook callbacks must return as quickly as possible
+        // Any blocking operations here will cause UI freezing
+        
+        // Only process EVENT_OBJECT_CREATE events
+        if (@event != EVENT_OBJECT_CREATE)
             return;
 
-        // Validate window handle
+        // Validate window handle (fast check)
         if (hwnd.Value == IntPtr.Zero)
             return;
 
-        // Verify it's a valid window (not just any handle)
-        if (!IsWindow(hwnd))
-            return;
-
         // Only process window-level events (not child elements)
+        // OBJID_WINDOW = 0x00000000
+        // Check this BEFORE IsWindow to avoid unnecessary API call
         if (idObject != 0 || idChild != 0)
             return;
 
-        // EVENT_SYSTEM_FOREGROUND fires when a window becomes foreground
-        // hwnd is the window that became foreground
-        HandleForegroundWindowChange(hwnd);
+        // Verify it's a valid window (not just any handle)
+        // Note: IsWindow can be slow, but we need it to filter out invalid handles
+        // We check idObject/idChild first to reduce calls to IsWindow
+        if (!IsWindow(hwnd))
+            return;
+
+        // EVENT_OBJECT_CREATE fires when a window is created
+        // hwnd is the window that was created
+        // HandleWindowCreated should be fast and not block
+        HandleWindowCreated(hwnd);
     }
 
     /// <summary>
-    /// Handle foreground window change event
+    /// Handle window creation event
     /// </summary>
-    private void HandleForegroundWindowChange(HWND hwnd)
+    private void HandleWindowCreated(HWND hwnd)
     {
-        // Raise event when foreground window changes
+        // Raise event when a window is created
         // Note: This callback runs in a separate thread (WINEVENT_OUTOFCONTEXT)
         // The callback thread is managed by Windows, but it may not have a message loop
         // Subscribers should handle thread marshaling if needed
         try
         {
             // Check if there are any subscribers
-            if (ActiveWindowChanged == null)
+            if (WindowCreated == null)
             {
                 // No subscribers - this shouldn't happen but log it
-                System.Diagnostics.Debug.WriteLine("ActiveWindowChanged event has no subscribers");
+                System.Diagnostics.Debug.WriteLine("WindowCreated event has no subscribers");
                 return;
             }
 
             // Invoke event - subscribers should handle thread marshaling if needed
-            ActiveWindowChanged.Invoke(hwnd.Value);
+            WindowCreated.Invoke(hwnd.Value);
         }
         catch (Exception ex)
         {
@@ -120,14 +128,14 @@ public class ActiveWindowHook : IDisposable
                 // Try to write to a log file as fallback
                 var logPath = System.IO.Path.Combine(
                     System.IO.Path.GetTempPath(),
-                    "ActiveWindowHook_Errors.log");
+                    "WindowCreationHook_Errors.log");
                 System.IO.File.AppendAllText(logPath,
-                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Error in HandleForegroundWindowChange: {ex.Message}\n{ex.StackTrace}\n\n");
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Error in HandleWindowCreated: {ex.Message}\n{ex.StackTrace}\n\n");
             }
             catch
             {
                 // If file logging fails, at least try Debug output
-                System.Diagnostics.Debug.WriteLine($"Error in HandleForegroundWindowChange: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error in HandleWindowCreated: {ex.Message}");
             }
         }
     }

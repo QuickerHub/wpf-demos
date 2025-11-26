@@ -448,7 +448,8 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             var chatWindow = _chatWindowService.GetOrCreateStandaloneChatWindow();
             if (chatWindow != null)
             {
-                chatWindow.ShowAndActivate();
+                // Show as standalone window (centered on screen)
+                chatWindow.ShowWithPosition();
             }
         }
 

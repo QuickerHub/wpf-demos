@@ -64,7 +64,7 @@ public class DesktopServiceImplementation : IDesktopService
                     else
                     {
                         // Invalid window handle, show as standalone (centered)
-                        chatWindow.ShowWithPosition(centerOnScreen: true);
+                        chatWindow.ShowWithPosition();
                     }
                 }
                 else
@@ -77,7 +77,7 @@ public class DesktopServiceImplementation : IDesktopService
                     }
 
                     // Show as standalone window (centered on screen)
-                    chatWindow.ShowWithPosition(centerOnScreen: true);
+                    chatWindow.ShowWithPosition();
                 }
 
                 return true;

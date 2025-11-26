@@ -54,7 +54,7 @@ public static class ServiceCollectionExtensions
     /// Registers:
     /// - QuickerServiceServer: Desktop calls Quicker
     /// - DesktopServiceClientConnector: Quicker calls Desktop
-    /// - ActiveWindowService: Monitors active window changes
+    /// - WindowCreationService: Monitors window creation events
     /// </summary>
     public static IServiceCollection AddCommunicationServices(this IServiceCollection services)
     {
@@ -68,8 +68,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DesktopServiceClientConnector>();
         services.AddHostedService(s => s.GetRequiredService<DesktopServiceClientConnector>());
 
-        // Active window monitoring service (runs on UI thread)
-        services.AddHostedServiceOnUiThread<ActiveWindowService>();
+        // Window creation monitoring service (runs on UI thread)
+        services.AddHostedServiceOnUiThread<WindowCreationService>();
 
         return services;
     }
