@@ -58,12 +58,34 @@ public class ConfigurationService : IConfigurationService
     public IReadOnlyList<ModelApiConfig> GetBuiltInConfigs()
     {
         // Return built-in configurations provided by developer
-        // Currently returns one default config, but can be extended to return multiple
-        var defaultConfig = GetConfig();
-        defaultConfig.IsReadOnly = true;
-        defaultConfig.Title = "试用配置";
+        var apiKey = EmbeddedConfig.ApiKey;
         
-        return new List<ModelApiConfig> { defaultConfig }.AsReadOnly();
+        // Fixed string IDs for built-in configs to ensure consistency
+        const string DefaultConfigId = "default-glm-4.6";
+        const string Glm45ConfigId = "default-glm-4.5";
+        const string GlmBaseUrl = "https://open.bigmodel.cn/api/paas/v4";
+        
+        // Default config (GLM-4.6)
+        var defaultConfig = new ModelApiConfig(DefaultConfigId)
+        {
+            ApiKey = apiKey,
+            BaseUrl = GlmBaseUrl,
+            ModelId = "glm-4.6",
+            Title = "default:glm-4.6",
+            IsReadOnly = true
+        };
+        
+        // GLM-4.5 config
+        var glmConfig = new ModelApiConfig(Glm45ConfigId)
+        {
+            ApiKey = apiKey,
+            ModelId = "glm-4.5",
+            BaseUrl = GlmBaseUrl,
+            Title = "default:glm-4.5",
+            IsReadOnly = true
+        };
+        
+        return new List<ModelApiConfig> { defaultConfig, glmConfig }.AsReadOnly();
     }
 }
 
