@@ -136,8 +136,26 @@ public class WindowCreationService : IHostedService, IDisposable
         }
 
         // Only process CodeEditorWindow, skip all other windows
-        if (window is CodeEditorWindow)
+        if (window is CodeEditorWindow codeEditorWindow)
         {
+            // Wait a short time for window content to be initialized
+            await Task.Delay(50);
+            
+            // Check if content is empty or starts with "$="
+            string content = string.Empty;
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                content = codeEditorWindow.Text ?? string.Empty;
+            }, System.Windows.Threading.DispatcherPriority.Normal);
+            
+            var trimmedContent = content.Trim();
+            
+            // If content is not empty and doesn't start with "$=", skip processing
+            if (!string.IsNullOrEmpty(trimmedContent) && !trimmedContent.StartsWith("$="))
+            {
+                return;
+            }
+            
             // Mark as notified before sending notification to avoid race conditions
             lock (_notifiedWindows)
             {
