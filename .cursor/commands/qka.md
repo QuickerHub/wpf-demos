@@ -2,10 +2,10 @@
 项目结构：
 name/
 ├── src/
-│   └── projectname/
-│       └── projectname.csproj
-├── projectname.sln
-└── README.md
+│   └── {ProjectName}/  // 大驼峰命名
+│       └── {ProjectName}.csproj 
+├── {ProjectName}.sln
+└── README.md  // 项目说明
 ├── build.yaml
 ├── build.ps1
 ├── version.json
