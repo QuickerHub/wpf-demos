@@ -1,0 +1,55 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2C3E50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#34495E;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Desktop gradient -->
+    <linearGradient id="desktopGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3498DB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2980B9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="256" height="256" rx="20" fill="url(#bgGradient)"/>
+  
+  <!-- Desktop area (bottom half) -->
+  <rect x="30" y="150" width="196" height="86" rx="8" fill="url(#desktopGradient)"/>
+  
+  <!-- Desktop icons (simple squares in grid) -->
+  <!-- Row 1 -->
+  <rect x="50" y="170" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="95" y="170" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="140" y="170" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="185" y="170" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  
+  <!-- Row 2 -->
+  <rect x="50" y="208" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="95" y="208" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="140" y="208" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="185" y="208" width="35" height="28" rx="3" fill="#FFFFFF" opacity="0.9"/>
+  
+  <!-- Eye icon (top center) - represents show/hide functionality -->
+  <g transform="translate(128, 80)">
+    <!-- Eye outline -->
+    <ellipse cx="0" cy="0" rx="45" ry="28" fill="none" stroke="#FFFFFF" stroke-width="6" opacity="0.9"/>
+    <!-- Pupil -->
+    <circle cx="0" cy="0" r="12" fill="#FFFFFF" opacity="0.9"/>
+    <!-- Eye highlight -->
+    <circle cx="-5" cy="-5" r="4" fill="#2C3E50" opacity="0.6"/>
+  </g>
+  
+  <!-- Tool icon (small gear, bottom right of eye) -->
+  <g transform="translate(168, 100)">
+    <circle cx="0" cy="0" r="18" fill="none" stroke="#F39C12" stroke-width="4" opacity="0.9"/>
+    <circle cx="0" cy="0" r="10" fill="#F39C12" opacity="0.9"/>
+    <!-- Simple gear teeth -->
+    <rect x="-2" y="-18" width="4" height="8" rx="2" fill="#F39C12" opacity="0.9"/>
+    <rect x="-2" y="10" width="4" height="8" rx="2" fill="#F39C12" opacity="0.9"/>
+    <rect x="-18" y="-2" width="8" height="4" rx="2" fill="#F39C12" opacity="0.9"/>
+    <rect x="10" y="-2" width="8" height="4" rx="2" fill="#F39C12" opacity="0.9"/>
+  </g>
+</svg>

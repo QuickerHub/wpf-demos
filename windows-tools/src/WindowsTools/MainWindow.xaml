@@ -1,0 +1,69 @@
+<Window x:Class="WindowsTools.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:WindowsTools"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        Title="Windows Tools"
+        Width="800"
+        Height="600"
+        WindowStartupLocation="CenterScreen"
+        mc:Ignorable="d">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Text="Windows Tools" />
+
+        <!-- Desktop Icons Control -->
+        <GroupBox Grid.Row="1"
+                  Header="Desktop Icons"
+                  Margin="0,16,0,0"
+                  Padding="16">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock VerticalAlignment="Center"
+                           Margin="0,0,16,0"
+                           Text="Desktop Icons Status:" />
+                <TextBlock VerticalAlignment="Center"
+                           Margin="0,0,16,0"
+                           FontWeight="Bold">
+                    <TextBlock.Text>
+                        <Binding Path="ViewModel.IsDesktopIconsVisible">
+                            <Binding.Converter>
+                                <local:BoolToVisibilityTextConverter />
+                            </Binding.Converter>
+                        </Binding>
+                    </TextBlock.Text>
+                </TextBlock>
+                <Button Content="Toggle"
+                        Command="{Binding ViewModel.ToggleDesktopIconsCommand}"
+                        Margin="8,0,8,0"
+                        Padding="16,8" />
+                <Button Content="Show"
+                        Command="{Binding ViewModel.ShowDesktopIconsCommand}"
+                        Margin="8,0,8,0"
+                        Padding="16,8" />
+                <Button Content="Hide"
+                        Command="{Binding ViewModel.HideDesktopIconsCommand}"
+                        Margin="8,0,8,0"
+                        Padding="16,8" />
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Content -->
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <TextBlock VerticalAlignment="Center"
+                       HorizontalAlignment="Center"
+                       FontSize="16"
+                       Text="Welcome to Windows Tools" />
+        </Grid>
+    </Grid>
+</Window>
+
