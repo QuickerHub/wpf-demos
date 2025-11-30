@@ -9,6 +9,7 @@
     Title="关于"
     d:DataContext="{d:DesignInstance local:InfoPage,
                                      IsDesignTimeCreatable=False}"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     mc:Ignorable="d">
     <Grid Margin="16">
         <Grid.RowDefinitions>

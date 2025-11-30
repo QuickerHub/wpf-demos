@@ -10,6 +10,7 @@
     Title="API 测试"
     d:DataContext="{d:DesignInstance local:TestPage,
                                      IsDesignTimeCreatable=False}"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     mc:Ignorable="d">
     <Page.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />

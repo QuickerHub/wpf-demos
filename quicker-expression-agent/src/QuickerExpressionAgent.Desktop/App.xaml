@@ -3,19 +3,66 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
+    xmlns:behaviors="clr-namespace:QuickerExpressionAgent.Desktop.Behaviors"
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop"
     xmlns:mdx="clr-namespace:MdXaml;assembly=MdXaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Light" />
-                <ui:ControlsDictionary />
+                <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Theme/Dark.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Wpf.Ui.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <!--  Color Resources  -->
+            <!--  Color Resources - Using WPF UI built-in theme resources  -->
             <SolidColorBrush x:Key="PrimaryTextBrush" Color="#1F2937" />
             <SolidColorBrush x:Key="PrimaryBrush" Color="#0078D4" />
             <SolidColorBrush x:Key="AccentBrush" Color="#005A9E" />
+
+            <!--  Note: Custom resource aliases are now directly mapped to WPF UI built-in resources  -->
+            <!--  All XAML files should use {ui:ThemeResource ...} or {DynamicResource ...} with WPF UI resource keys  -->
+            <!--  Mapping: CardBackgroundBrush -> ControlFillColorDefaultBrush, etc.  -->
+
+            <!--  AvalonEdit TextEditor Default Style  -->
+            <Style TargetType="{x:Type avalonEdit:TextEditor}">
+                <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Padding" Value="5,10" />
+                <Setter Property="WordWrap" Value="True" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="ShowLineNumbers" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type avalonEdit:TextEditor}">
+                            <Border
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                                <ScrollViewer
+                                    Name="PART_ScrollViewer"
+                                    Padding="{TemplateBinding Padding}"
+                                    HorizontalContentAlignment="Left"
+                                    VerticalContentAlignment="Top"
+                                    CanContentScroll="True"
+                                    Content="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TextArea}"
+                                    Focusable="False"
+                                    HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                    VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--  Page Default Style  -->
+            <Style TargetType="{x:Type Page}">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
 
             <!--  MdXaml Markdown Style  -->
             <Style x:Key="MdStyle" TargetType="{x:Type FlowDocument}">
@@ -31,7 +78,7 @@
                     <Style TargetType="{x:Type Section}">
                         <Setter Property="Margin" Value="0,10" />
                         <Setter Property="Padding" Value="10,0" />
-                        <Setter Property="BorderBrush" Value="#DEDEDE" />
+                        <Setter Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorSecondaryBrush}" />
                         <Setter Property="BorderThickness" Value="2.5,0,0,0" />
                     </Style>
 
@@ -40,7 +87,7 @@
                         <Setter Property="avalonEdit:TextEditor.HorizontalScrollBarVisibility" Value="Disabled" />
                         <Setter Property="avalonEdit:TextEditor.VerticalScrollBarVisibility" Value="Auto" />
                         <Setter Property="WordWrap" Value="True" />
-                        <Setter Property="Background" Value="#F5F5F5" />
+                        <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
                         <Setter Property="Padding" Value="5,10" />
                         <Setter Property="Border.CornerRadius" Value="5" />
                         <Setter Property="Template">
@@ -100,16 +147,16 @@
                             <Trigger Property="FrameworkContentElement.Tag" Value="CodeBlock">
                                 <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
                                 <Setter Property="TextElement.FontSize" Value="13" />
-                                <Setter Property="TextElement.Background" Value="#F5F5F5" />
+                                <Setter Property="TextElement.Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
                                 <Setter Property="Block.Padding" Value="20,10" />
                             </Trigger>
                             <!--  Note  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Note">
                                 <Setter Property="Margin" Value="5,0,5,0" />
                                 <Setter Property="Padding" Value="10,5" />
-                                <Setter Property="BorderBrush" Value="#DEDEDE" />
+                                <Setter Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorSecondaryBrush}" />
                                 <Setter Property="BorderThickness" Value="3,3,3,3" />
-                                <Setter Property="TextElement.Background" Value="#FAFAFA" />
+                                <Setter Property="TextElement.Background" Value="{ui:ThemeResource ControlFillColorTertiaryBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -120,8 +167,8 @@
                             <Trigger Property="FrameworkContentElement.Tag" Value="CodeSpan">
                                 <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
                                 <Setter Property="TextElement.FontSize" Value="13" />
-                                <Setter Property="TextElement.Background" Value="#F0F0F0" />
-                                <Setter Property="TextElement.Foreground" Value="#D63384" />
+                                <Setter Property="TextElement.Background" Value="{ui:ThemeResource ControlFillColorTertiaryBrush}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -164,12 +211,12 @@
                     <Style TargetType="{x:Type Table}">
                         <Setter Property="Table.CellSpacing" Value="0" />
                         <Setter Property="Block.BorderThickness" Value="0.3" />
-                        <Setter Property="Background" Value="White" />
-                        <Setter Property="BorderBrush" Value="Gray" />
+                        <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorDefaultBrush}" />
+                        <Setter Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorDefaultBrush}" />
                         <Style.Resources>
                             <Style TargetType="{x:Type TableCell}">
                                 <Setter Property="TableCell.BorderThickness" Value="0.2" />
-                                <Setter Property="TableCell.BorderBrush" Value="Gray" />
+                                <Setter Property="TableCell.BorderBrush" Value="{ui:ThemeResource ControlStrokeColorDefaultBrush}" />
                                 <Setter Property="TableCell.Padding" Value="13,6" />
                             </Style>
                         </Style.Resources>
@@ -180,7 +227,7 @@
                         <Style.Triggers>
                             <Trigger Property="FrameworkContentElement.Tag" Value="TableHeader">
                                 <Setter Property="TextElement.FontWeight" Value="Bold" />
-                                <Setter Property="TextElement.Background" Value="#F8F8F8" />
+                                <Setter Property="TextElement.Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -189,7 +236,7 @@
                     <Style TargetType="{x:Type TableRow}">
                         <Style.Triggers>
                             <Trigger Property="FrameworkContentElement.Tag" Value="EvenTableRow">
-                                <Setter Property="TextElement.Background" Value="#F8F8F8" />
+                                <Setter Property="TextElement.Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -215,7 +262,7 @@
                     <!--  Separator style  -->
                     <Style TargetType="{x:Type Separator}">
                         <Setter Property="Height" Value="0.5" />
-                        <Setter Property="Background" Value="#A8A8A8" />
+                        <Setter Property="Background" Value="{ui:ThemeResource ControlStrokeColorDefaultBrush}" />
                     </Style>
                 </Style.Resources>
             </Style>

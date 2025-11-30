@@ -6,6 +6,7 @@
     xmlns:desktop="clr-namespace:QuickerExpressionAgent.Desktop"
     xmlns:local="clr-namespace:QuickerExpressionAgent.Desktop.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:vm="clr-namespace:QuickerExpressionAgent.Desktop.ViewModels"
     x:Name="TheToolCallControl"
     d:DesignHeight="300"
@@ -16,8 +17,8 @@
     </UserControl.Resources>
     <Border
         Padding="8"
-        Background="White"
-        BorderBrush="#D0D0D0"
+        Background="{ui:ThemeResource ControlFillColorDefaultBrush}"
+        BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
         BorderThickness="1"
         CornerRadius="4"
         DataContext="{Binding ElementName=TheToolCallControl}">
@@ -36,7 +37,6 @@
                         VerticalAlignment="Center"
                         FontSize="13"
                         FontWeight="SemiBold"
-                        Foreground="Black"
                         Text="{Binding ViewModel.FunctionName}" />
 
                     <!--  Description (gray, one line, auto-ellipsis)  -->
@@ -45,7 +45,7 @@
                         Margin="0,2,0,0"
                         VerticalAlignment="Center"
                         FontSize="11"
-                        Foreground="#666666"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         Text="{Binding ViewModel.Description}"
                         TextTrimming="CharacterEllipsis" />
                 </Grid>
@@ -67,7 +67,6 @@
                         <TextBlock
                             FontSize="12"
                             FontWeight="SemiBold"
-                            Foreground="Black"
                             Text="输入参数" />
                     </Expander.Header>
 
@@ -85,7 +84,6 @@
                                         FontFamily="Consolas"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Foreground="Black"
                                         Text="{Binding Title, StringFormat='{}{0}:'}" />
 
                                     <TextBlock
@@ -93,7 +91,7 @@
                                         Margin="6,0,0,0"
                                         FontFamily="Consolas"
                                         FontSize="12"
-                                        Foreground="#666666"
+                                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                                         Text="{Binding Description}"
                                         TextTrimming="CharacterEllipsis"
                                         TextWrapping="Wrap" />
@@ -112,21 +110,19 @@
                         <TextBlock
                             FontSize="12"
                             FontWeight="SemiBold"
-                            Foreground="Black"
                             Text="输出结果" />
                     </Expander.Header>
 
                     <Border
                         Margin="0,4,0,0"
                         Padding="8"
-                        Background="#F5F5F5"
-                        BorderBrush="#D0D0D0"
+                        Background="{ui:ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="2">
                         <TextBlock
                             FontFamily="Consolas"
                             FontSize="12"
-                            Foreground="Black"
                             Text="{Binding ViewModel.OutputResult, Mode=OneWay}"
                             TextWrapping="Wrap" />
                     </Border>

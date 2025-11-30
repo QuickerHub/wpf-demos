@@ -14,6 +14,7 @@
     Title="表达式生成器"
     d:DataContext="{d:DesignInstance local:ExpressionGeneratorPage,
                                      IsDesignTimeCreatable=False}"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     ScrollViewer.CanContentScroll="False"
     mc:Ignorable="d">
     <Page.Resources>
@@ -72,7 +73,7 @@
                                                     Margin="6,0,0,0"
                                                     VerticalAlignment="Center"
                                                     FontSize="10"
-                                                    Foreground="#999999"
+                                                    Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                                     Opacity="0"
                                                     Symbol="ChevronRight12">
                                                     <ui:SymbolIcon.Style>
@@ -179,16 +180,7 @@
                         x:Name="ParsedExpressionEditor"
                         Grid.Row="1"
                         Margin="0,0,0,15"
-                        Background="White"
-                        BorderBrush="LightGray"
-                        BorderThickness="1"
-                        FontFamily="Consolas"
-                        FontSize="12"
-                        HorizontalScrollBarVisibility="Auto"
-                        ShowLineNumbers="True"
-                        SyntaxHighlighting="C#"
-                        VerticalScrollBarVisibility="Auto"
-                        WordWrap="True" />
+                        SyntaxHighlighting="C#" />
 
                     <!--  Execution Result  -->
                     <TextBlock
@@ -238,7 +230,7 @@
                     <ListBox
                         Grid.Row="1"
                         Background="Transparent"
-                        BorderBrush="Black"
+                        BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         ItemsSource="{Binding ViewModel.VariableList}"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -263,7 +255,7 @@
                                 <Border
                                     Margin="0,0,0,5"
                                     Padding="10,8"
-                                    BorderBrush="#E0E0E0"
+                                    BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
                                     BorderThickness="0,0,0,1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -379,8 +371,8 @@
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <!--  Default: User messages - White box  -->
-                                                <Setter Property="Background" Value="White" />
-                                                <Setter Property="BorderBrush" Value="#E0E0E0" />
+                                                <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorDefaultBrush}" />
+                                                <Setter Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorSecondaryBrush}" />
                                                 <Setter Property="BorderThickness" Value="1" />
                                                 <!--  Assistant messages - Transparent, blend with background  -->
                                                 <Style.Triggers>
@@ -469,7 +461,7 @@
                                                     Grid.Column="2"
                                                     VerticalAlignment="Center"
                                                     FontSize="10"
-                                                    Foreground="#666666"
+                                                    Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                                                     Text="{Binding Timestamp, StringFormat='HH:mm:ss'}" />
                                             </Grid>
 
@@ -496,14 +488,14 @@
                                                     Padding="12,0"
                                                     VerticalAlignment="Center"
                                                     FontSize="10"
-                                                    Foreground="#999999"
+                                                    Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                                     Text="{Binding ToolCallItem.FunctionName}" />
                                             </Expander.Header>
 
                                             <!--  Expander Content - Markdown Display  -->
                                             <Border
                                                 Margin="12,6"
-                                                BorderBrush="LightGray"
+                                                BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
                                                 BorderThickness="1"
                                                 CornerRadius="6">
                                                 <md:MarkdownScrollViewer
@@ -544,8 +536,8 @@
                             Grid.Row="1"
                             Margin="0,10,0,0"
                             Padding="10,8"
-                            Background="#F5F5F5"
-                            BorderBrush="#E0E0E0"
+                            Background="{ui:ThemeResource ControlFillColorSecondaryBrush}"
+                            BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
                             BorderThickness="0,1,0,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -582,14 +574,14 @@
                         <Border
                             Grid.Row="2"
                             Padding="10,5"
-                            Background="#F0F0F0"
-                            BorderBrush="#E0E0E0"
+                            Background="{ui:ThemeResource ControlFillColorTertiaryBrush}"
+                            BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
                             BorderThickness="0,1,0,0"
                             Visibility="{Binding ViewModel.IsGenerating, Converter={StaticResource BoolToVis}}">
                             <TextBlock
                                 HorizontalAlignment="Center"
                                 FontSize="11"
-                                Foreground="#666666"
+                                Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                                 Text="Agent 正在运行中..." />
                         </Border>
                     </Grid>

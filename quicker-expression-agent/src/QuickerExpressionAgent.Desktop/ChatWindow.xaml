@@ -75,7 +75,7 @@
                                                     Margin="6,0,0,0"
                                                     VerticalAlignment="Center"
                                                     FontSize="10"
-                                                    Foreground="#999999"
+                                                    Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                                     Opacity="0"
                                                     Symbol="ChevronRight12">
                                                     <ui:SymbolIcon.Style>
@@ -139,7 +139,7 @@
         <GroupBox
             Grid.Row="1"
             Margin="0,0,0,20"
-            Background="#FFF8F8F8"
+            Background="{ui:ThemeResource ControlFillColorSecondaryBrush}"
             Header="对话">
             <Grid>
                 <Grid.RowDefinitions>
@@ -183,8 +183,8 @@
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <!--  Default: User messages - White box  -->
-                                        <Setter Property="Background" Value="White" />
-                                        <Setter Property="BorderBrush" Value="#E0E0E0" />
+                                        <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorDefaultBrush}" />
+                                        <Setter Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorSecondaryBrush}" />
                                         <Setter Property="BorderThickness" Value="1" />
                                         <!--  Assistant messages - Transparent, blend with background  -->
                                         <Style.Triggers>
@@ -251,14 +251,14 @@
                                             Padding="12,0"
                                             VerticalAlignment="Center"
                                             FontSize="10"
-                                            Foreground="#999999"
+                                            Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                             Text="{Binding ToolCallItem.FunctionName}" />
                                     </Expander.Header>
 
                                     <!--  Expander Content - Markdown Display  -->
                                     <Border
                                         Margin="12,6"
-                                        BorderBrush="LightGray"
+                                        BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
                                         BorderThickness="1"
                                         CornerRadius="6">
                                         <md:MarkdownScrollViewer
@@ -374,14 +374,14 @@
                 <Border
                     Grid.Row="2"
                     Padding="10,5"
-                    Background="#F0F0F0"
-                    BorderBrush="#E0E0E0"
+                    Background="{ui:ThemeResource ControlFillColorTertiaryBrush}"
+                    BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
                     BorderThickness="0,1,0,0"
                     Visibility="{Binding ViewModel.IsGenerating, Converter={StaticResource BoolToVis}}">
                     <TextBlock
                         HorizontalAlignment="Center"
                         FontSize="11"
-                        Foreground="#666666"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         Text="Agent 正在运行中..." />
                 </Border>
             </Grid>
@@ -411,7 +411,7 @@
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
-                    <TextBlock FontSize="11" Foreground="#666666">
+                    <TextBlock FontSize="11" Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Text" Value="未连接代码窗口" />
@@ -430,7 +430,7 @@
                 <TextBlock
                     Margin="10,0,0,0"
                     FontSize="11"
-                    Foreground="#666666"
+                    Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                     Text="{Binding ViewModel.TokenUsageText, Mode=OneWay}" />
             </StatusBarItem>
             <Separator />

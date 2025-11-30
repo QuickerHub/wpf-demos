@@ -21,8 +21,8 @@
                             <Border
                                 x:Name="Bd"
                                 Padding="12"
-                                Background="White"
-                                BorderBrush="#D0D0D0"
+                                Background="{ui:ThemeResource ControlFillColorDefaultBrush}"
+                                BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="4">
                                 <ContentPresenter
@@ -31,8 +31,8 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#F5F5F5" />
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#B0B0B0" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{ui:ThemeResource ControlStrokeColorDefaultBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="#E3F2FD" />
@@ -76,13 +76,13 @@
                         <TextBlock
                             Margin="0,4,0,0"
                             FontSize="12"
-                            Foreground="#666666"
+                            Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                             Text="{Binding Description}" />
                         <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                            <TextBlock FontSize="11" Foreground="#999999" Text="模型: " />
-                            <TextBlock FontSize="11" Foreground="#999999" Text="{Binding Config.ModelId}" />
-                            <TextBlock Margin="8,0,0,0" FontSize="11" Foreground="#999999" Text=" | " />
-                            <TextBlock FontSize="11" Foreground="#999999" Text="{Binding Config.BaseUrl}" />
+                            <TextBlock FontSize="11" Foreground="{ui:ThemeResource TextFillColorDisabledBrush}" Text="模型: " />
+                            <TextBlock FontSize="11" Foreground="{ui:ThemeResource TextFillColorDisabledBrush}" Text="{Binding Config.ModelId}" />
+                            <TextBlock Margin="8,0,0,0" FontSize="11" Foreground="{ui:ThemeResource TextFillColorDisabledBrush}" Text=" | " />
+                            <TextBlock FontSize="11" Foreground="{ui:ThemeResource TextFillColorDisabledBrush}" Text="{Binding Config.BaseUrl}" />
                         </StackPanel>
                     </StackPanel>
                 </DataTemplate>

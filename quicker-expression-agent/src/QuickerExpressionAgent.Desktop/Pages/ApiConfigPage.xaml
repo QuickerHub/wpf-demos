@@ -11,6 +11,7 @@
     d:DataContext="{d:DesignInstance local:ApiConfigPage,
                                      IsDesignTimeCreatable=False}"
     d:Width="500"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
     mc:Ignorable="d">
     <Page.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -101,15 +102,15 @@
                             <Border
                                 Margin="0,0,0,8"
                                 Padding="12"
-                                Background="White"
-                                BorderBrush="#D0D0D0"
+                                Background="{ui:ThemeResource ControlFillColorDefaultBrush}"
+                                BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="4">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Style.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="#F8F8F8" />
+                                                <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -133,26 +134,25 @@
                                             <TextBlock
                                                 FontSize="14"
                                                 FontWeight="SemiBold"
-                                                Foreground="#333333"
                                                 Text="模型: " />
                                             <TextBlock
                                                 FontSize="14"
-                                                Foreground="#555555"
+                                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{Binding ModelId, Mode=OneWay}" />
                                             <TextBlock
                                                 Margin="12,0,0,0"
                                                 FontSize="14"
-                                                Foreground="#999999"
+                                                Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                                 Text=" | " />
                                             <TextBlock
                                                 FontSize="14"
-                                                Foreground="#555555"
+                                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{Binding BaseUrl, Mode=OneWay}" />
                                             <TextBlock
                                                 Margin="12,0,0,0"
                                                 Cursor="Hand"
                                                 FontSize="14"
-                                                Foreground="#FF4444"
+                                                Foreground="{ui:ThemeResource AccentTextFillColorPrimaryBrush}"
                                                 Text="设为默认"
                                                 TextDecorations="Underline">
                                                 <TextBlock.Style>
@@ -175,7 +175,7 @@
                                                 Margin="0,0,8,0"
                                                 Padding="8,4"
                                                 VerticalAlignment="Center"
-                                                Foreground="#999999"
+                                                Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                                 Text="只读"
                                                 Visibility="{Binding IsReadOnly, Converter={StaticResource BoolToVis}}" />
                                             <ui:Button
@@ -208,7 +208,7 @@
                                     <StackPanel Grid.Row="1" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
                                         <!--  Read-only configs should not show editable fields  -->
                                         <TextBlock
-                                            Foreground="#999999"
+                                            Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                             Text="此配置为只读配置，无法编辑"
                                             Visibility="{Binding IsReadOnly, Converter={StaticResource BoolToVis}}" />
                                         <StackPanel Visibility="{Binding IsReadOnly, Converter={StaticResource InvertBoolToVis}}">
@@ -307,15 +307,15 @@
                             <Border
                                 Margin="0,0,0,8"
                                 Padding="12"
-                                Background="White"
-                                BorderBrush="#D0D0D0"
+                                Background="{ui:ThemeResource ControlFillColorDefaultBrush}"
+                                BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="4">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Style.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="#F8F8F8" />
+                                                <Setter Property="Background" Value="{ui:ThemeResource ControlFillColorSecondaryBrush}" />
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -339,26 +339,26 @@
                                             <TextBlock
                                                 FontSize="14"
                                                 FontWeight="SemiBold"
-                                                Foreground="#333333"
+                                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="模型: " />
                                             <TextBlock
                                                 FontSize="14"
-                                                Foreground="#555555"
+                                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{Binding ModelId, Mode=OneWay}" />
                                             <TextBlock
                                                 Margin="12,0,0,0"
                                                 FontSize="14"
-                                                Foreground="#999999"
+                                                Foreground="{ui:ThemeResource TextFillColorDisabledBrush}"
                                                 Text=" | " />
                                             <TextBlock
                                                 FontSize="14"
-                                                Foreground="#555555"
+                                                Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{Binding BaseUrl, Mode=OneWay}" />
                                             <TextBlock
                                                 Margin="12,0,0,0"
                                                 Cursor="Hand"
                                                 FontSize="14"
-                                                Foreground="#FF4444"
+                                                Foreground="{ui:ThemeResource AccentTextFillColorPrimaryBrush}"
                                                 Text="设为默认"
                                                 TextDecorations="Underline">
                                                 <TextBlock.Style>
@@ -474,8 +474,8 @@
             Grid.Row="2"
             Margin="0,12,0,0"
             Padding="8"
-            Background="#F0F0F0"
-            BorderBrush="#E0E0E0"
+            Background="{ui:ThemeResource ControlFillColorTertiaryBrush}"
+            BorderBrush="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
             BorderThickness="1"
             CornerRadius="4">
             <TextBlock Text="{Binding ViewModel.StatusMessage}" />
