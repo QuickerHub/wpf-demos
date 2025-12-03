@@ -35,6 +35,8 @@
 		</None>
 		<Content Include="app-icon.ico" />
 		<Resource Include="app-icon.png" />
+		<EmbeddedResource Include="Resources\CSharp-Dark.xshd" />
+		<EmbeddedResource Include="Resources\CSharp-Light.xshd" />
 	</ItemGroup>
 
 	<ItemGroup>

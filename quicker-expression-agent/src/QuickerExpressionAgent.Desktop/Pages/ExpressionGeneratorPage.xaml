@@ -394,7 +394,7 @@
                                                                 <Border Padding="12">
                                                                     <TextBlock
                                                                         FontSize="12"
-                                                                        Foreground="{Binding ForegroundBrush}"
+                                                                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
                                                                         Text="{Binding Content}"
                                                                         TextWrapping="Wrap" />
                                                                 </Border>

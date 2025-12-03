@@ -10,7 +10,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Theme/Dark.xaml" />
+                <!-- Theme resources will be loaded dynamically by ApplicationThemeManager -->
                 <ResourceDictionary Source="pack://application:,,,/Wpf.Ui;component/Resources/Wpf.Ui.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <!--  Color Resources - Using WPF UI built-in theme resources  -->
@@ -61,7 +61,7 @@
 
             <!--  Page Default Style  -->
             <Style TargetType="{x:Type Page}">
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
             </Style>
 
             <!--  MdXaml Markdown Style  -->
@@ -69,7 +69,7 @@
                 <!--  Font and size related styles  -->
                 <Setter Property="TextAlignment" Value="Left" />
                 <Setter Property="FontSize" Value="12" />
-                <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                <Setter Property="Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                 <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei, sans-serif" />
                 <Setter Property="PagePadding" Value="10" />
 
@@ -117,30 +117,30 @@
                     <!--  Headings and paragraphs  -->
                     <Style TargetType="{x:Type Paragraph}">
                         <Setter Property="Margin" Value="0,6" />
-                        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                        <Setter Property="Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                         <Style.Triggers>
                             <!--  Heading1  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading1">
                                 <Setter Property="Block.Margin" Value="0,10,0,0" />
-                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <Setter Property="TextElement.FontSize" Value="18" />
                                 <Setter Property="TextElement.FontWeight" Value="Light" />
                                 <Setter Property="TextAlignment" Value="Center" />
                             </Trigger>
                             <!--  Heading2  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading2">
-                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <Setter Property="TextElement.FontSize" Value="15" />
                             </Trigger>
                             <!--  Heading3  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading3">
-                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <Setter Property="TextElement.FontSize" Value="13" />
                             </Trigger>
                             <!--  Heading4  -->
                             <Trigger Property="FrameworkContentElement.Tag" Value="Heading4">
                                 <Setter Property="Block.Margin" Value="0,5,5,0" />
-                                <Setter Property="TextElement.Foreground" Value="{StaticResource PrimaryTextBrush}" />
+                                <Setter Property="TextElement.Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
                                 <Setter Property="TextElement.FontSize" Value="12" />
                             </Trigger>
                             <!--  CodeBlock  -->
@@ -168,7 +168,7 @@
                                 <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
                                 <Setter Property="TextElement.FontSize" Value="13" />
                                 <Setter Property="TextElement.Background" Value="{ui:ThemeResource ControlFillColorTertiaryBrush}" />
-                                <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                <Setter Property="TextElement.Foreground" Value="{ui:ThemeResource AccentTextFillColorPrimaryBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -176,13 +176,13 @@
                     <!--  Hyperlink style  -->
                     <Style TargetType="{x:Type Hyperlink}">
                         <Setter Property="Inline.TextDecorations" Value="None" />
-                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                        <Setter Property="Foreground" Value="{ui:ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{ui:ThemeResource AccentTextFillColorSecondaryBrush}" />
                             </Trigger>
                             <Trigger Property="IsMouseCaptured" Value="True">
-                                <Setter Property="Foreground" Value="Gray" />
+                                <Setter Property="Foreground" Value="{ui:ThemeResource TextFillColorDisabledBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>

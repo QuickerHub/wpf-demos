@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!--
+    C# Syntax Highlighting Definition - Dark Theme (VS Code Dark+)
+    Based on VS Code Dark+ theme color scheme
+    This file defines colors only, syntax rules are inherited from base C# definition
+-->
+<SyntaxDefinition name="C# Dark" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+    <!-- VS Code Dark+ Theme Colors -->
+    <Color name="Keyword" foreground="#569CD6" fontWeight="bold" />
+    <Color name="String" foreground="#CE9178" />
+    <Color name="Comment" foreground="#6A9955" />
+    <Color name="Number" foreground="#B5CEA8" />
+    <Color name="Type" foreground="#4EC9B0" />
+    <Color name="Method" foreground="#DCDCAA" />
+    <Color name="Property" foreground="#9CDCFE" />
+    <Color name="Preprocessor" foreground="#C586C0" />
+    <Color name="XmlAttribute" foreground="#92C5F7" />
+    <Color name="XmlAttributeValue" foreground="#CE9178" />
+    <Color name="XmlTag" foreground="#569CD6" />
+    <Color name="XmlComment" foreground="#6A9955" />
+    <Color name="XmlCData" foreground="#808080" />
+    <Color name="XmlEntity" foreground="#D7BA7D" />
+    <Color name="XmlText" foreground="#D4D4D4" />
+    <Color name="DefaultText" foreground="#D4D4D4" />
+    
+    <!-- Minimal RuleSet to make the file valid (rules are inherited from base C# definition) -->
+    <RuleSet>
+        <!-- Empty rule set - colors will be applied to base C# definition -->
+    </RuleSet>
+</SyntaxDefinition>
+

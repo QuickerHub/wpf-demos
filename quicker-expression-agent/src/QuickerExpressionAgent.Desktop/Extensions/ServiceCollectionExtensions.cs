@@ -43,6 +43,10 @@ public static class ServiceCollectionExtensions
         // ChatWindow service (manages ChatWindow instances)
         services.AddSingleton<ChatWindowService>();
 
+        // AvalonEdit theme service
+        services.AddSingleton<AvalonEditThemeService>();
+        services.AddHostedService(provider => provider.GetRequiredService<AvalonEditThemeService>());
+
         // Logging
         services.AddLogging(builder =>
         {

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using QuickerExpressionAgent.Desktop.Extensions;
 using QuickerExpressionAgent.Desktop.Services;
 using QuickerExpressionAgent.Desktop.ViewModels;
+using Wpf.Ui.Appearance;
 
 namespace QuickerExpressionAgent.Desktop
 {
@@ -20,6 +21,9 @@ namespace QuickerExpressionAgent.Desktop
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // Load theme resources based on system/app theme
+            LoadThemeResources();
 
             // Check for silent start argument
             _isSilentStart = e.Args.Length > 0 &&
@@ -77,6 +81,55 @@ namespace QuickerExpressionAgent.Desktop
                 _host.Dispose();
             }
             base.OnExit(e);
+        }
+
+        /// <summary>
+        /// Load theme resources based on current application theme
+        /// </summary>
+        private void LoadThemeResources()
+        {
+            // Subscribe to theme changes to update resources dynamically
+            ApplicationThemeManager.Changed += OnThemeChanged;
+
+            // Load initial theme
+            UpdateThemeResources();
+        }
+
+        /// <summary>
+        /// Update theme resources when theme changes
+        /// </summary>
+        private void OnThemeChanged(ApplicationTheme themeType, System.Windows.Media.Color systemAccent)
+        {
+            UpdateThemeResources();
+        }
+
+        /// <summary>
+        /// Update theme resource dictionary based on current theme
+        /// </summary>
+        private void UpdateThemeResources()
+        {
+            var themeType = ApplicationThemeManager.GetAppTheme();
+            var themeResourcePath = themeType == ApplicationTheme.Dark
+                ? "pack://application:,,,/Wpf.Ui;component/Resources/Theme/Dark.xaml"
+                : "pack://application:,,,/Wpf.Ui;component/Resources/Theme/Light.xaml";
+
+            // Find and replace the theme resource dictionary
+            var mergedDictionaries = Resources.MergedDictionaries;
+            for (int i = mergedDictionaries.Count - 1; i >= 0; i--)
+            {
+                var dict = mergedDictionaries[i];
+                if (dict.Source != null && dict.Source.ToString().Contains("/Theme/"))
+                {
+                    mergedDictionaries.RemoveAt(i);
+                }
+            }
+
+            // Add the appropriate theme resource dictionary
+            var themeDict = new ResourceDictionary
+            {
+                Source = new Uri(themeResourcePath, UriKind.Absolute)
+            };
+            mergedDictionaries.Insert(0, themeDict);
         }
     }
 }
