@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using QuickerExpressionAgent.Common;
 using QuickerExpressionAgent.Desktop.Extensions;
 using QuickerExpressionAgent.Desktop.ViewModels;
@@ -19,13 +20,19 @@ public class DesktopServiceImplementation : IDesktopService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ChatWindowService _chatWindowService;
+    private readonly QuickerServerClientConnector _quickerConnector;
+    private readonly ILogger<DesktopServiceImplementation> _logger;
 
     public DesktopServiceImplementation(
         IServiceProvider serviceProvider,
-        ChatWindowService chatWindowService)
+        ChatWindowService chatWindowService,
+        QuickerServerClientConnector quickerConnector,
+        ILogger<DesktopServiceImplementation> logger)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _chatWindowService = chatWindowService ?? throw new ArgumentNullException(nameof(chatWindowService));
+        _quickerConnector = quickerConnector ?? throw new ArgumentNullException(nameof(quickerConnector));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
 
@@ -35,50 +42,68 @@ public class DesktopServiceImplementation : IDesktopService
         {
             try
             {
-                ChatWindow? chatWindow;
-
+                // Directly open CodeEditorWindow instead of ChatWindow to avoid opening two windows
                 if (windowHandle.HasValue && windowHandle.Value != 0)
                 {
-                    // Get or create ChatWindow for this specific CodeEditorWindow
-                    chatWindow = _chatWindowService.GetOrCreateChatWindow(windowHandle.Value);
-                    if (chatWindow == null)
-                    {
-                        return false;
-                    }
-
-                    // Show and activate the chat window
-                    chatWindow.ShowAndActivate();
-
+                    // Activate the specified CodeEditorWindow by window handle
                     var targetWindowHandle = new IntPtr(windowHandle.Value);
                     
                     // Check if window handle is valid
                     if (WindowHelper.IsWindow(targetWindowHandle))
                     {
-                        // Try to get handler ID from window handle to prevent auto-creation
-                        // This will set CodeEditorHandlerId if the window is a CodeEditor
-                        await chatWindow.ViewModel.SetCodeEditorHandlerIdFromWindowHandleAsync(windowHandle.Value);
-
-                        // Use ChatWindow's built-in attachment method
-                        chatWindow.AttachToWindow(targetWindowHandle, bringToForeground: true);
+                        // Bring the CodeEditorWindow to foreground
+                        WindowHelper.BringWindowToForeground(targetWindowHandle);
+                        _logger.LogDebug("Activated CodeEditorWindow with handle: {Handle}", windowHandle.Value);
+                        return true;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Invalid window handle: {Handle}", windowHandle.Value);
+                        return false;
                     }
                 }
                 else
                 {
-                    // No specific window handle, get or create standalone ChatWindow
-                    chatWindow = _chatWindowService.GetOrCreateStandaloneChatWindow();
-                    if (chatWindow == null)
+                    // No specific window handle, get or create CodeEditorWindow
+                    // Wait for connection if not connected
+                    if (!_quickerConnector.IsConnected)
                     {
+                        var connected = await _quickerConnector.WaitConnectAsync(TimeSpan.FromSeconds(5));
+                        if (!connected)
+                        {
+                            _logger.LogWarning("Quicker service not connected, cannot open CodeEditorWindow");
+                            return false;
+                        }
+                    }
+
+                    // Get or create CodeEditorWindow
+                    var handlerId = await _quickerConnector.ServiceClient.GetOrCreateCodeEditorAsync();
+                    if (string.IsNullOrEmpty(handlerId) || handlerId == "standalone")
+                    {
+                        _logger.LogWarning("Failed to get or create CodeEditorWindow");
                         return false;
                     }
 
-                    // Show and activate the chat window
-                    chatWindow.ShowAndActivate();
-                }
+                    // Get window handle for this handler and bring it to foreground
+                    var codeEditorWindowHandle = await _quickerConnector.ServiceClient.GetWindowHandleAsync(handlerId);
+                    if (codeEditorWindowHandle != 0)
+                    {
+                        var targetWindowHandle = new IntPtr(codeEditorWindowHandle);
+                        if (WindowHelper.IsWindow(targetWindowHandle))
+                        {
+                            WindowHelper.BringWindowToForeground(targetWindowHandle);
+                            _logger.LogDebug("Opened and activated CodeEditorWindow with handle: {Handle}", codeEditorWindowHandle);
+                            return true;
+                        }
+                    }
 
-                return true;
+                    _logger.LogWarning("Failed to get window handle for CodeEditorWindow handler: {HandlerId}", handlerId);
+                    return false;
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Error opening CodeEditorWindow");
                 return false;
             }
         });

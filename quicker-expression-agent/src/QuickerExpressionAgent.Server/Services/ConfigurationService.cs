@@ -61,22 +61,13 @@ public class ConfigurationService : IConfigurationService
         var apiKey = EmbeddedConfig.ApiKey;
         
         // Fixed string IDs for built-in configs to ensure consistency
-        const string DefaultConfigId = "default-glm-4.6";
         const string Glm45ConfigId = "default-glm-4.5";
+        const string Glm45AirConfigId = "default-glm-4.5-air";
+        const string DefaultConfigId = "default-glm-4.6";
         const string GlmBaseUrl = "https://open.bigmodel.cn/api/paas/v4";
         
-        // Default config (GLM-4.6)
-        var defaultConfig = new ModelApiConfig(DefaultConfigId)
-        {
-            ApiKey = apiKey,
-            BaseUrl = GlmBaseUrl,
-            ModelId = "glm-4.6",
-            Title = "default:glm-4.6",
-            IsReadOnly = true
-        };
-        
         // GLM-4.5 config
-        var glmConfig = new ModelApiConfig(Glm45ConfigId)
+        var glm45Config = new ModelApiConfig(Glm45ConfigId)
         {
             ApiKey = apiKey,
             ModelId = "glm-4.5",
@@ -85,7 +76,28 @@ public class ConfigurationService : IConfigurationService
             IsReadOnly = true
         };
         
-        return new List<ModelApiConfig> { defaultConfig, glmConfig }.AsReadOnly();
+        // GLM-4.5-Air config
+        var glm45AirConfig = new ModelApiConfig(Glm45AirConfigId)
+        {
+            ApiKey = apiKey,
+            ModelId = "glm-4.5-air",
+            BaseUrl = GlmBaseUrl,
+            Title = "default:glm-4.5-air",
+            IsReadOnly = true
+        };
+        
+        // GLM-4.6 config
+        var glm46Config = new ModelApiConfig(DefaultConfigId)
+        {
+            ApiKey = apiKey,
+            BaseUrl = GlmBaseUrl,
+            ModelId = "glm-4.6",
+            Title = "default:glm-4.6",
+            IsReadOnly = true
+        };
+        
+        // Return in order: glm-4.5, glm-4.5-air, glm-4.6
+        return new List<ModelApiConfig> { glm45Config, glm45AirConfig, glm46Config }.AsReadOnly();
     }
 }
 

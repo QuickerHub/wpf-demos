@@ -13,13 +13,14 @@ using WindowAttach.Extensions;
 using WindowAttach.Models;
 using WindowAttach.Services;
 using WindowAttach.Utils;
+using Wpf.Ui.Controls;
 
 namespace QuickerExpressionAgent.Desktop
 {
     /// <summary>
     /// Interaction logic for ChatWindow.xaml
     /// </summary>
-    public partial class ChatWindow : Window
+    public partial class ChatWindow : FluentWindow
     {
         public ChatWindowViewModel ViewModel { get; }
         private readonly WindowAttachService _windowAttachService;

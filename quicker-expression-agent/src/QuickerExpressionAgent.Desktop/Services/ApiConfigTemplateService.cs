@@ -55,6 +55,30 @@ public class ApiConfigTemplateService
             },
             new ApiConfigTemplate
             {
+                Name = "智谱 AI (GLM-4.5)",
+                Description = "智谱 AI GLM-4.5 API (支持 Function Calling)",
+                Config = new ModelApiConfig
+                {
+                    ApiKey = string.Empty,
+                    ModelId = "glm-4.5",
+                    BaseUrl = "https://open.bigmodel.cn/api/paas/v4",
+                    Title = "glm-4.5"
+                }
+            },
+            new ApiConfigTemplate
+            {
+                Name = "智谱 AI (GLM-4.5-Air)",
+                Description = "智谱 AI GLM-4.5-Air API (支持 Function Calling)",
+                Config = new ModelApiConfig
+                {
+                    ApiKey = string.Empty,
+                    ModelId = "glm-4.5-air",
+                    BaseUrl = "https://open.bigmodel.cn/api/paas/v4",
+                    Title = "glm-4.5-air"
+                }
+            },
+            new ApiConfigTemplate
+            {
                 Name = "智谱 AI (GLM-4.6)",
                 Description = "智谱 AI GLM-4.6 API (支持 Function Calling)",
                 Config = new ModelApiConfig
