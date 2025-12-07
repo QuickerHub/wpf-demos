@@ -32,6 +32,11 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         [ObservableProperty]
         private string _tokenUsageText = "Token: 0";
 
+        // Accumulated token usage counters
+        private int _accumulatedInputTokens = 0;
+        private int _accumulatedOutputTokens = 0;
+        private int _accumulatedTotalTokens = 0;
+
         /// <summary>
         /// CodeEditor handler ID (for window attachment)
         /// </summary>
@@ -347,6 +352,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
         /// <summary>
         /// Update token usage display based on current chat history
+        /// If accumulated token counts are available, use them; otherwise use estimated counts
         /// </summary>
         protected override void UpdateTokenUsage()
         {
@@ -359,9 +365,19 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     return;
                 }
 
-                int tokenCount = agent.EstimateTokenCount(_chatHistory);
                 int messageCount = agent.GetChatHistoryCount(_chatHistory);
-                TokenUsageText = $"Token: {tokenCount:N0} | Messages: {messageCount}";
+                
+                // If we have accumulated token counts from API calls, use them
+                if (_accumulatedTotalTokens > 0)
+                {
+                    TokenUsageText = $"Token: {_accumulatedTotalTokens:N0} (In: {_accumulatedInputTokens:N0}, Out: {_accumulatedOutputTokens:N0}) | Messages: {messageCount}";
+                }
+                else
+                {
+                    // Otherwise, use estimated token count from chat history
+                    int tokenCount = agent.EstimateTokenCount(_chatHistory);
+                    TokenUsageText = $"Token: {tokenCount:N0} | Messages: {messageCount}";
+                }
             }
             catch
             {
@@ -372,13 +388,19 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
         /// <summary>
         /// Update token usage display from TokenUsageStreamItem (actual API usage)
+        /// Accumulates token counts across multiple API calls
         /// </summary>
         protected override void UpdateTokenUsageFromStreamItem(TokenUsageStreamItem tokenUsageItem)
         {
             try
             {
+                // Accumulate token counts
+                _accumulatedInputTokens += tokenUsageItem.InputTokenCount;
+                _accumulatedOutputTokens += tokenUsageItem.OutputTokenCount;
+                _accumulatedTotalTokens += tokenUsageItem.TotalTokenCount;
+
                 int messageCount = _agentViewModel.Agent?.GetChatHistoryCount(_chatHistory) ?? 0;
-                TokenUsageText = $"Token: {tokenUsageItem.TotalTokenCount:N0} (In: {tokenUsageItem.InputTokenCount:N0}, Out: {tokenUsageItem.OutputTokenCount:N0}) | Messages: {messageCount}";
+                TokenUsageText = $"Token: {_accumulatedTotalTokens:N0} (In: {_accumulatedInputTokens:N0}, Out: {_accumulatedOutputTokens:N0}) | Messages: {messageCount}";
             }
             catch
             {

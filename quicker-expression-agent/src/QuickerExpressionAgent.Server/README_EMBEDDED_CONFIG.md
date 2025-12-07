@@ -11,11 +11,14 @@
 在项目根目录（`src/QuickerExpressionAgent.Server/`）创建 `.env` 文件：
 
 ```
-# OpenAI Configuration
-OPENAI_API_KEY=your-actual-api-key-here
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL_ID=deepseek-chat
+# DeepSeek API Key (also supports OPENAI_API_KEY for backward compatibility)
+DEEPSEEK_API_KEY=your-deepseek-api-key-here
+
+# GLM (Zhipu) API Key
+GLM_API_KEY=your-glm-api-key-here
 ```
+
+**注意**：生成器只管理 API key。BaseUrl 和 ModelId 在 `ConfigurationService.cs` 中硬编码，不需要在 `.env` 文件中配置。
 
 ### 2. 确保文件被忽略
 
@@ -34,25 +37,30 @@ OPENAI_MODEL_ID=deepseek-chat
 
 ## 工作原理
 
-1. **编译时生成**：MSBuild 在编译前执行 `GenerateEmbeddedConfig` 任务
-2. **读取配置**：从 `.env` 文件读取配置值（支持 `KEY=VALUE` 格式）
-3. **生成代码**：生成 `EmbeddedConfig.cs` 静态类，包含配置值
+1. **编译时生成**：Source Generator 在编译时读取 `.env` 文件
+2. **读取 API Key**：从 `.env` 文件读取 API key（支持 `KEY=VALUE` 格式）
+3. **生成代码**：生成 `EmbeddedConfig.generated.cs` 静态类，只包含 API key
 4. **编译到 exe**：生成的代码会被编译到 exe 中
-5. **运行时读取**：`ConfigurationService` 优先使用 `EmbeddedConfig` 中的值
+5. **运行时读取**：`ConfigurationService` 优先使用 `EmbeddedConfig` 中的 API key，BaseUrl 和 ModelId 在代码中硬编码
 
 ## .env 文件格式
 
-支持以下格式：
-- `OPENAI_API_KEY=your-key`
-- `OPENAI_BASE_URL=https://api.deepseek.com`
-- `OPENAI_MODEL_ID=deepseek-chat`
+生成器只管理 API key，BaseUrl 和 ModelId 在 `ConfigurationService.cs` 中硬编码。
 
-也支持带引号的值：
-- `OPENAI_API_KEY="your-key"`
-- `OPENAI_API_KEY='your-key'`
+### API Keys（可选，至少配置一个）
+- `DEEPSEEK_API_KEY=your-key` - DeepSeek API Key（用于 DeepSeek 模型）
+- `GLM_API_KEY=your-key` - GLM (Zhipu) API Key（用于 GLM 模型）
+- `OPENAI_API_KEY=your-key` - 向后兼容，等同于 DEEPSEEK_API_KEY
+- `ZHIPU_API_KEY=your-key` - GLM API Key 的别名
 
-支持注释（以 `#` 开头）：
-- `# This is a comment`
+### 其他格式支持
+- 支持带引号的值：`DEEPSEEK_API_KEY="your-key"` 或 `DEEPSEEK_API_KEY='your-key'`
+- 支持注释（以 `#` 开头）：`# This is a comment`
+
+### BaseUrl 和 ModelId
+- BaseUrl 和 ModelId 在 `ConfigurationService.cs` 中硬编码，不需要在 `.env` 文件中配置
+- GLM 模型的 BaseUrl 固定为 `https://open.bigmodel.cn/api/paas/v4`
+- 其他模型的 BaseUrl 在 `GetConfig()` 方法中定义
 
 ## 优先级
 
@@ -60,6 +68,19 @@ OPENAI_MODEL_ID=deepseek-chat
 1. `EmbeddedConfig`（编译时生成的代码）
 2. `appsettings.json`（文件系统，开发时使用）
 3. 环境变量
+
+## 多 API Key 支持
+
+现在支持在 `.env` 文件中配置多个 API Key：
+
+- **DEEPSEEK_API_KEY**: 用于 DeepSeek 模型
+- **GLM_API_KEY**: 用于 GLM (Zhipu) 模型（glm-4.5, glm-4.5-air, glm-4.6）
+
+在 `GetBuiltInConfigs()` 方法中：
+- GLM 模型配置会自动使用 `GLM_API_KEY`
+- 其他模型配置使用 `DEEPSEEK_API_KEY`（或 `OPENAI_API_KEY`）
+
+如果某个 API Key 未配置，对应的配置将使用空字符串，运行时可能会失败。建议至少配置一个 API Key。
 
 ## 注意事项
 
