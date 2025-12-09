@@ -545,19 +545,15 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
-                                <ui:TextBox
-                                    x:Name="ChatInputTextBox"
+                                <controls:CodeTextControl
+                                    x:Name="ChatInputCodeTextControl"
                                     Grid.Column="0"
                                     MinHeight="40"
                                     MaxHeight="100"
                                     Margin="0,0,10,0"
-                                    Padding="10,8"
-                                    behaviors:EnterCommandBehavior.EnterCommand="{Binding ViewModel.GenerateCommand}"
-                                    AcceptsReturn="True"
-                                    FontSize="14"
-                                    Text="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
-                                    TextWrapping="Wrap"
-                                    VerticalScrollBarVisibility="Auto" />
+                                    CodeText="{Binding ViewModel.ChatInputText, UpdateSourceTrigger=PropertyChanged}"
+                                    CompletionItems="{Binding ViewModel.CompletionItems}"
+                                    EnterCommand="{Binding ViewModel.GenerateCommand}" />
 
                                 <ui:Button
                                     Grid.Column="1"

@@ -36,6 +36,12 @@ public abstract partial class ChatBoxViewModel : ObservableObject
     [ObservableProperty]
     public partial string ChatInputText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Completion items for code text control (variable names for {variable} completion)
+    /// </summary>
+    [ObservableProperty]
+    public partial IEnumerable<string> CompletionItems { get; set; } = Array.Empty<string>();
+
     // Subscription for scroll-to-bottom signal using DynamicData
     protected IDisposable? _scrollThrottleSubscription;
 

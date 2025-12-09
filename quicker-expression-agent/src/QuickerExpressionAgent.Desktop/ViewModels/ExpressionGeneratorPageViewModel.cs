@@ -70,8 +70,27 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 .Throttle(TimeSpan.FromMilliseconds(500))
                 .Subscribe(_ => ExecuteExpressionInternalAsync().ConfigureAwait(false));
 
+            // Update completion items when variable list changes
+            VariableList.CollectionChanged += (s, e) => UpdateCompletionItems();
+            // Also monitor variable name changes
+            VariableList
+                .ToObservableChangeSet()
+                .MergeMany(variable => variable.WhenPropertyChanged(v => v.VarName, notifyOnInitialValue: false))
+                .Subscribe(_ => UpdateCompletionItems());
+
+            // Initialize completion items
+            UpdateCompletionItems();
+
             // Initialize chat with welcome message
             AddChatMessage(ChatMessageType.Assistant, "Agent 已就绪，等待您的指令...");
+        }
+
+        /// <summary>
+        /// Update completion items from variable list
+        /// </summary>
+        private void UpdateCompletionItems()
+        {
+            CompletionItems = VariableList.Select(v => v.VarName).ToList();
         }
 
         protected override async Task GenerateInternalAsync(string text)
