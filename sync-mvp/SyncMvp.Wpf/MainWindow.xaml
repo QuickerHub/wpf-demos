@@ -1,0 +1,106 @@
+<Window x:Class="SyncMvp.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SyncMvp.Wpf"
+        mc:Ignorable="d"
+        Title="Sync MVP - List Editor" Height="600" Width="800">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+    </Window.Resources>
+    
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" 
+                   Text="Common Items List" 
+                   FontSize="24" 
+                   FontWeight="Bold" 
+                   Margin="0,0,0,16"/>
+
+        <!-- Add New Item -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" 
+                     Text="{Binding NewItemText, UpdateSourceTrigger=PropertyChanged}"
+                     Padding="8"
+                     FontSize="14"
+                     VerticalContentAlignment="Center">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding AddItemCommand}"/>
+                </TextBox.InputBindings>
+            </TextBox>
+            <Button Grid.Column="1" 
+                    Content="Add" 
+                    Command="{Binding AddItemCommand}"
+                    Padding="16,8"
+                    Margin="8,0,0,0"/>
+        </Grid>
+
+        <!-- Items List -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8"
+                                     FontSize="14"
+                                     VerticalContentAlignment="Center"
+                                     Background="White"
+                                     BorderBrush="LightGray"
+                                     BorderThickness="1"/>
+                            <Button Grid.Column="1"
+                                    Content="Delete"
+                                    Padding="12,8"
+                                    Margin="8,0,0,0"
+                                    Background="#FFE81123"
+                                    Foreground="White"
+                                    BorderThickness="0">
+                                <Button.Command>
+                                    <Binding Path="DataContext.DeleteItemCommand" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                </Button.Command>
+                                <Button.CommandParameter>
+                                    <Binding/>
+                                </Button.CommandParameter>
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Status Bar -->
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" 
+                       Text="{Binding StatusMessage}" 
+                       VerticalAlignment="Center"
+                       Foreground="Gray"/>
+            <Button Grid.Column="1"
+                    Content="Sync Now"
+                    Command="{Binding SyncCommand}"
+                    IsEnabled="{Binding IsSyncing, Converter={StaticResource InverseBooleanConverter}}"
+                    Padding="16,8"/>
+        </Grid>
+    </Grid>
+</Window>
