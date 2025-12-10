@@ -1,0 +1,16 @@
+#EXTM3U
+#EXT-X-VERSION:3
+#EXTINF:-1,Artist Name - Song Title 1
+D:\oldmusic\song1.mp3
+#EXTINF:180,Artist Name - Song Title 2
+D:\oldmusic\song2.mp3
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=128000
+#EXTINF:200,Artist Name - Song Title 3
+D:\oldmusic\song3.wav
+#EXTINF:-1 tvg-id="123" tvg-name="Channel Name",Channel Description
+D:\oldmusic\song4.mp3
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXTINF:240,Artist Name - Song Title 5
+D:\oldmusic\song5.flac
+#EXT-X-ENDLIST
+D:\oldmusic\song6.mp3

@@ -1,0 +1,29 @@
+# BuildTools 简化配置文件
+# 将此文件放在你的项目根目录，然后运行 BuildTools.exe 即可自动构建
+
+# 基本项目信息
+name: action-path-convert
+displayName: ActionPathConvert
+versionKey: ActionPathConvert          # 对应 version.json 中的键名
+subprogramName: ActionPathConvert
+# 项目路径（可选，默认为当前目录）
+projectDir: src/ActionPathConvert
+
+# 发布相关配置
+uploadDir: cea.action-path-convert
+packageName: cea.action-path-convert
+instruction: Action Path Convert - 路径转换工具
+
+# 文件处理配置
+filesToInclude:                    # 要包含的文件（支持通配符，如果指定则只包含匹配的文件）
+  - "ActionPathConvert*.dll"
+filesToExclude:                    # 要排除的文件（支持通配符）
+  - "*.pdb"
+  - "*.xml"
+
+# 混淆配置（可选）
+obfuscate: true                    # 是否启用混淆
+toConfuse:                         # 要混淆的文件列表（当 obfuscate: true 时）
+  - "ActionPathConvert.{version}.dll"
+
+
