@@ -67,6 +67,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock
@@ -78,12 +79,18 @@
                         Grid.Column="1"
                         Margin="0,0,8,0"
                         Text="{Binding ViewModel.AudioExtensions, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock
+                    <Button
                         Grid.Column="2"
+                        Margin="0,0,8,0"
+                        Padding="8,4"
+                        Command="{Binding ViewModel.ResetAudioExtensionsCommand}"
+                        Content="恢复默认" />
+                    <TextBlock
+                        Grid.Column="3"
                         Margin="0,0,8,0"
                         VerticalAlignment="Center"
                         Text="优先扩展名：" />
-                    <TextBox Grid.Column="3" Text="{Binding ViewModel.PreferredExtension, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox Grid.Column="4" Text="{Binding ViewModel.PreferredExtension, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
             </StackPanel>
         </GroupBox>
@@ -204,24 +211,30 @@
                         SelectionMode="Single">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel>
+                                <StackPanel MaxHeight="100">
                                     <!--  M3U File Path  -->
                                     <TextBlock
                                         FontWeight="Bold"
                                         Foreground="{DynamicResource PrimaryTextBrush}"
                                         Text="{Binding DisplayName}"
+                                        TextTrimming="CharacterEllipsis"
                                         ToolTip="{Binding M3uFilePath}" />
                                     <!--  Not Found Files  -->
-                                    <ItemsControl Margin="16,4,0,0" ItemsSource="{Binding NotFoundFiles}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}">
-                                                    <Run Text="  • " />
-                                                    <Run Text="{Binding Path=.}" />
-                                                </TextBlock>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    <ScrollViewer
+                                        Margin="16,4,0,0"
+                                        MaxHeight="60"
+                                        VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding NotFoundFiles}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}">
+                                                        <Run Text="  • " />
+                                                        <Run Text="{Binding Path=.}" />
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

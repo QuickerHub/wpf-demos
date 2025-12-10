@@ -57,9 +57,10 @@ namespace ActionPathConvert
 
             if (testDir != null && Directory.Exists(testDir))
             {
-                // Load input.m3u8 and input1.m3u8 files
+                // Load input.m3u8, input1.m3u8, and input.dpl files
                 var inputM3u8 = Path.Combine(testDir, "input.m3u8");
                 var input1M3u8 = Path.Combine(testDir, "input1.m3u8");
+                var inputDpl = Path.Combine(testDir, "input.dpl");
 
                 if (File.Exists(inputM3u8))
                 {
@@ -73,6 +74,15 @@ namespace ActionPathConvert
                 if (File.Exists(input1M3u8))
                 {
                     var fullPath = Path.GetFullPath(input1M3u8);
+                    if (!_viewModel.InputFiles.Contains(fullPath))
+                    {
+                        _viewModel.InputFiles.Add(fullPath);
+                    }
+                }
+
+                if (File.Exists(inputDpl))
+                {
+                    var fullPath = Path.GetFullPath(inputDpl);
                     if (!_viewModel.InputFiles.Contains(fullPath))
                     {
                         _viewModel.InputFiles.Add(fullPath);

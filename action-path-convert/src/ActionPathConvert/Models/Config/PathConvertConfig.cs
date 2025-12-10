@@ -11,7 +11,7 @@ namespace ActionPathConvert.Models.Config
         private string _searchDirectory = "";
 
         [ObservableProperty]
-        private string _audioExtensions = "*.mp3,*.flac,*.mp4";
+        private string _audioExtensions = "*.mp3,*.flac,*.mp4,*.wav,*.m4a,*.aac,*.ogg,*.wma";
 
         [ObservableProperty]
         private string _preferredExtension = ".mp3";
