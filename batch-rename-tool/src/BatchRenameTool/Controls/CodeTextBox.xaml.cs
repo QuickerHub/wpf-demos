@@ -1,8 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.CodeCompletion;
@@ -13,16 +12,17 @@ using DependencyPropertyGenerator;
 namespace BatchRenameTool.Controls;
 
 /// <summary>
-/// Custom TextBox control based on AvalonEdit with variable completion support
-/// Shows completion window when typing '{' character
+/// Generic completion-enabled TextBox control based on AvalonEdit
+/// All completion logic is handled by ICompletionService
 /// </summary>
-[DependencyProperty<string>("CodeText", DefaultValue = "")]
-[DependencyProperty<IEnumerable<string>>("CompletionItems")]
+[DependencyProperty<string>("CodeText", DefaultValue = "", DefaultBindingMode = DefaultBindingMode.TwoWay)]
+[DependencyProperty<ICompletionService>("CompletionService")]
 public partial class CodeTextBox : UserControl
 {
     private CompletionWindow? _completionWindow;
     private bool _isUpdatingFromCodeText;
     private bool _isUpdatingFromEditor;
+    private CompletionContext? _currentCompletionContext;
 
     public CodeTextBox()
     {
@@ -69,9 +69,9 @@ public partial class CodeTextBox : UserControl
         }
     }
 
-    partial void OnCompletionItemsChanged(IEnumerable<string>? oldValue, IEnumerable<string>? newValue)
+    partial void OnCompletionServiceChanged(ICompletionService? oldValue, ICompletionService? newValue)
     {
-        // Completion items changed, close any existing completion window
+        // Completion service changed, close any existing completion window
         CloseCompletionWindow();
     }
 
@@ -97,12 +97,39 @@ public partial class CodeTextBox : UserControl
         if (_isUpdatingFromCodeText)
             return;
 
+        // Update completion window if it's open
+        if (_completionWindow != null && _currentCompletionContext != null && CompletionService != null)
+        {
+            var doc = TextEditor.Document;
+            var offset = TextEditor.TextArea.Caret.Offset;
+            
+            // Ask service to update the completion context
+            var updatedContext = CompletionService.UpdateCompletionContext(_currentCompletionContext, doc.Text, offset);
+            
+            if (updatedContext == null)
+            {
+                CloseCompletionWindow();
+            }
+            else
+            {
+                UpdateCompletionWindow(updatedContext);
+                _currentCompletionContext = updatedContext;
+            }
+        }
+
+        // Check if completion window should be closed
+        CheckAndCloseCompletionWindow();
+
         _isUpdatingFromEditor = true;
         try
         {
             if (CodeText != TextEditor.Text)
             {
                 CodeText = TextEditor.Text;
+                
+                // Explicitly update binding source to ensure ViewModel is notified
+                var bindingExpression = GetBindingExpression(CodeTextProperty);
+                bindingExpression?.UpdateSource();
             }
         }
         finally
@@ -113,77 +140,183 @@ public partial class CodeTextBox : UserControl
 
     private void TextArea_TextEntering(object? sender, TextCompositionEventArgs e)
     {
-        // Close completion window when user types a character that would close it
-        if (e.Text.Length > 0 && _completionWindow != null)
+        // Don't close completion window when typing inside braces
+        if (e.Text.Length > 0 && _completionWindow != null && CompletionService != null)
         {
-            if (!char.IsLetterOrDigit(e.Text[0]) && e.Text[0] != '_')
+            var doc = TextEditor.Document;
+            var offset = TextEditor.TextArea.Caret.Offset;
+            
+            // Check if cursor is inside braces
+            var bracePosition = CompletionService.IsInsideBraces(doc.Text, offset);
+            if (bracePosition >= 0)
             {
-                // If user types a non-letter/digit character (except _), close completion
-                // But allow '{' to trigger completion
-                if (e.Text[0] != '{')
-                {
-                    CloseCompletionWindow();
-                }
+                // Inside braces, don't close completion window
+                return;
+            }
+            
+            // Outside braces, check if character should close completion
+            var ch = e.Text[0];
+            // Allow letters, digits, underscore, and trigger characters
+            if (!char.IsLetterOrDigit(ch) && ch != '_' && ch != '{' && ch != '.' && ch != ':')
+            {
+                CloseCompletionWindow();
             }
         }
     }
 
     private void TextArea_TextEntered(object? sender, TextCompositionEventArgs e)
     {
-        // Show completion window when user types '{'
-        if (e.Text == "{")
+        if (CompletionService == null || e.Text.Length == 0)
+            return;
+
+        var doc = TextEditor.Document;
+        var offset = TextEditor.TextArea.Caret.Offset;
+        var triggerChar = e.Text[0];
+        
+        // Check if this is a completion trigger character, or if cursor is inside braces
+        if (triggerChar == '{' || triggerChar == '.' || triggerChar == ':')
         {
-            ShowCompletion();
+            // Ask service for completion context - service decides what type of completion to show
+            var context = CompletionService.GetCompletionContext(doc.Text, offset, triggerChar);
+            
+            if (context != null && context.Items.Count > 0)
+            {
+                ShowCompletion(context);
+            }
+        }
+        else
+        {
+            // Check if cursor is inside braces - if so, trigger variable completion
+            var bracePosition = CompletionService.IsInsideBraces(doc.Text, offset);
+            if (bracePosition >= 0)
+            {
+                // Inside braces, trigger variable completion
+                var context = CompletionService.GetCompletionContext(doc.Text, offset, triggerChar);
+                
+                if (context != null && context.Items.Count > 0)
+                {
+                    ShowCompletion(context);
+                }
+            }
         }
     }
 
-    private void ShowCompletion()
+    private void ShowCompletion(CompletionContext context)
     {
-        // Close existing completion window if any
         CloseCompletionWindow();
 
-        // Get completion items
-        var items = CompletionItems?.ToList() ?? new List<string>();
-        if (items.Count == 0)
-        {
+        if (context.Items.Count == 0)
             return;
-        }
 
-        // Get current cursor position
         var textArea = TextEditor.TextArea;
-        var caret = textArea.Caret;
-        var offset = caret.Offset;
-        
-        // Check if there's a '{' character before cursor
-        if (offset == 0 || TextEditor.Document.GetCharAt(offset - 1) != '{')
-        {
-            return;
-        }
+        _currentCompletionContext = context;
 
         // Create completion window
         _completionWindow = new CompletionWindow(textArea);
         
-        // Set start offset to the position of '{'
-        _completionWindow.StartOffset = offset - 1;
-        
-        // Add completion items
-        var completionData = items.Select(item => new CompletionData
-        {
-            Text = item,
-            Content = $"{{{item}}}",
-            Description = GetVariableDescription(item),
-            StartOffset = offset - 1 // Store the start offset for replacement
-        }).ToList();
+        // Use StartOffset provided by service (service decides based on completion type)
+        _completionWindow.StartOffset = context.FilterStartOffset;
 
-        // Add items one by one (IList doesn't have AddRange)
-        foreach (var item in completionData)
+        // Create completion data items based on type provided by service
+        foreach (var item in context.Items)
         {
-            _completionWindow.CompletionList.CompletionData.Add(item);
+            var completionData = CreateCompletionData(context, item);
+            if (completionData != null)
+            {
+                _completionWindow.CompletionList.CompletionData.Add(completionData);
+            }
         }
 
         // Show completion window
         _completionWindow.Show();
-        _completionWindow.Closed += (s, e) => _completionWindow = null;
+
+        // Select first item automatically
+        if (_completionWindow.CompletionList.CompletionData.Count > 0)
+        {
+            _completionWindow.CompletionList.SelectedItem = _completionWindow.CompletionList.CompletionData[0];
+        }
+
+        _completionWindow.Closed += (s, e) =>
+        {
+            _completionWindow = null;
+            _currentCompletionContext = null;
+        };
+    }
+
+    private void UpdateCompletionWindow(CompletionContext context)
+    {
+        if (_completionWindow == null)
+            return;
+
+        var completionList = _completionWindow.CompletionList;
+        
+        // Update StartOffset if service changed it
+        if (_completionWindow.StartOffset != context.FilterStartOffset)
+        {
+            _completionWindow.StartOffset = context.FilterStartOffset;
+        }
+
+        // Clear and rebuild completion list based on context provided by service
+        completionList.CompletionData.Clear();
+        
+        foreach (var item in context.Items)
+        {
+            var completionData = CreateCompletionData(context, item);
+            if (completionData != null)
+            {
+                completionList.CompletionData.Add(completionData);
+            }
+        }
+
+        // Select first item if available
+        if (completionList.CompletionData.Count > 0)
+        {
+            completionList.SelectedItem = completionList.CompletionData[0];
+        }
+    }
+
+    private ICompletionData? CreateCompletionData(CompletionContext context, CompletionItem item)
+    {
+        // Use unified CompletionData class for all completion types
+        // All completion logic (replacement text, cursor position) is determined by the service
+        return new CompletionData
+        {
+            Text = item.Text,
+            Content = item.DisplayText,
+            Description = item.Description,
+            ReplacementText = item.ReplacementText ?? item.DisplayText ?? item.Text,
+            CursorOffset = item.CursorOffset,
+            ReplaceStartOffset = context.ReplaceStartOffset,
+            ReplaceEndOffset = context.ReplaceEndOffset
+        };
+    }
+
+    private void CheckAndCloseCompletionWindow()
+    {
+        if (_completionWindow == null || _currentCompletionContext == null || CompletionService == null)
+            return;
+
+        try
+        {
+            var doc = TextEditor.Document;
+            var offset = TextEditor.TextArea.Caret.Offset;
+
+            // Check if cursor is still inside braces (service decides)
+            var bracePosition = CompletionService.IsInsideBraces(doc.Text, offset);
+            if (bracePosition < 0)
+            {
+                // Cursor moved outside braces, close completion window
+                CloseCompletionWindow();
+                return;
+            }
+
+            // Cursor is still inside braces, keep completion window open
+            // UpdateCompletionContext will handle filtering
+        }
+        catch
+        {
+            CloseCompletionWindow();
+        }
     }
 
     private void CloseCompletionWindow()
@@ -192,46 +325,12 @@ public partial class CodeTextBox : UserControl
         {
             _completionWindow.Close();
             _completionWindow = null;
+            _currentCompletionContext = null;
         }
-    }
-
-    private string GetVariableDescription(string variable)
-    {
-        return variable switch
-        {
-            "name" => "原文件名（不含扩展名）",
-            "ext" => "文件扩展名（不含点号）",
-            "fullname" => "完整文件名（包含扩展名）",
-            _ => $"变量：{variable}"
-        };
     }
 
     /// <summary>
     /// Gets the underlying TextEditor instance for advanced operations
     /// </summary>
     public TextEditor Editor => TextEditor;
-}
-
-/// <summary>
-/// Completion data for variable completion
-/// </summary>
-internal class CompletionData : ICompletionData
-{
-    public string Text { get; set; } = string.Empty;
-    public object Content { get; set; } = string.Empty;
-    public object Description { get; set; } = string.Empty;
-    public int StartOffset { get; set; }
-    public double Priority => 0;
-    public System.Windows.Media.ImageSource? Image => null;
-
-    public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
-    {
-        // Replace the '{' character and insert the completion text (with braces)
-        // completionSegment should start at the '{' character position
-        var replacement = $"{{{Text}}}";
-        textArea.Document.Replace(completionSegment, replacement);
-        
-        // Move cursor after the inserted text
-        textArea.Caret.Offset = completionSegment.Offset + replacement.Length;
-    }
 }

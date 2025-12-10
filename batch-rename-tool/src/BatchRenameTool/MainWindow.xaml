@@ -280,7 +280,7 @@
                 <Button
                     Margin="8,0,0,0"
                     Padding="10,5"
-                    Command="{Binding ViewModel.ClearItemsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    Command="{Binding ViewModel.ClearItemsCommand}"
                     Content="清空列表" />
             </StackPanel>
 
@@ -300,13 +300,13 @@
                     x:Name="RenamePatternTextBox"
                     Grid.Column="1"
                     Margin="0,0,8,0"
-                    CodeText="{Binding ViewModel.RenamePattern, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-                    CompletionItems="{Binding ViewModel.CompletionItems, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CodeText="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
+                    CompletionService="{Binding ViewModel.CompletionService}"
                     ToolTip="重命名模式，使用 {name} 表示原文件名（不含扩展名），{ext} 表示扩展名，{fullname} 表示完整文件名。留空则添加 New_ 前缀。输入 { 可查看可用变量。" />
                 <Button
                     Grid.Column="2"
                     Padding="15,5"
-                    Command="{Binding ViewModel.ExecuteRenameCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    Command="{Binding ViewModel.ExecuteRenameCommand}"
                     Content="执行重命名"
                     FontWeight="Bold" />
             </Grid>
@@ -316,7 +316,7 @@
         <GroupBox Grid.Row="2" Header="文件列表" Background="White">
             <ListView
                 x:Name="FileListView"
-                ItemsSource="{Binding ViewModel.Items, RelativeSource={RelativeSource AncestorType=Window}}"
+                ItemsSource="{Binding ViewModel.Items}"
                 SelectionMode="Extended"
                 BorderThickness="0"
                 Background="White">
@@ -371,6 +371,6 @@
             Grid.Row="3"
             Margin="0,16,0,0"
             Foreground="Gray"
-            Text="{Binding ViewModel.Items.Count, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='共 {0} 个文件'}" />
+            Text="{Binding ViewModel.Items.Count, StringFormat='共 {0} 个文件'}" />
     </Grid>
 </Window>

@@ -1,7 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using BatchRenameTool.Controls;
+using BatchRenameTool.Services;
+using BatchRenameTool.Template.Evaluator;
+using BatchRenameTool.Template.Parser;
 using BatchRenameTool.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +18,9 @@ namespace BatchRenameTool.ViewModels
     /// </summary>
     public partial class BatchRenameViewModel : ObservableObject
     {
+        private readonly TemplateParser _parser;
+        private readonly TemplateEvaluator _evaluator;
+
         [ObservableProperty]
         public partial ObservableCollection<FileRenameItem> Items { get; set; } = new();
 
@@ -20,9 +28,18 @@ namespace BatchRenameTool.ViewModels
         public partial string RenamePattern { get; set; } = "";
 
         /// <summary>
-        /// Available completion items for variable completion
+        /// Completion service for variable and method completion
         /// </summary>
-        public IEnumerable<string> CompletionItems { get; } = new[] { "name", "ext", "fullname" };
+        public ICompletionService CompletionService { get; } = new TemplateCompletionService();
+
+        /// <summary>
+        /// Constructor with dependency injection
+        /// </summary>
+        public BatchRenameViewModel(TemplateParser parser)
+        {
+            _parser = parser;
+            _evaluator = new TemplateEvaluator();
+        }
 
         /// <summary>
         /// Add files to rename list
@@ -77,46 +94,90 @@ namespace BatchRenameTool.ViewModels
         }
 
         /// <summary>
-        /// Update preview of renamed files
+        /// Update preview of renamed files based on template pattern
+        /// Supports advanced template features: variables, formatting, method calls, slicing
         /// </summary>
         private void UpdateRenamePreview()
         {
+            if (Items.Count == 0)
+                return;
+
             if (string.IsNullOrWhiteSpace(RenamePattern))
             {
-                // Default: add prefix
-                foreach (var item in Items)
+                // Default: add prefix with extension preserved
+                for (int i = 0; i < Items.Count; i++)
                 {
+                    var item = Items[i];
                     var extension = Path.GetExtension(item.OriginalName);
                     var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
                     item.NewName = $"New_{nameWithoutExt}{extension}";
                 }
+                return;
             }
-            else
+
+            try
             {
-                // Apply rename pattern
-                // For now, simple replacement: {name} will be replaced with original name
-                foreach (var item in Items)
+                // Parse template string into AST
+                var templateNode = _parser.Parse(RenamePattern);
+
+                // Apply template to each file item
+                for (int i = 0; i < Items.Count; i++)
                 {
+                    var item = Items[i];
                     var extension = Path.GetExtension(item.OriginalName);
                     var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
-                    var newName = RenamePattern
-                        .Replace("{name}", nameWithoutExt)
-                        .Replace("{ext}", extension.TrimStart('.'))
-                        .Replace("{fullname}", item.OriginalName);
 
-                    // Ensure extension is preserved if not in pattern
-                    if (!newName.Contains(".") && !string.IsNullOrEmpty(extension))
+                    // Create evaluation context for this file
+                    var context = new EvaluationContext
                     {
-                        newName += extension;
+                        Name = nameWithoutExt,
+                        Ext = extension.TrimStart('.'), // Remove leading dot
+                        FullName = item.OriginalName,
+                        Index = i // Index starts from 0
+                    };
+
+                    // Evaluate template with context
+                    var newName = _evaluator.Evaluate(templateNode, context);
+
+                    // Auto-add extension if template doesn't include it
+                    // Check if the result contains a dot (likely extension) or if template explicitly includes {ext}
+                    if (!string.IsNullOrEmpty(extension) && !newName.Contains("."))
+                    {
+                        // Check if template contains {ext} variable
+                        bool templateHasExt = RenamePattern.Contains("{ext}", StringComparison.OrdinalIgnoreCase);
+                        
+                        // If template doesn't explicitly use {ext}, auto-add extension
+                        if (!templateHasExt)
+                        {
+                            newName += extension;
+                        }
                     }
 
                     item.NewName = newName;
                 }
             }
+            catch (ParseException ex)
+            {
+                // On parse error, show error message in preview for all items
+                var errorMessage = $"解析错误: {ex.Message}";
+                foreach (var item in Items)
+                {
+                    item.NewName = $"[{errorMessage}]";
+                }
+            }
+            catch (Exception ex)
+            {
+                // On other errors (evaluation errors, etc.), show generic error
+                var errorMessage = $"执行错误: {ex.Message}";
+                foreach (var item in Items)
+                {
+                    item.NewName = $"[{errorMessage}]";
+                }
+            }
         }
 
         /// <summary>
-        /// Execute rename operation
+        /// Execute rename operation using BatchRenameExecutor
         /// </summary>
         [RelayCommand]
         private void ExecuteRename()
@@ -124,36 +185,33 @@ namespace BatchRenameTool.ViewModels
             if (Items.Count == 0)
                 return;
 
-            var renamedItems = new System.Collections.Generic.List<FileRenameItem>();
+            var executor = new BatchRenameExecutor();
+            var operations = Items.Select(item =>
+            {
+                var directory = Path.GetDirectoryName(item.FullPath) ?? string.Empty;
+                return new BatchRenameExecutor.RenameOperation
+                {
+                    OriginalPath = item.FullPath,
+                    OriginalName = item.OriginalName,
+                    NewName = item.NewName,
+                    Directory = directory
+                };
+            }).ToList();
 
+            var result = executor.Execute(operations);
+
+            // Update items after rename
             foreach (var item in Items.ToList())
             {
-                try
+                var directory = Path.GetDirectoryName(item.FullPath);
+                if (directory == null)
+                    continue;
+
+                var newFullPath = Path.Combine(directory, item.NewName);
+                if (File.Exists(newFullPath))
                 {
-                    var directory = Path.GetDirectoryName(item.FullPath);
-                    if (directory == null)
-                        continue;
-
-                    var newFullPath = Path.Combine(directory, item.NewName);
-                    
-                    // Skip if new name is same as original
-                    if (newFullPath == item.FullPath)
-                        continue;
-
-                    if (File.Exists(newFullPath))
-                    {
-                        // File already exists, skip
-                        continue;
-                    }
-
-                    File.Move(item.FullPath, newFullPath);
                     item.FullPath = newFullPath;
                     item.OriginalName = item.NewName;
-                    renamedItems.Add(item);
-                }
-                catch
-                {
-                    // Handle error (could add error logging here)
                 }
             }
 

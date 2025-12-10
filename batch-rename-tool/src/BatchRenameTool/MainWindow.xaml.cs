@@ -16,7 +16,8 @@ namespace BatchRenameTool
         public MainWindow()
         {
             InitializeComponent();
-            _viewModel = new BatchRenameViewModel();
+            // Get ViewModel from DI container
+            _viewModel = App.GetService<BatchRenameViewModel>();
             DataContext = this;
             
             // Set equal column widths for GridView
@@ -30,6 +31,15 @@ namespace BatchRenameTool
             
             // Update column widths when ListView size changes
             FileListView.SizeChanged += (s, args) => UpdateColumnWidths();
+
+#if DEBUG
+            // Auto-load test folder in debug mode
+            const string debugFolder = @"C:\Users\ldy\Desktop\cmm";
+            if (Directory.Exists(debugFolder))
+            {
+                _viewModel.AddFilesCommand.Execute(debugFolder);
+            }
+#endif
         }
 
         private void UpdateColumnWidths()
