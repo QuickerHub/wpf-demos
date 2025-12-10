@@ -102,6 +102,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     // Clear CodeEditor handler ID on disconnect
                     CodeEditorHandlerId = null;
                     IsCodeEditorConnected = false; // Update code editor connection status
+                    CompletionItems = Array.Empty<string>(); // Clear completion items
                     StatusText = "未连接到 Quicker 服务";
                     AddChatMessage(ChatMessageType.Assistant, "✗ 与 Quicker 服务断开连接");
                 }
@@ -348,6 +349,12 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
 
             // Call base implementation to handle actual generation
             await base.GenerateInternalAsync(text);
+            
+            // Update completion items after generation (variables may have changed)
+            if (_quickerToolHandler != null)
+            {
+                await UpdateCompletionItemsFromCodeEditorAsync();
+            }
         }
 
         /// <summary>
@@ -437,6 +444,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
             UpdateTokenUsage();
         }
 
+
         /// <summary>
         /// Get CodeEditor window handle by handler ID
         /// </summary>
@@ -501,6 +509,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                     StatusText = "已连接到 Code Editor";
                 });
 
+                // Update completion items from code editor variables
+                await UpdateCompletionItemsFromCodeEditorAsync();
+
                 return true;
             }
             catch
@@ -519,6 +530,9 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 // Create handler using handlerId
                 _quickerToolHandler = new QuickerCodeEditorToolHandler(handlerId, _connector);
                 _agentViewModel.SetToolHandler(_quickerToolHandler);
+
+                // Update completion items from code editor variables
+                await UpdateCompletionItemsFromCodeEditorAsync();
 
                 RunOnUIThread(() =>
                 {
@@ -631,6 +645,39 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
         }
 
         /// <summary>
+        /// Update completion items from code editor variables
+        /// </summary>
+        private async Task UpdateCompletionItemsFromCodeEditorAsync()
+        {
+            try
+            {
+                if (_quickerToolHandler != null)
+                {
+                    var variables = _quickerToolHandler.GetAllVariables();
+                    RunOnUIThread(() =>
+                    {
+                        CompletionItems = variables.Select(v => v.VarName).ToList();
+                    });
+                }
+                else
+                {
+                    RunOnUIThread(() =>
+                    {
+                        CompletionItems = Array.Empty<string>();
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating completion items from code editor");
+                RunOnUIThread(() =>
+                {
+                    CompletionItems = Array.Empty<string>();
+                });
+            }
+        }
+
+        /// <summary>
         /// Handle code editor window closed event
         /// </summary>
         private void HandleCodeEditorWindowClosed()
@@ -641,6 +688,7 @@ namespace QuickerExpressionAgent.Desktop.ViewModels
                 CodeEditorHandlerId = null;
                 _quickerToolHandler = null;
                 _agentViewModel.SetToolHandler(_defaultToolHandler);
+                CompletionItems = Array.Empty<string>(); // Clear completion items
                 StatusText = "Code Editor 窗口已关闭";
                 AddChatMessage(ChatMessageType.Assistant, "✗ Code Editor 窗口已关闭");
             });

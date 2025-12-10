@@ -17,7 +17,7 @@ namespace QuickerExpressionAgent.Desktop.Controls;
 /// Custom TextBox control based on AvalonEdit with variable completion support
 /// Shows completion window when typing '{' character
 /// </summary>
-[DependencyProperty<string>("CodeText", DefaultValue = "")]
+[DependencyProperty<string>("CodeText", DefaultValue = "", DefaultBindingMode = DefaultBindingMode.TwoWay)]
 [DependencyProperty<IEnumerable<string>>("CompletionItems")]
 [DependencyProperty<ICommand>("EnterCommand")]
 public partial class CodeTextControl : UserControl
@@ -41,7 +41,8 @@ public partial class CodeTextControl : UserControl
         TextEditor.TextArea.TextEntered += TextArea_TextEntered;
         
         // Handle key down for Enter command
-        TextEditor.PreviewKeyDown += TextEditor_PreviewKeyDown;
+        // Use TextArea.PreviewKeyDown to handle before CompletionWindow processes the key
+        TextEditor.TextArea.PreviewKeyDown += TextArea_PreviewKeyDown;
         
         // Handle loaded event to set initial text
         Loaded += CodeTextControl_Loaded;
@@ -105,9 +106,16 @@ public partial class CodeTextControl : UserControl
         _isUpdatingFromEditor = true;
         try
         {
-            if (CodeText != TextEditor.Text)
+            var newText = TextEditor.Text;
+            if (CodeText != newText)
             {
-                CodeText = TextEditor.Text;
+                CodeText = newText;
+                // Explicitly update binding source to ensure ViewModel is notified immediately
+                var bindingExpression = GetBindingExpression(CodeTextProperty);
+                if (bindingExpression != null)
+                {
+                    bindingExpression.UpdateSource();
+                }
             }
         }
         finally
@@ -142,22 +150,22 @@ public partial class CodeTextControl : UserControl
         }
     }
 
-    private void TextEditor_PreviewKeyDown(object? sender, KeyEventArgs e)
+    private void TextArea_PreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        // If completion window is open, let it handle Enter key first
-        // CompletionWindow will handle Enter to select completion item
-        if (_completionWindow != null && e.Key == Key.Enter)
-        {
-            // Don't handle - let CompletionWindow process Enter key for completion selection
-            return;
-        }
-
         // Handle Enter key for command execution (similar to EnterCommandBehavior)
         // Shift+Enter: allow default behavior (new line)
         // Enter without Shift: execute command if text is not empty
         if (e.Key == Key.Enter && EnterCommand != null && 
             Keyboard.Modifiers != ModifierKeys.Shift)
         {
+            // If completion window is open, don't handle - let CompletionWindow process Enter key
+            // CompletionWindow will handle Enter to select completion item and close itself
+            if (_completionWindow != null)
+            {
+                // Don't handle - let CompletionWindow process Enter key for completion selection
+                return;
+            }
+
             // Check if text is empty - if empty, allow default newline behavior
             if (string.IsNullOrWhiteSpace(CodeText))
             {
@@ -220,7 +228,11 @@ public partial class CodeTextControl : UserControl
 
         // Show completion window
         _completionWindow.Show();
-        _completionWindow.Closed += (s, e) => _completionWindow = null;
+        _completionWindow.Closed += (s, e) =>
+        {
+            // Window is closing, set to null
+            _completionWindow = null;
+        };
 
         // Select first item by default
         if (completionData.Count > 0)
