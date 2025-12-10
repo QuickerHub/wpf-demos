@@ -17,7 +17,7 @@ namespace ActionPathConvert.Models.Config
         private string _preferredExtension = ".mp3";
 
         [ObservableProperty]
-        private bool _useRelativePath = false;
+        private bool _useRelativePath = true;
     }
 }
 

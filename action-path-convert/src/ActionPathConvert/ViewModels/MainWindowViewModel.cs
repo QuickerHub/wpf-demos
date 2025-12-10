@@ -112,7 +112,7 @@ namespace ActionPathConvert.ViewModels
         public partial string PreferredExtension { get; set; } = ".mp3";
 
         [ObservableProperty]
-        public partial bool UseRelativePath { get; set; } = false;
+        public partial bool UseRelativePath { get; set; } = true;
 
         [ObservableProperty]
         public partial ObservableCollection<string> OutputFiles { get; set; } = new ObservableCollection<string>();

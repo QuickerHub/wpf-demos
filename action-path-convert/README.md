@@ -169,6 +169,35 @@ var notFoundFiles = result.NotFoundFiles;  // 未找到的文件
    - 支持复制结果到剪贴板
    - 支持保存为播放列表文件
 
+## 状态存储
+
+应用程序的配置状态通过 `ConfigService` 自动保存到 Quicker 的状态存储中：
+
+### 存储位置
+
+- **存储方式**：使用 Quicker 的 `ActionStateWriter` 进行状态持久化
+- **存储 ID**：`ActionPathConvert.ConfigService`（ConfigService 的完整类型名）
+- **存储键**：配置类的类名（如 `PathConvertConfig`）
+- **存储格式**：JSON 格式
+
+### 自动保存
+
+配置会在以下情况自动保存：
+- 当配置属性发生变化时（通过 `PropertyChanged` 事件监听）
+- 支持自动保存，无需手动调用保存方法
+
+### 存储的配置项
+
+当前存储的配置包括：
+- `SearchDirectory` - 目标搜索目录
+- `AudioExtensions` - 音频文件扩展名
+- `PreferredExtension` - 优先扩展名
+- `UseRelativePath` - 是否使用相对路径
+
+### 状态文件位置
+
+状态文件存储在 Quicker 的状态目录中，具体位置由 Quicker 管理。可以通过 `ActionStateWriter` 的 `DeleteStateFile` 方法删除状态文件。
+
 ## 构建
 
 运行构建脚本：
@@ -182,6 +211,7 @@ var notFoundFiles = result.NotFoundFiles;  // 未找到的文件
 - .NET Framework 4.7.2
 - WPF
 - CommunityToolkit.Mvvm 8.4.0
+- Quicker.Public / Quicker.Common - Quicker 集成
 
 ## 参考
 

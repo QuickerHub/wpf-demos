@@ -47,6 +47,7 @@
                         Text="目标目录：" />
                     <TextBox
                         Margin="0,0,8,0"
+                        MinWidth="300"
                         VerticalAlignment="Center"
                         Text="{Binding ViewModel.SearchDirectory, UpdateSourceTrigger=PropertyChanged}" />
                     <Button
