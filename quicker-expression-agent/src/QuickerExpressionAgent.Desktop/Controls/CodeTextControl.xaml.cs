@@ -4,12 +4,14 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using DependencyPropertyGenerator;
 using CommunityToolkit.Mvvm.Input;
+using Wpf.Ui.Appearance;
 
 namespace QuickerExpressionAgent.Desktop.Controls;
 
@@ -44,8 +46,36 @@ public partial class CodeTextControl : UserControl
         // Use TextArea.PreviewKeyDown to handle before CompletionWindow processes the key
         TextEditor.TextArea.PreviewKeyDown += TextArea_PreviewKeyDown;
         
-        // Handle loaded event to set initial text
+        // Handle loaded event to set initial text and apply theme
         Loaded += CodeTextControl_Loaded;
+        
+        // Handle unloaded event to unsubscribe from theme changes
+        Unloaded += CodeTextControl_Unloaded;
+        
+        // Listen for theme changes
+        ApplicationThemeManager.Changed += ApplicationThemeManager_Changed;
+        
+        // Apply initial theme
+        ApplyTheme();
+    }
+    
+    private void ApplicationThemeManager_Changed(ApplicationTheme currentTheme, Color systemAccent)
+    {
+        ApplyTheme();
+    }
+    
+    private void ApplyTheme()
+    {
+        if (TextEditor == null)
+            return;
+            
+        var foregroundBrush = Application.Current.TryFindResource("TextFillColorPrimaryBrush") as SolidColorBrush;
+        
+        if (foregroundBrush != null)
+        {
+            // Set TextEditor foreground color to match theme
+            TextEditor.Foreground = foregroundBrush;
+        }
     }
 
     partial void OnCodeTextChanged(string? oldValue, string newValue)
@@ -96,6 +126,9 @@ public partial class CodeTextControl : UserControl
                 _isUpdatingFromCodeText = false;
             }
         }
+        
+        // Apply theme after loaded
+        ApplyTheme();
     }
 
     private void TextEditor_TextChanged(object? sender, EventArgs e)
@@ -260,6 +293,12 @@ public partial class CodeTextControl : UserControl
     /// Gets the underlying TextEditor instance for advanced operations
     /// </summary>
     public TextEditor Editor => TextEditor;
+    
+    private void CodeTextControl_Unloaded(object sender, RoutedEventArgs e)
+    {
+        // Unsubscribe from theme changes to prevent memory leaks
+        ApplicationThemeManager.Changed -= ApplicationThemeManager_Changed;
+    }
 }
 
 /// <summary>
