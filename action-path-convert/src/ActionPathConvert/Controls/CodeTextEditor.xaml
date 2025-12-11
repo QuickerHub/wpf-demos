@@ -1,0 +1,27 @@
+<UserControl
+    x:Class="ActionPathConvert.Controls.CodeTextEditor"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="Root"
+    mc:Ignorable="d">
+    <Border
+        Background="{DynamicResource RegionBrush}"
+        BorderBrush="{DynamicResource BorderBrush}"
+        BorderThickness="1">
+        <avalonedit:TextEditor
+            x:Name="TextEditor"
+            Padding="2"
+            Background="{DynamicResource RegionBrush}"
+            BorderThickness="0"
+            FontFamily="Consolas"
+            FontSize="12"
+            Foreground="{DynamicResource PrimaryTextBrush}"
+            IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            ShowLineNumbers="True"
+            WordWrap="False" />
+    </Border>
+</UserControl>
+

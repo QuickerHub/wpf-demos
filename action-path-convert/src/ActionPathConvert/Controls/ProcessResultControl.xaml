@@ -2,7 +2,6 @@
     x:Class="ActionPathConvert.Controls.ProcessResultControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
     xmlns:controls="clr-namespace:ActionPathConvert.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -42,17 +41,11 @@
                     Margin="8,4"
                     Foreground="{DynamicResource PrimaryTextBrush}"
                     Text="不存在的文件" />
-                <avalonedit:TextEditor
+                <controls:CodeTextEditor
                     x:Name="NotFoundFilesEditor"
                     Grid.Row="1"
-                    Background="{DynamicResource RegionBrush}"
-                    BorderThickness="0"
-                    FontFamily="Consolas"
-                    FontSize="12"
-                    Foreground="{DynamicResource PrimaryTextBrush}"
-                    IsReadOnly="True"
-                    ShowLineNumbers="True"
-                    WordWrap="False" />
+                    CodeText="{Binding ProcessResult.NotFoundFilesText, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"
+                    IsReadOnly="True" />
             </Grid>
         </Border>
     </Grid>

@@ -160,7 +160,32 @@
 
             <!--  Right: Preview  -->
             <GroupBox Grid.Column="2" Header="预览">
-                <controls:PathPreviewControl AfterText="{Binding ViewModel.ProcessedFileContent}" BeforeText="{Binding ViewModel.SelectedFileContent}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="5" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Left: File Editor (Editable)  -->
+                    <controls:FileEditorControl
+                        Grid.Column="0"
+                        x:Name="PreviewFileEditor"
+                        FilePath="{Binding ViewModel.SelectedFilePath, UpdateSourceTrigger=PropertyChanged}"
+                        AutoSave="False" />
+
+                    <!--  Splitter  -->
+                    <GridSplitter
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        Background="{DynamicResource BorderBrush}" />
+
+                    <!--  Right: Processed Content (Read-only)  -->
+                    <controls:CodeTextEditor
+                        Grid.Column="2"
+                        CodeText="{Binding ViewModel.ProcessedFileContent, Mode=OneWay}"
+                        IsReadOnly="True" />
+                </Grid>
             </GroupBox>
         </Grid>
 

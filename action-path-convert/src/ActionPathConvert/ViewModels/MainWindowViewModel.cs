@@ -132,6 +132,9 @@ namespace ActionPathConvert.ViewModels
         public partial string SelectedFileContent { get; set; } = "";
 
         [ObservableProperty]
+        public partial string SelectedFilePath { get; set; } = "";
+
+        [ObservableProperty]
         public partial string ProcessedFileContent { get; set; } = "";
 
         [ObservableProperty]
@@ -608,6 +611,7 @@ namespace ActionPathConvert.ViewModels
         {
             if (selectedItem is string filePath && File.Exists(filePath))
             {
+                SelectedFilePath = filePath;
                 SelectedFileContent = PlaylistFileHelper.ReadPlaylistFile(filePath);
                 UpdatePreview();
             }
@@ -616,9 +620,37 @@ namespace ActionPathConvert.ViewModels
         /// <summary>
         /// Update preview content based on current selection and configuration
         /// </summary>
-        private void UpdatePreview()
+        public void UpdatePreview()
         {
-            if (string.IsNullOrEmpty(SelectedFileContent))
+            // Use SelectedFilePath if available, otherwise try to find from SelectedFileContent
+            string? currentInputFile = SelectedFilePath;
+            
+            if (string.IsNullOrEmpty(currentInputFile) || !File.Exists(currentInputFile))
+            {
+                // Fallback: try to find file by content comparison
+                foreach (var inputFile in InputFiles)
+                {
+                    if (File.Exists(inputFile))
+                    {
+                        var content = PlaylistFileHelper.ReadPlaylistFile(inputFile);
+                        if (content == SelectedFileContent)
+                        {
+                            currentInputFile = inputFile;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(currentInputFile) || !File.Exists(currentInputFile))
+            {
+                ProcessedFileContent = "";
+                return;
+            }
+
+            // Read current content from file (in case it was edited)
+            var fileContent = PlaylistFileHelper.ReadPlaylistFile(currentInputFile);
+            if (string.IsNullOrEmpty(fileContent))
             {
                 ProcessedFileContent = "";
                 return;
@@ -632,26 +664,8 @@ namespace ActionPathConvert.ViewModels
 
             try
             {
-                // Extract paths from selected file content
-                // We need to find which input file is currently selected
-                string? currentInputFile = null;
-                foreach (var inputFile in InputFiles)
-                {
-                    if (File.Exists(inputFile))
-                    {
-                        var content = PlaylistFileHelper.ReadPlaylistFile(inputFile);
-                        if (content == SelectedFileContent)
-                        {
-                            currentInputFile = inputFile;
-                            break;
-                        }
-                    }
-                }
-
-                if (currentInputFile == null)
-                    return;
-
-                var inputPaths = PlaylistFileHelper.ExtractFilePaths(SelectedFileContent, currentInputFile);
+                // Extract paths from file content
+                var inputPaths = PlaylistFileHelper.ExtractFilePaths(fileContent, currentInputFile);
 
                 if (inputPaths.Count == 0)
                 {

@@ -37,6 +37,11 @@ namespace ActionPathConvert.Controls
         private bool _isLoading = false;
         private string _lastSavedContent = string.Empty;
 
+        /// <summary>
+        /// Event raised when file is saved
+        /// </summary>
+        public event EventHandler? FileSaved;
+
         public FileEditorControl()
         {
             InitializeComponent();
@@ -171,6 +176,9 @@ namespace ActionPathConvert.Controls
                 File.WriteAllText(FilePath, content, System.Text.Encoding.UTF8);
                 _lastSavedContent = content;
                 IsModified = false;
+                
+                // Raise file saved event
+                FileSaved?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {

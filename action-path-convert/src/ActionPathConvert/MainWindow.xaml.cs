@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using ActionPathConvert.Services;
 using ActionPathConvert.ViewModels;
 
 namespace ActionPathConvert
@@ -27,6 +28,26 @@ namespace ActionPathConvert
             
             // Auto-load test files in debug mode
             Loaded += MainWindow_Loaded;
+            
+            // Subscribe to file editor save event
+            Loaded += MainWindow_Loaded_FileEditor;
+        }
+
+        private void MainWindow_Loaded_FileEditor(object sender, RoutedEventArgs e)
+        {
+            // Subscribe to file editor's FileSaved event
+            if (PreviewFileEditor != null)
+            {
+                PreviewFileEditor.FileSaved += (s, args) =>
+                {
+                    // Update preview after file is saved
+                    if (!string.IsNullOrEmpty(_viewModel.SelectedFilePath))
+                    {
+                        _viewModel.SelectedFileContent = Services.PlaylistFileHelper.ReadPlaylistFile(_viewModel.SelectedFilePath);
+                        _viewModel.UpdatePreview();
+                    }
+                };
+            }
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)

@@ -266,48 +266,72 @@ namespace ActionPathConvert
             if (validFiles.Count == 0)
             {
                 MessageHelper.ShowWarning("没有找到有效的文件路径（已过滤掉文件夹）");
+                // Open main window when no valid files found
+                if (Application.Current != null)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        ShowMainWindow();
+                    });
+                }
                 return null;
             }
 
             // Use filtered file list
             filePaths = validFiles;
 
-            // If target directory is not provided, show dialog
+            // Load config to check if target directory is already set
+            var configService = new ConfigService();
+            var config = configService.GetConfig<PathConvertConfig>();
+
+            // If target directory is not provided, check config or show dialog
             if (string.IsNullOrWhiteSpace(targetDirectory))
             {
-                string? selectedDirectory = null;
-
-                if (Application.Current != null)
+                // If config has target directory, use it and show info message
+                if (!string.IsNullOrWhiteSpace(config.SearchDirectory) && Directory.Exists(config.SearchDirectory))
                 {
-                    // Load config to get default directory
-                    var configService = new ConfigService();
-                    var config = configService.GetConfig<PathConvertConfig>();
-                    var defaultDirectory = config.SearchDirectory;
+                    targetDirectory = config.SearchDirectory;
+                    MessageHelper.ShowInformation($"使用目标文件夹: {targetDirectory}");
+                }
+                else
+                {
+                    // Config doesn't have target directory, show dialog
+                    string? selectedDirectory = null;
 
-                    // Show dialog on UI thread
-                    Application.Current.Dispatcher.Invoke(() =>
+                    if (Application.Current != null)
                     {
-                        var dialog = new Windows.TargetDirectoryDialog(defaultDirectory);
-                        if (dialog.ShowDialog() == true)
+                        var defaultDirectory = config.SearchDirectory;
+
+                        // Show dialog on UI thread
+                        Application.Current.Dispatcher.Invoke(() =>
                         {
-                            selectedDirectory = dialog.TargetDirectory;
-                            
-                            // Update config with selected directory
-                            if (!string.IsNullOrEmpty(selectedDirectory))
+                            var dialog = new Windows.TargetDirectoryDialog(defaultDirectory);
+                            if (dialog.ShowDialog() == true)
                             {
-                                config.SearchDirectory = selectedDirectory;
+                                selectedDirectory = dialog.TargetDirectory;
+                                
+                                // Update config with selected directory
+                                if (!string.IsNullOrEmpty(selectedDirectory))
+                                {
+                                    config.SearchDirectory = selectedDirectory;
+                                }
                             }
-                        }
-                    });
-                }
+                        });
+                    }
 
-                // User cancelled the dialog
-                if (string.IsNullOrWhiteSpace(selectedDirectory))
-                {
-                    return null;
-                }
+                    // User cancelled the dialog
+                    if (string.IsNullOrWhiteSpace(selectedDirectory))
+                    {
+                        return null;
+                    }
 
-                targetDirectory = selectedDirectory;
+                    targetDirectory = selectedDirectory;
+                }
+            }
+            else
+            {
+                // Target directory was provided as parameter, show info message
+                MessageHelper.ShowInformation($"使用目标文件夹: {targetDirectory}");
             }
 
             // Process files with the target directory

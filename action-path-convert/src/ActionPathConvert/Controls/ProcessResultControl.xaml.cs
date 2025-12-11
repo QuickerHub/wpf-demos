@@ -61,10 +61,7 @@ namespace ActionPathConvert.Controls
             {
                 FileEditor.FilePath = ProcessResult.M3uFilePath ?? "";
             }
-            else if (e.PropertyName == nameof(ProcessResultViewModel.NotFoundFilesText))
-            {
-                NotFoundFilesEditor.Text = ProcessResult.NotFoundFilesText ?? "";
-            }
+            // NotFoundFilesText is now bound directly in XAML, no need to update manually
         }
 
         private void UpdateContent()
@@ -73,15 +70,12 @@ namespace ActionPathConvert.Controls
             {
                 // FileEditor will handle empty path automatically
                 FileEditor.FilePath = "";
-                NotFoundFilesEditor.Text = "";
                 return;
             }
 
             // Update FileEditor's FilePath
             FileEditor.FilePath = ProcessResult.M3uFilePath ?? "";
-
-            // Update not found files text
-            NotFoundFilesEditor.Text = ProcessResult.NotFoundFilesText ?? "";
+            // NotFoundFilesText is now bound directly in XAML
         }
     }
 }
