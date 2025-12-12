@@ -119,7 +119,6 @@ namespace BatchRenameTool.Template
                     {
                         new FormatOption { Text = "yyyy-MM-dd", Description = "日期格式：2024-01-01" },
                         new FormatOption { Text = "yyyy年MM月dd日", Description = "日期格式：2024年01月01日" },
-                        new FormatOption { Text = "yyyy/MM/dd", Description = "日期格式：2024/01/01" },
                         new FormatOption { Text = "yyyyMMdd", Description = "日期格式：20240101" },
                         new FormatOption { Text = "MM-dd", Description = "日期格式：01-01" },
                         new FormatOption { Text = "MM月dd日", Description = "日期格式：01月01日" }

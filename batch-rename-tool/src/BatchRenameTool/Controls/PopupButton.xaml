@@ -1,0 +1,42 @@
+<UserControl
+    x:Class="BatchRenameTool.Controls.PopupButton"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:BatchRenameTool.Controls">
+    <Grid>
+        <Button
+            x:Name="PART_Button"
+            Padding="{Binding ButtonPadding, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            Click="Button_Click"
+            Content="{Binding Header, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            Focusable="False"
+            KeyboardNavigation.IsTabStop="False" />
+        <Popup
+            x:Name="PART_Popup"
+            AllowsTransparency="True"
+            Placement="Bottom"
+            PlacementTarget="{Binding ElementName=PART_Button}"
+            PopupAnimation="Fade"
+            StaysOpen="False">
+            <Border
+                MinWidth="{Binding PopupMinWidth, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                MinHeight="{Binding PopupMinHeight, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                MaxWidth="500"
+                MaxHeight="400"
+                Padding="0"
+                Background="{DynamicResource DefaultWindowBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4">
+                <Border.Effect>
+                    <DropShadowEffect
+                        BlurRadius="10"
+                        Opacity="0.3"
+                        ShadowDepth="3"
+                        Color="Black" />
+                </Border.Effect>
+                <ContentPresenter Content="{Binding PopupContent, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

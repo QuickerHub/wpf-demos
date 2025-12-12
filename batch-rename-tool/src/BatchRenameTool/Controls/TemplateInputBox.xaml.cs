@@ -443,6 +443,16 @@ public partial class TemplateInputBox : UserControl
             // Move cursor after inserted text
             TextEditor.CaretOffset = caretOffset + text.Length;
             
+            // Update Text property to trigger binding
+            if (Text != doc.Text)
+            {
+                Text = doc.Text;
+                
+                // Explicitly update binding source
+                var bindingExpression = GetBindingExpression(TextProperty);
+                bindingExpression?.UpdateSource();
+            }
+            
             // Focus the editor
             TextEditor.Focus();
         }

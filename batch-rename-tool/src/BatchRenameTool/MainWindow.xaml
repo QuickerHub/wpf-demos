@@ -110,11 +110,12 @@
                     VerticalAlignment="Center"
                     Text="重命名模式：" />
                 <Grid Grid.Column="1" Margin="0,0,8,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
                     <Button
                         x:Name="AddPrefixButton"
                         Grid.Column="0"
@@ -131,9 +132,20 @@
                         Click="AddSuffixButton_Click"
                         Content="加后缀"
                         ToolTip="在文件名后添加后缀" />
+                    <controls:PopupButton
+                        x:Name="HistoryPopupButton"
+                        Grid.Column="2"
+                        Margin="0,0,5,0"
+                        ButtonPadding="10,5"
+                        Header="历史"
+                        ToolTip="查看模式串历史记录">
+                        <controls:PatternHistoryListControl
+                            Width="350"
+                            MaxHeight="400" />
+                    </controls:PopupButton>
                     <controls:TemplateInputBox
                         x:Name="RenamePatternTextBox"
-                        Grid.Column="2"
+                        Grid.Column="3"
                         Text="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
                         CompletionService="{Binding ViewModel.CompletionService}"
                         ToolTip="重命名模式，使用 {name} 表示原文件名（不含扩展名），{ext} 表示扩展名，{fullname} 表示完整文件名。留空则添加 New_ 前缀。输入 { 可查看可用变量。" />

@@ -6,7 +6,6 @@ namespace BatchRenameTool.Controls;
 /// <summary>
 /// Input dialog for getting text input from user
 /// </summary>
-[DependencyProperty<string>("Title", DefaultValue = "输入")]
 [DependencyProperty<string>("InputText", DefaultValue = "")]
 public partial class InputDialog : Window
 {

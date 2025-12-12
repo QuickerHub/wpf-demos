@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using BatchRenameTool.Controls;
+using BatchRenameTool.Models;
 using BatchRenameTool.Services;
 using BatchRenameTool.Template.Ast;
 using BatchRenameTool.Template.Evaluator;
@@ -24,6 +25,8 @@ namespace BatchRenameTool.ViewModels
     {
         private readonly TemplateParser _parser;
         private readonly TemplateEvaluator _evaluator;
+        private readonly ConfigService _configService;
+        private readonly PatternHistoryConfig _patternHistoryConfig;
 
         [ObservableProperty]
         public partial ObservableCollection<FileRenameItem> Items { get; set; } = new();
@@ -49,12 +52,19 @@ namespace BatchRenameTool.ViewModels
         private string _statusMessage = "共 0 个文件";
 
         /// <summary>
+        /// Pattern history configuration
+        /// </summary>
+        public PatternHistoryConfig PatternHistoryConfig => _patternHistoryConfig;
+
+        /// <summary>
         /// Constructor with dependency injection
         /// </summary>
         public BatchRenameViewModel(TemplateParser parser)
         {
             _parser = parser;
             _evaluator = new TemplateEvaluator();
+            _configService = new ConfigService();
+            _patternHistoryConfig = _configService.GetConfig<PatternHistoryConfig>();
             
             // Listen to history collection changes to update CanUndo
             RenameHistory.CollectionChanged += (s, e) =>
@@ -747,6 +757,12 @@ namespace BatchRenameTool.ViewModels
             {
                 RenameHistory.Add(historyEntry);
                 OnPropertyChanged(nameof(CanUndo));
+            }
+
+            // Record pattern to history if rename was successful
+            if (result.SuccessCount > 0 && !string.IsNullOrWhiteSpace(RenamePattern))
+            {
+                _patternHistoryConfig.AddPattern(RenamePattern);
             }
 
             // Refresh the preview for remaining items
