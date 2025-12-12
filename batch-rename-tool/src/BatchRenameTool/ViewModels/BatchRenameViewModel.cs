@@ -4,13 +4,16 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using BatchRenameTool.Controls;
 using BatchRenameTool.Services;
+using BatchRenameTool.Template.Ast;
 using BatchRenameTool.Template.Evaluator;
 using BatchRenameTool.Template.Parser;
 using BatchRenameTool.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Threading;
 
 namespace BatchRenameTool.ViewModels
 {
@@ -164,6 +167,23 @@ namespace BatchRenameTool.ViewModels
                 return;
 
             var files = Directory.GetFiles(folderPath);
+            AddFilesToList(files);
+        }
+
+        /// <summary>
+        /// Public method to add files to the list (for external use, e.g., Runner)
+        /// This method ensures preview is automatically updated
+        /// </summary>
+        /// <param name="filePaths">List of file paths to add</param>
+        public void AddFiles(IEnumerable<string> filePaths)
+        {
+            if (filePaths == null)
+                return;
+
+            var files = filePaths.Where(File.Exists).ToArray();
+            if (files.Length == 0)
+                return;
+
             AddFilesToList(files);
         }
 
@@ -428,8 +448,9 @@ namespace BatchRenameTool.ViewModels
         /// <summary>
         /// Update preview of renamed files based on template pattern
         /// Supports advanced template features: variables, formatting, method calls, slicing
+        /// Uses asynchronous computation to avoid blocking UI when loading file properties
         /// </summary>
-        private void UpdateRenamePreview()
+        private async void UpdateRenamePreview()
         {
             if (Items.Count == 0)
                 return;
@@ -451,42 +472,23 @@ namespace BatchRenameTool.ViewModels
                 // Parse template string into AST
                 var templateNode = _parser.Parse(RenamePattern);
 
+                // Check if template uses lazy-loaded properties (image, file, size)
+                bool usesLazyProperties = RenamePattern.Contains("{image", StringComparison.OrdinalIgnoreCase) ||
+                                         RenamePattern.Contains("{file", StringComparison.OrdinalIgnoreCase) ||
+                                         RenamePattern.Contains("{size", StringComparison.OrdinalIgnoreCase);
+
                 // Apply template to each file item
                 int totalCount = Items.Count;
-                for (int i = 0; i < Items.Count; i++)
+                
+                if (usesLazyProperties)
                 {
-                    var item = Items[i];
-                    var extension = Path.GetExtension(item.OriginalName);
-                    var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
-
-                    // Create evaluation context for this file
-                    var context = new EvaluationContext
-                    {
-                        Name = nameWithoutExt,
-                        Ext = extension.TrimStart('.'), // Remove leading dot
-                        FullName = item.OriginalName,
-                        Index = i, // Index starts from 0
-                        TotalCount = totalCount // Total count for reverse index calculation
-                    };
-
-                    // Evaluate template with context
-                    var newName = _evaluator.Evaluate(templateNode, context);
-
-                    // Auto-add extension if template doesn't include it
-                    // Check if the result contains a dot (likely extension) or if template explicitly includes {ext}
-                    if (!string.IsNullOrEmpty(extension) && !newName.Contains("."))
-                    {
-                        // Check if template contains {ext} variable
-                        bool templateHasExt = RenamePattern.Contains("{ext}", StringComparison.OrdinalIgnoreCase);
-                        
-                        // If template doesn't explicitly use {ext}, auto-add extension
-                        if (!templateHasExt)
-                        {
-                            newName += extension;
-                        }
-                    }
-
-                    item.NewName = newName;
+                    // For templates with lazy properties, compute asynchronously
+                    await UpdateRenamePreviewAsync(templateNode, totalCount);
+                }
+                else
+                {
+                    // For simple templates, compute synchronously (faster)
+                    UpdateRenamePreviewSync(templateNode, totalCount);
                 }
             }
             catch (ParseException ex)
@@ -510,6 +512,116 @@ namespace BatchRenameTool.ViewModels
             
             // Update status after preview update
             UpdateStatus();
+        }
+
+        /// <summary>
+        /// Synchronous preview update (for templates without lazy properties)
+        /// </summary>
+        private void UpdateRenamePreviewSync(TemplateNode templateNode, int totalCount)
+        {
+            for (int i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i];
+                var extension = Path.GetExtension(item.OriginalName);
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
+
+                // Create evaluation context for this file
+                var context = new EvaluationContext(
+                    name: nameWithoutExt,
+                    ext: extension.TrimStart('.'), // Remove leading dot
+                    fullName: item.OriginalName,
+                    fullPath: item.FullPath,
+                    index: i, // Index starts from 0
+                    totalCount: totalCount, // Total count for reverse index calculation
+                    fileRenameItem: item // Pass FileRenameItem to reuse ImageInfo
+                );
+
+                // Evaluate template with context
+                var newName = _evaluator.Evaluate(templateNode, context);
+
+                // Auto-add extension if template doesn't include it
+                newName = AutoAddExtension(newName, extension);
+
+                item.NewName = newName;
+            }
+        }
+
+        /// <summary>
+        /// Asynchronous preview update (for templates with lazy properties)
+        /// </summary>
+        private async Task UpdateRenamePreviewAsync(TemplateNode templateNode, int totalCount)
+        {
+            var tasks = new List<Task>();
+
+            for (int i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i];
+                var extension = Path.GetExtension(item.OriginalName);
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
+
+                // Create evaluation context for this file
+                var context = new EvaluationContext(
+                    name: nameWithoutExt,
+                    ext: extension.TrimStart('.'), // Remove leading dot
+                    fullName: item.OriginalName,
+                    fullPath: item.FullPath,
+                    index: i, // Index starts from 0
+                    totalCount: totalCount, // Total count for reverse index calculation
+                    fileRenameItem: item // Pass FileRenameItem to reuse ImageInfo
+                );
+                
+                // Evaluate template (lazy properties will be loaded on first access)
+                var evaluateTask = Task.Run(() =>
+                {
+                    try
+                    {
+                        // Evaluate template with context
+                        var newName = _evaluator.Evaluate(templateNode, context);
+
+                        // Auto-add extension if template doesn't include it
+                        newName = AutoAddExtension(newName, extension);
+
+                        // Update on UI thread
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            item.NewName = newName;
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        var errorMessage = $"执行错误: {ex.Message}";
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            item.NewName = $"[{errorMessage}]";
+                        });
+                    }
+                });
+
+                tasks.Add(evaluateTask);
+            }
+
+            // Wait for all evaluations to complete
+            await Task.WhenAll(tasks);
+        }
+
+        /// <summary>
+        /// Auto-add extension if template doesn't include it
+        /// </summary>
+        private string AutoAddExtension(string newName, string extension)
+        {
+            // Check if the result contains a dot (likely extension) or if template explicitly includes {ext}
+            if (!string.IsNullOrEmpty(extension) && !newName.Contains("."))
+            {
+                // Check if template contains {ext} variable
+                bool templateHasExt = RenamePattern.Contains("{ext}", StringComparison.OrdinalIgnoreCase);
+                
+                // If template doesn't explicitly use {ext}, auto-add extension
+                if (!templateHasExt)
+                {
+                    newName += extension;
+                }
+            }
+            return newName;
         }
 
         /// <summary>
@@ -723,6 +835,8 @@ namespace BatchRenameTool.ViewModels
     /// </summary>
     public partial class FileRenameItem : ObservableObject
     {
+        private Lazy<Template.Evaluator.ImageInfo>? _imageInfo;
+
         [ObservableProperty]
         public partial string OriginalName { get; set; } = "";
 
@@ -731,6 +845,23 @@ namespace BatchRenameTool.ViewModels
 
         [ObservableProperty]
         public partial string FullPath { get; set; } = "";
+
+        /// <summary>
+        /// Image information (lazy loaded)
+        /// </summary>
+        public Template.Evaluator.IImageInfo Image
+        {
+            get
+            {
+                if (_imageInfo == null)
+                {
+                    _imageInfo = new Lazy<Template.Evaluator.ImageInfo>(
+                        () => new Template.Evaluator.ImageInfo(FullPath),
+                        System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+                }
+                return _imageInfo.Value;
+            }
+        }
 
         /// <summary>
         /// Check if the name has been changed

@@ -95,13 +95,13 @@ namespace BatchRenameTool.Tests
 
         private void TestTemplate(string template, string name, string ext, int index, string expected)
         {
-            var context = new EvaluationContext
-            {
-                Name = name,
-                Ext = ext,
-                FullName = $"{name}.{ext}",
-                Index = index
-            };
+            var context = new EvaluationContext(
+                name: name,
+                ext: ext,
+                fullName: $"{name}.{ext}",
+                fullPath: $@"C:\test\{name}.{ext}",
+                index: index,
+                totalCount: 10);
 
             var templateNode = _parser.Parse(template);
             var result = _evaluator.Evaluate(templateNode, context);

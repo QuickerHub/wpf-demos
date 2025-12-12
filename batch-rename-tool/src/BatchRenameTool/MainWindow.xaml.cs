@@ -99,13 +99,13 @@ namespace BatchRenameTool
                     {
                         System.Diagnostics.Debug.WriteLine($"Testing template: {template}");
 
-                        var context = new EvaluationContext
-                        {
-                            Name = "test",
-                            Ext = "txt",
-                            FullName = "test.txt",
-                            Index = 0
-                        };
+                        var context = new EvaluationContext(
+                            name: "test",
+                            ext: "txt",
+                            fullName: "test.txt",
+                            fullPath: @"C:\test\test.txt",
+                            index: 0,
+                            totalCount: 1);
 
                         System.Diagnostics.Debug.WriteLine("Parsing template...");
                         var node = parser.Parse(template);

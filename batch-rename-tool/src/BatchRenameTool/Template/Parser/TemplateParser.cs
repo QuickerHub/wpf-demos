@@ -322,22 +322,49 @@ namespace BatchRenameTool.Template.Parser
                     continue;
                 }
                 
-                // Check for method call or slice (they end the format string)
-                if (token.Type == TokenType.Dot || token.Type == TokenType.LeftBracket)
+                // Handle dot: could be part of format string (.2f) or method call (.upper)
+                if (token.Type == TokenType.Dot)
+                {
+                    // Peek ahead to see if next token is a number/text (format string) or identifier (method call)
+                    if (_currentIndex + 1 < _tokens.Count)
+                    {
+                        var nextToken = _tokens[_currentIndex + 1];
+                        // If next token is identifier, it's a method call - stop reading format string
+                        if (nextToken.Type == TokenType.Identifier)
+                        {
+                            break;
+                        }
+                        // Otherwise, it's part of format string (like .2f) - include it
+                    }
+                    // If no next token or next token is not identifier, include the dot
+                    var advancedToken = Advance();
+                    if (foundColon)
+                    {
+                        formatSb.Append(advancedToken.Value);
+                    }
+                    else
+                    {
+                        expressionSb.Append(advancedToken.Value);
+                    }
+                    continue;
+                }
+                
+                // Stop if we encounter slice (they come after format)
+                if (token.Type == TokenType.LeftBracket)
                 {
                     break;
                 }
                 
-                var advancedToken = Advance();
+                var advancedToken2 = Advance();
                 
                 // Append to expression or format based on whether we found colon
                 if (foundColon)
                 {
-                    formatSb.Append(advancedToken.Value);
+                    formatSb.Append(advancedToken2.Value);
                 }
                 else
                 {
-                    expressionSb.Append(advancedToken.Value);
+                    expressionSb.Append(advancedToken2.Value);
                 }
             }
 
@@ -372,22 +399,49 @@ namespace BatchRenameTool.Template.Parser
                     continue;
                 }
                 
-                // Check for method call or slice (they end the format string)
-                if (token.Type == TokenType.Dot || token.Type == TokenType.LeftBracket)
+                // Handle dot: could be part of format string (.2f) or method call (.upper)
+                if (token.Type == TokenType.Dot)
+                {
+                    // Peek ahead to see if next token is a number/text (format string) or identifier (method call)
+                    if (_currentIndex + 1 < _tokens.Count)
+                    {
+                        var nextToken = _tokens[_currentIndex + 1];
+                        // If next token is identifier, it's a method call - stop reading format string
+                        if (nextToken.Type == TokenType.Identifier)
+                        {
+                            break;
+                        }
+                        // Otherwise, it's part of format string (like .2f) - include it
+                    }
+                    // If no next token or next token is not identifier, include the dot
+                    var advancedToken = Advance();
+                    if (foundSecondColon)
+                    {
+                        formatSb.Append(advancedToken.Value);
+                    }
+                    else
+                    {
+                        expressionSb.Append(advancedToken.Value);
+                    }
+                    continue;
+                }
+                
+                // Stop if we encounter slice (they come after format)
+                if (token.Type == TokenType.LeftBracket)
                 {
                     break;
                 }
                 
-                var advancedToken = Advance();
+                var advancedToken2 = Advance();
                 
                 // Append to expression or format based on whether we found second colon
                 if (foundSecondColon)
                 {
-                    formatSb.Append(advancedToken.Value);
+                    formatSb.Append(advancedToken2.Value);
                 }
                 else
                 {
-                    expressionSb.Append(advancedToken.Value);
+                    expressionSb.Append(advancedToken2.Value);
                 }
             }
 
@@ -413,8 +467,28 @@ namespace BatchRenameTool.Template.Parser
             {
                 var token = Peek();
                 
-                // Stop if we encounter method call or slice (they come after format)
-                if (token.Type == TokenType.Dot || token.Type == TokenType.LeftBracket)
+                // Handle dot: could be part of format string (.2f) or method call (.upper)
+                if (token.Type == TokenType.Dot)
+                {
+                    // Peek ahead to see if next token is a number/text (format string) or identifier (method call)
+                    if (_currentIndex + 1 < _tokens.Count)
+                    {
+                        var nextToken = _tokens[_currentIndex + 1];
+                        // If next token is identifier, it's a method call - stop reading format string
+                        if (nextToken.Type == TokenType.Identifier)
+                        {
+                            break;
+                        }
+                        // Otherwise, it's part of format string (like .2f) - include it
+                    }
+                    // If no next token or next token is not identifier, include the dot
+                    Advance();
+                    sb.Append(token.Value);
+                    continue;
+                }
+                
+                // Stop if we encounter slice (they come after format)
+                if (token.Type == TokenType.LeftBracket)
                 {
                     break;
                 }

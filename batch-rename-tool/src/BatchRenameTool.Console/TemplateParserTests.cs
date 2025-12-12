@@ -128,13 +128,13 @@ namespace BatchRenameTool
 
                 try
                 {
-                    var context = new EvaluationContext
-                    {
-                        Name = name,
-                        Ext = ext,
-                        FullName = $"{name}.{ext}",
-                        Index = index
-                    };
+                    var context = new EvaluationContext(
+                        name: name,
+                        ext: ext,
+                        fullName: $"{name}.{ext}",
+                        fullPath: $@"C:\test\{name}.{ext}",
+                        index: index,
+                        totalCount: 10);
 
                     var node = parser.Parse(template);
                     var result = evaluator.Evaluate(node, context);

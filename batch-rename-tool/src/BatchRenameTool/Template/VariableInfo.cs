@@ -8,10 +8,13 @@ namespace BatchRenameTool.Template
     /// </summary>
     public enum VariableType
     {
-        String,  // String variables: name, ext, fullname
-        Number,  // Number variables: i
-        Date,    // Date variables: today
-        DateTime // DateTime variables: now
+        String,   // String variables: name, ext, fullname
+        Number,   // Number variables: i, iv
+        Date,     // Date variables: today
+        DateTime, // DateTime variables: now
+        Image,    // Image variables: image (width, height)
+        File,     // File variables: file (size, creationTime, etc.)
+        Size      // Size variables: size (file size with format)
     }
 
     /// <summary>
@@ -139,6 +142,46 @@ namespace BatchRenameTool.Template
                         new FormatOption { Text = "HH时mm分", Description = "时间格式：12时30分" },
                         new FormatOption { Text = "yyyy-MM-dd HHmmss", Description = "日期时间格式：2024-01-01 123045" },
                         new FormatOption { Text = "yyyy-MM-dd HHmm", Description = "日期时间格式：2024-01-01 1230" }
+                    }
+                },
+
+                // Image variable
+                new VariableInfo
+                {
+                    VariableName = "image",
+                    Type = VariableType.Image,
+                    Description = "图像分辨率变量。可使用格式：{image:w} 宽度，{image:h} 高度，{image:wxh} 宽度x高度",
+                    FormatOptions = new List<FormatOption>
+                    {
+                        new FormatOption { Text = "w", Description = "图像宽度（像素）" },
+                        new FormatOption { Text = "h", Description = "图像高度（像素）" },
+                        new FormatOption { Text = "wxh", Description = "宽度x高度（例如：1920x1080）" }
+                    }
+                },
+
+                // File variable (placeholder for future expansion with file.createTime, etc.)
+                new VariableInfo
+                {
+                    VariableName = "file",
+                    Type = VariableType.File,
+                    Description = "文件信息变量。当前支持：{file} 返回文件路径（后续将支持 file.createTime, file.editTime 等）",
+                    FormatOptions = new List<FormatOption>() // Will be expanded later
+                },
+
+                // Size variable
+                new VariableInfo
+                {
+                    VariableName = "size",
+                    Type = VariableType.Size,
+                    Description = "文件大小变量。可使用格式：{size:1b} 以字节显示，{size:1kb} 以KB显示，{size:1mb} 以MB显示，{size:.2f} 自动单位（保留2位小数）",
+                    FormatOptions = new List<FormatOption>
+                    {
+                        new FormatOption { Text = "1b", Description = "以字节为单位显示（例如：1024 B）" },
+                        new FormatOption { Text = "1kb", Description = "以KB为单位显示（例如：1024 KB）" },
+                        new FormatOption { Text = "1mb", Description = "以MB为单位显示（例如：1.5 MB）" },
+                        new FormatOption { Text = ".2f", Description = "自动单位，保留2位小数（例如：1.50 MB）" },
+                        new FormatOption { Text = ".1f", Description = "自动单位，保留1位小数（例如：1.5 MB）" },
+                        new FormatOption { Text = ".0f", Description = "自动单位，整数显示（例如：2 MB）" }
                     }
                 }
             };

@@ -78,37 +78,8 @@ namespace BatchRenameTool
             if (_mainWindow?.ViewModel == null)
                 return;
 
-            var validFiles = files.Where(File.Exists).ToList();
-            if (validFiles.Count == 0)
-                return;
-
-            // Get existing paths to avoid duplicates
-            var existingPaths = new HashSet<string>(
-                _mainWindow.ViewModel.Items.Select(i => i.FullPath), 
-                StringComparer.OrdinalIgnoreCase);
-
-            int addedCount = 0;
-            foreach (var file in validFiles)
-            {
-                if (!existingPaths.Contains(file))
-                {
-                    var fileName = Path.GetFileName(file);
-                    _mainWindow.ViewModel.Items.Add(new FileRenameItem
-                    {
-                        OriginalName = fileName,
-                        NewName = fileName,
-                        FullPath = file
-                    });
-                    addedCount++;
-                }
-            }
-
-            if (addedCount > 0)
-            {
-                // Trigger preview update by setting the pattern (if empty, it will keep original names)
-                var currentPattern = _mainWindow.ViewModel.RenamePattern;
-                _mainWindow.ViewModel.RenamePattern = currentPattern; // This will trigger OnRenamePatternChanged
-            }
+            // Use ViewModel's AddFiles method to ensure preview is automatically updated
+            _mainWindow.ViewModel.AddFiles(files);
         }
 
         /// <summary>
@@ -161,14 +132,13 @@ namespace BatchRenameTool
                 var nameWithoutExt = Path.GetFileNameWithoutExtension(originalName);
 
                 // Create evaluation context
-                var context = new EvaluationContext
-                {
-                    Name = nameWithoutExt,
-                    Ext = extension.TrimStart('.'),
-                    FullName = originalName,
-                    Index = i,
-                    TotalCount = totalCount
-                };
+                var context = new EvaluationContext(
+                    name: nameWithoutExt,
+                    ext: extension.TrimStart('.'),
+                    fullName: originalName,
+                    fullPath: filePath,
+                    index: i,
+                    totalCount: totalCount);
 
                 // Evaluate template
                 var newName = evaluator.Evaluate(templateNode, context);

@@ -1,25 +1,74 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using BatchRenameTool.Template.Ast;
 using BatchRenameTool.Template.Utils;
 
 namespace BatchRenameTool.Template.Evaluator
 {
     /// <summary>
-    /// Context for template evaluation
+    /// Implementation of evaluation context with lazy loading for file properties
     /// </summary>
-    public class EvaluationContext
+    public class EvaluationContext : IEvaluationContext
     {
-        public string Name { get; set; } = "";           // File name without extension
-        public string Ext { get; set; } = "";             // Extension without dot
-        public string FullName { get; set; } = "";       // Full file name
-        public int Index { get; set; } = 0;              // Index for {i} variable
-        public int TotalCount { get; set; } = 0;         // Total count for {iv} variable (reverse index)
-        public DateTime Today { get; set; } = DateTime.Today;  // Current date for {today} variable
-        public DateTime Now { get; set; } = DateTime.Now;     // Current date/time for {now} variable
+        private readonly Lazy<FileInfo> _file;
+#if WPF
+        private readonly ViewModels.FileRenameItem? _fileRenameItem;
+#endif
+
+        public string Name { get; }
+        public string Ext { get; }
+        public string FullName { get; }
+        public string FullPath { get; }
+        public int Index { get; }
+        public int TotalCount { get; }
+        public DateTime Today { get; }
+        public DateTime Now { get; }
+
+#if WPF
+        public IImageInfo Image => _fileRenameItem?.Image ?? new ImageInfo(FullPath);
+#else
+        public IImageInfo Image => new ImageInfo(FullPath);
+#endif
+        public FileInfo File => _file.Value;
+        public long Size => File.Exists ? File.Length : 0;
+
+        /// <summary>
+        /// Constructor for evaluation context
+        /// </summary>
+        public EvaluationContext(
+            string name,
+            string ext,
+            string fullName,
+            string fullPath,
+            int index,
+            int totalCount
+#if WPF
+            , ViewModels.FileRenameItem? fileRenameItem = null
+#endif
+            )
+        {
+            Name = name;
+            Ext = ext;
+            FullName = fullName;
+            FullPath = fullPath;
+            Index = index;
+            TotalCount = totalCount;
+            Today = DateTime.Today;
+            Now = DateTime.Now;
+#if WPF
+            _fileRenameItem = fileRenameItem;
+#endif
+
+            // Initialize lazy FileInfo - System.IO.FileInfo
+            _file = new Lazy<FileInfo>(
+                () => new FileInfo(fullPath),
+                System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+        }
     }
 
     /// <summary>
@@ -30,7 +79,7 @@ namespace BatchRenameTool.Template.Evaluator
         /// <summary>
         /// Evaluate template node with context
         /// </summary>
-        public string Evaluate(TemplateNode node, EvaluationContext context)
+        public string Evaluate(TemplateNode node, IEvaluationContext context)
         {
             var sb = new StringBuilder();
 
@@ -42,7 +91,7 @@ namespace BatchRenameTool.Template.Evaluator
             return sb.ToString();
         }
 
-        private string EvaluateNode(AstNode node, EvaluationContext context)
+        private string EvaluateNode(AstNode node, IEvaluationContext context)
         {
             return node switch
             {
@@ -51,11 +100,11 @@ namespace BatchRenameTool.Template.Evaluator
                 FormatNode formatNode => EvaluateFormat(formatNode, context),
                 MethodNode methodNode => EvaluateMethod(methodNode, context),
                 SliceNode sliceNode => EvaluateSlice(sliceNode, context),
-                _ => $"[未支持的节点类型: {node.GetType().Name}]"
+                _ => $"[????????: {node.GetType().Name}]"
             };
         }
 
-        private string EvaluateVariable(VariableNode node, EvaluationContext context)
+        private string EvaluateVariable(VariableNode node, IEvaluationContext context)
         {
             return node.VariableName.ToLower() switch
             {
@@ -66,11 +115,14 @@ namespace BatchRenameTool.Template.Evaluator
                 "iv" => (context.TotalCount - 1 - context.Index).ToString(), // Reverse index
                 "today" => context.Today.ToString("yyyy-MM-dd"), // Default format
                 "now" => context.Now.ToString("yyyy-MM-dd HH:mm:ss"), // Default format
+                "image" => FormatImage(context.Image, ""), // Default: wxh format
+                "file" => context.FullPath, // Default: file path
+                "size" => FormatFileSize(context.Size, ""), // Default: auto format
                 _ => $"{{{node.VariableName}}}"
             };
         }
 
-        private string EvaluateFormat(FormatNode node, EvaluationContext context)
+        private string EvaluateFormat(FormatNode node, IEvaluationContext context)
         {
             // Support both {variable:format} and {expression:format} syntax
             // If expression is provided, evaluate it first (for {2i+1:00} syntax)
@@ -108,6 +160,24 @@ namespace BatchRenameTool.Template.Evaluator
                 if (varName == "now")
                 {
                     return FormatDateTime(context.Now, node.FormatString);
+                }
+                
+                // Handle image variable (image)
+                if (varName == "image")
+                {
+                    return FormatImage(context.Image, node.FormatString);
+                }
+                
+                // Handle file variable (file)
+                if (varName == "file")
+                {
+                    return FormatFile(context, node.FormatString);
+                }
+                
+                // Handle size variable (size)
+                if (varName == "size")
+                {
+                    return FormatFileSize(context.Size, node.FormatString);
                 }
             }
             
@@ -195,8 +265,8 @@ namespace BatchRenameTool.Template.Evaluator
 
             // Map Chinese number to start value
             var firstChar = formatString[0].ToString();
-            var lowerDigits = new[] { "零", "一", "二", "三", "四", "五", "六", "七", "八", "九" };
-            var upperDigits = new[] { "零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖" };
+            var lowerDigits = new[] { "?", "?", "?", "?", "?", "?", "?", "?", "?", "?" };
+            var upperDigits = new[] { "?", "?", "?", "?", "?", "?", "?", "?", "?", "?" };
 
             var digits = useUpper ? upperDigits : lowerDigits;
             for (int i = 0; i < digits.Length; i++)
@@ -208,8 +278,8 @@ namespace BatchRenameTool.Template.Evaluator
                 }
             }
 
-            // Special case: "十" or "拾" means start from 10
-            if (formatString[0] == '十' || formatString[0] == '拾')
+            // Special case: "?" or "?" means start from 10
+            if (formatString[0] == '?' || formatString[0] == '?')
             {
                 startValue = 10;
             }
@@ -260,7 +330,121 @@ namespace BatchRenameTool.Template.Evaluator
             }
         }
 
-        private string EvaluateMethod(MethodNode node, EvaluationContext context)
+        /// <summary>
+        /// Format image dimensions
+        /// </summary>
+        private string FormatImage(IImageInfo image, string formatString)
+        {
+            if (image.Width == 0 && image.Height == 0)
+            {
+                return ""; // Not an image or failed to load
+            }
+
+            if (string.IsNullOrEmpty(formatString))
+            {
+                return $"{image.Width}x{image.Height}"; // Default: wxh format
+            }
+
+            return formatString.ToLower() switch
+            {
+                "w" => image.Width.ToString(),
+                "h" => image.Height.ToString(),
+                "wxh" => $"{image.Width}x{image.Height}",
+                _ => $"{image.Width}x{image.Height}" // Default fallback
+            };
+        }
+
+        /// <summary>
+        /// Format file variable (supports file.createTime, file.editTime, etc.)
+        /// </summary>
+        private string FormatFile(IEvaluationContext context, string formatString)
+        {
+            if (string.IsNullOrEmpty(formatString))
+            {
+                return context.FullPath;
+            }
+
+            var file = context.File;
+            if (!file.Exists)
+            {
+                return "";
+            }
+
+            // Parse formatString to support file.createTime, file.editTime, etc.
+            return formatString.ToLower() switch
+            {
+                "createtime" or "createtime" => file.CreationTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                "edittime" or "edittime" or "lastwritetime" => file.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                "accesstime" or "lastaccesstime" => file.LastAccessTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                _ => file.CreationTime.ToString(formatString) // Try to use formatString as DateTime format
+            };
+        }
+
+        /// <summary>
+        /// Format file size with various units
+        /// </summary>
+        private string FormatFileSize(long sizeBytes, string formatString)
+        {
+            if (sizeBytes == 0)
+            {
+                return "0 B";
+            }
+
+            if (string.IsNullOrEmpty(formatString))
+            {
+                return FormatFileSizeAuto(sizeBytes, 2); // Default: auto format with 2 decimals
+            }
+
+            // Check for specific unit format (1b, 1kb, 1mb)
+            if (formatString.Equals("1b", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{sizeBytes} B";
+            }
+
+            if (formatString.Equals("1kb", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{sizeBytes / 1024.0:F0} KB";
+            }
+
+            if (formatString.Equals("1mb", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{sizeBytes / (1024.0 * 1024.0):F2} MB";
+            }
+
+            // Check for auto format with decimal places (.2f, .1f, .0f)
+            if (formatString.StartsWith(".") && formatString.EndsWith("f"))
+            {
+                var decimalPart = formatString.Substring(1, formatString.Length - 2);
+                if (int.TryParse(decimalPart, out int decimals))
+                {
+                    return FormatFileSizeAuto(sizeBytes, decimals);
+                }
+            }
+
+            // Default: auto format
+            return FormatFileSizeAuto(sizeBytes, 2);
+        }
+
+        /// <summary>
+        /// Format file size with automatic unit selection
+        /// </summary>
+        private string FormatFileSizeAuto(long sizeBytes, int decimals)
+        {
+            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            double size = sizeBytes;
+            int unitIndex = 0;
+
+            while (size >= 1024 && unitIndex < units.Length - 1)
+            {
+                size /= 1024;
+                unitIndex++;
+            }
+
+            string format = $"F{decimals}";
+            return $"{size.ToString(format)} {units[unitIndex]}";
+        }
+
+        private string EvaluateMethod(MethodNode node, IEvaluationContext context)
         {
             // Evaluate target first
             var targetValue = EvaluateNode(node.Target, context);
@@ -293,14 +477,14 @@ namespace BatchRenameTool.Template.Evaluator
             // Handle method aliases
             var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                { "替换", "replace" },
-                { "大写", "upper" },
-                { "小写", "lower" },
-                { "去空格", "trim" },
-                { "截取", "sub" },
-                { "切片", "sub" },
-                { "左填充", "padleft" },
-                { "右填充", "padright" }
+                { "??", "replace" },
+                { "??", "upper" },
+                { "??", "lower" },
+                { "???", "trim" },
+                { "??", "sub" },
+                { "??", "sub" },
+                { "???", "padleft" },
+                { "???", "padright" }
             };
             
             if (aliasMap.ContainsKey(methodName))
@@ -318,7 +502,7 @@ namespace BatchRenameTool.Template.Evaluator
                 "sub" => ExecuteSub(targetValue, arguments),
                 "padleft" => ExecutePadLeft(targetValue, arguments),
                 "padright" => ExecutePadRight(targetValue, arguments),
-                _ => $"[未知方法: {node.MethodName}]"
+                _ => $"[????: {node.MethodName}]"
             };
         }
 
@@ -478,7 +662,7 @@ namespace BatchRenameTool.Template.Evaluator
             return target.PadRight(totalWidth, paddingChar);
         }
 
-        private string EvaluateSlice(SliceNode node, EvaluationContext context)
+        private string EvaluateSlice(SliceNode node, IEvaluationContext context)
         {
             // Evaluate target first
             var targetValue = EvaluateNode(node.Target, context);
