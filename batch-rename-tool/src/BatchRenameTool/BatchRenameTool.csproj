@@ -31,6 +31,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Resource Include="Help.md" />
 		<Reference Include="Quicker">
 			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
 		</Reference>

@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
+using BatchRenameTool.Controls;
+using BatchRenameTool.Services;
 using BatchRenameTool.Template.Parser;
 using BatchRenameTool.Template.Evaluator;
 using BatchRenameTool.ViewModels;
@@ -27,6 +29,9 @@ namespace BatchRenameTool
             
             // Set equal column widths for GridView
             Loaded += MainWindow_Loaded;
+            
+            // Build demo menu
+            BuildDemoMenu();
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -142,21 +147,7 @@ namespace BatchRenameTool
             }
         }
 
-        /// <summary>
-        /// Handle help button click - toggle popup
-        /// </summary>
-        private void HelpButton_Click(object sender, RoutedEventArgs e)
-        {
-            HelpPopup.IsOpen = !HelpPopup.IsOpen;
-        }
 
-        /// <summary>
-        /// Handle close help popup button click
-        /// </summary>
-        private void CloseHelpPopup_Click(object sender, RoutedEventArgs e)
-        {
-            HelpPopup.IsOpen = false;
-        }
 
         /// <summary>
         /// Handle remove selected items button click
@@ -166,6 +157,116 @@ namespace BatchRenameTool
             if (FileListView.SelectedItems.Count > 0)
             {
                 _viewModel.RemoveItemsCommand.Execute(FileListView.SelectedItems);
+            }
+        }
+
+        /// <summary>
+        /// Handle add prefix button click
+        /// </summary>
+        private void AddPrefixButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new InputDialog
+            {
+                Title = "输入前缀",
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.InputText))
+            {
+                var currentPattern = _viewModel.RenamePattern;
+                var newPattern = TemplatePatternManager.GeneratePrefixPattern(dialog.InputText, currentPattern);
+                _viewModel.RenamePattern = newPattern;
+            }
+        }
+
+        /// <summary>
+        /// Handle add suffix button click
+        /// </summary>
+        private void AddSuffixButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new InputDialog
+            {
+                Title = "输入后缀",
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.InputText))
+            {
+                var currentPattern = _viewModel.RenamePattern;
+                var newPattern = TemplatePatternManager.GenerateSuffixPattern(dialog.InputText, currentPattern);
+                _viewModel.RenamePattern = newPattern;
+            }
+        }
+
+        /// <summary>
+        /// Build demo menu with various pattern examples
+        /// </summary>
+        private void BuildDemoMenu()
+        {
+            if (DemoMenu == null)
+                return;
+
+            var demoPatterns = new List<(string Pattern, string Description)>
+            {
+                // Basic patterns
+                ("{i:001}_{name}.{ext}", "序号(001) + 原文件名"),
+                ("{i:01}_{name}.{ext}", "序号(01) + 原文件名"),
+                ("{i:1}_{name}.{ext}", "序号(1) + 原文件名"),
+                ("{iv:001}_{name}.{ext}", "倒序序号(001) + 原文件名"),
+                
+                // Expression patterns
+                ("{i2+1:000}_{fullname}", "表达式序号(2*i+1) + 完整文件名"),
+                ("{i3-2:00}_{name}.{ext}", "表达式序号(i*3-2) + 原文件名"),
+                ("{i+10:0000}_{name}.{ext}", "表达式序号(i+10) + 原文件名"),
+                
+                // String method patterns
+                ("{name.upper}.{ext}", "大写文件名"),
+                ("{name.lower}.{ext}", "小写文件名"),
+                ("{name.trim}.{ext}", "去除首尾空格的文件名"),
+                ("{i:001}_{name.upper}.{ext}", "序号 + 大写文件名"),
+                
+                // Date patterns
+                ("{today:yyyyMMdd}_{name}.{ext}", "日期(yyyyMMdd) + 文件名"),
+                ("{today:yyyy-MM-dd}_{name}.{ext}", "日期(yyyy-MM-dd) + 文件名"),
+                ("{today:yyyy年MM月dd日}_{name}.{ext}", "日期(中文) + 文件名"),
+                ("{i:001}_{today:yyyyMMdd}_{name}.{ext}", "序号 + 日期 + 文件名"),
+                
+                // DateTime patterns
+                ("{now:yyyyMMddHHmmss}_{name}.{ext}", "日期时间(yyyyMMddHHmmss) + 文件名"),
+                ("{now:yyyyMMddHHmm}_{name}.{ext}", "日期时间(yyyyMMddHHmm) + 文件名"),
+                ("{now:yyyy年MM月dd日 HH时mm分}_{name}.{ext}", "日期时间(中文) + 文件名"),
+                
+                // Complex patterns
+                ("{i:001}_{name.replace(old,new)}.{ext}", "序号 + 替换后的文件名"),
+                ("{today:yyyyMMdd}_{name.upper}_{i:000}.{ext}", "日期 + 大写文件名 + 序号"),
+                ("{i2+1:000}_{name.lower}.{ext}", "表达式序号 + 小写文件名"),
+                ("{fullname}", "保持原文件名不变"),
+            };
+
+            foreach (var (pattern, description) in demoPatterns)
+            {
+                var menuItem = new System.Windows.Controls.MenuItem
+                {
+                    Header = description,
+                    ToolTip = pattern
+                };
+                menuItem.Click += (s, e) =>
+                {
+                    _viewModel.RenamePattern = pattern;
+                };
+                DemoMenu.Items.Add(menuItem);
+            }
+        }
+
+        /// <summary>
+        /// Handle demo button click - show context menu
+        /// </summary>
+        private void DemoButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button button && button.ContextMenu != null)
+            {
+                button.ContextMenu.PlacementTarget = button;
+                button.ContextMenu.IsOpen = true;
             }
         }
     }

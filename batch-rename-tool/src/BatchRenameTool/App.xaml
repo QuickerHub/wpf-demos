@@ -4,7 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:hc="https://handyorg.github.io/handycontrol"
     xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
-    xmlns:codeCompletion="clr-namespace:ICSharpCode.AvalonEdit.CodeCompletion;assembly=ICSharpCode.AvalonEdit">
+    xmlns:codeCompletion="clr-namespace:ICSharpCode.AvalonEdit.CodeCompletion;assembly=ICSharpCode.AvalonEdit"
+    xmlns:mdx="clr-namespace:MdXaml;assembly=MdXaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -13,6 +14,9 @@
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
                 <hc:Theme SyncWithSystem="True" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!--  Custom color for code blocks - More visible in dark mode  -->
+            <!--  This color provides better contrast against dark backgrounds  -->
 
             <!--  Default GroupBox Style - Support dark mode  -->
             <Style x:Key="{x:Type GroupBox}" TargetType="GroupBox">
@@ -52,6 +56,7 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,0 +1,119 @@
+<svg width="256" height="256" viewBox="25 25 150 185" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- File gradient -->
+    <linearGradient id="fileGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F5F5F5;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- File shadow gradient (for overlapping effect) -->
+    <linearGradient id="fileShadowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8E8E8;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#D5D5D5;stop-opacity:0.8" />
+    </linearGradient>
+    
+    <!-- Arrow gradient -->
+    <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFB300;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Edit icon gradient -->
+    <linearGradient id="editGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#EE5A5A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Overlapping files to show batch operation -->
+  <!-- File 1 (back, original) - offset to the left and down -->
+  <g transform="translate(30, 50)">
+    <!-- File body - large size -->
+    <path d="M 0 0 L 0 140 L 100 140 L 100 35 L 75 0 Z" 
+          fill="url(#fileShadowGradient)" 
+          stroke="#2A2A2A" 
+          stroke-width="3" 
+          opacity="0.7"/>
+    <!-- File fold corner -->
+    <path d="M 75 0 L 75 35 L 100 35" 
+          fill="#D0D0D0" 
+          stroke="#2A2A2A" 
+          stroke-width="3" 
+          opacity="0.7"/>
+    <!-- File name text lines -->
+    <rect x="18" y="60" width="70" height="6" rx="1" fill="#888888" opacity="0.7"/>
+    <rect x="18" y="72" width="58" height="6" rx="1" fill="#888888" opacity="0.7"/>
+    <rect x="18" y="84" width="65" height="6" rx="1" fill="#888888" opacity="0.7"/>
+  </g>
+  
+  <!-- File 2 (middle, original) - slightly offset -->
+  <g transform="translate(50, 40)">
+    <!-- File body - large size -->
+    <path d="M 0 0 L 0 140 L 100 140 L 100 35 L 75 0 Z" 
+          fill="url(#fileShadowGradient)" 
+          stroke="#2A2A2A" 
+          stroke-width="3" 
+          opacity="0.8"/>
+    <!-- File fold corner -->
+    <path d="M 75 0 L 75 35 L 100 35" 
+          fill="#D0D0D0" 
+          stroke="#2A2A2A" 
+          stroke-width="3" 
+          opacity="0.8"/>
+    <!-- File name text lines -->
+    <rect x="18" y="60" width="70" height="6" rx="1" fill="#888888" opacity="0.8"/>
+    <rect x="18" y="72" width="58" height="6" rx="1" fill="#888888" opacity="0.8"/>
+    <rect x="18" y="84" width="65" height="6" rx="1" fill="#888888" opacity="0.8"/>
+  </g>
+  
+  <!-- File 3 (front, being renamed) - main file, largest and on top -->
+  <g transform="translate(70, 30)">
+    <!-- File body - large size, main file -->
+    <path d="M 0 0 L 0 140 L 100 140 L 100 35 L 75 0 Z" 
+          fill="url(#fileGradient)" 
+          stroke="#2A2A2A" 
+          stroke-width="4"/>
+    <!-- File fold corner -->
+    <path d="M 75 0 L 75 35 L 100 35" 
+          fill="#E0E0E0" 
+          stroke="#2A2A2A" 
+          stroke-width="4"/>
+    <!-- File name text lines -->
+    <rect x="18" y="60" width="70" height="6" rx="1" fill="#888888"/>
+    <rect x="18" y="72" width="58" height="6" rx="1" fill="#888888"/>
+    <rect x="18" y="84" width="65" height="6" rx="1" fill="#888888"/>
+    <!-- Edit icon (pencil) on the file - larger -->
+    <g transform="translate(70, 12)">
+      <path d="M 0 28 L 18 10 L 22 14 L 4 32 Z" 
+            fill="url(#editGradient)" 
+            stroke="#FFFFFF" 
+            stroke-width="2"/>
+      <line x1="18" y1="10" x2="22" y2="14" 
+            stroke="#FFFFFF" 
+            stroke-width="2.5" 
+            stroke-linecap="round"/>
+    </g>
+  </g>
+  
+  <!-- Rename arrow (curved, from left to right) -->
+  <g transform="translate(80, 100)">
+    <!-- Curved arrow path -->
+    <path d="M 0 0 Q 30 -10 60 0" 
+          fill="none" 
+          stroke="url(#arrowGradient)" 
+          stroke-width="5" 
+          stroke-linecap="round"/>
+    <!-- Arrow head -->
+    <path d="M 55 -2 L 60 0 L 55 2 Z" 
+          fill="url(#arrowGradient)" 
+          stroke="#FFB300" 
+          stroke-width="2"/>
+  </g>
+  
+  <!-- Batch indicator: small overlapping dots -->
+  <circle cx="100" cy="200" r="6" fill="#4A90E2" opacity="0.6"/>
+  <circle cx="110" cy="195" r="6" fill="#4A90E2" opacity="0.7"/>
+  <circle cx="120" cy="200" r="6" fill="#4A90E2" opacity="0.8"/>
+  <circle cx="130" cy="195" r="6" fill="#4A90E2" opacity="0.9"/>
+  <circle cx="140" cy="200" r="6" fill="#4A90E2" opacity="1"/>
+</svg>

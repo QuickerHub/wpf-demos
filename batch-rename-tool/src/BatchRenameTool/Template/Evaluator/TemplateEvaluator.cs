@@ -134,38 +134,47 @@ namespace BatchRenameTool.Template.Evaluator
 
         private string FormatNumericIndex(int index, string formatString)
         {
-            // Parse format string to determine start value and padding
-            // Examples: "00" -> start from 00, "01" -> start from 01, "1" -> start from 1
+            // Parse format string to determine offset and padding
+            // Examples: 
+            // - "001" -> offset = 1, format = "000" (equivalent to {i+1:000})
+            // - "01" -> offset = 1, format = "00" (equivalent to {i+1:00})
+            // - "1" -> offset = 1, format = "" (equivalent to {i+1})
+            // - "000" -> offset = 0, format = "000" (equivalent to {i:000})
+            // - "00" -> offset = 0, format = "00" (equivalent to {i:00})
 
-            int startValue = 0;
+            int offset = 0;
             int padding = 0;
 
-            // Try to parse the first character as a digit
             if (formatString.Length > 0 && char.IsDigit(formatString[0]))
             {
-                // Determine start value from first character
-                startValue = formatString[0] - '0';
-
-                // Count padding zeros (length of format string)
-                padding = formatString.Length;
-
-                // Special handling:
-                // - "00", "000" -> start from 0, pad with zeros
-                // - "01", "001" -> start from 1, pad with zeros
-                // - "1" -> start from 1, no padding
-                if (startValue == 0 && formatString.Length > 1)
+                // Find the first non-zero digit
+                int firstNonZeroIndex = -1;
+                for (int i = 0; i < formatString.Length; i++)
                 {
-                    // Check if second character is non-zero (like "01", "02")
-                    if (formatString[1] != '0')
+                    if (formatString[i] != '0')
                     {
-                        // Format like "01", "02" - start from 1
-                        startValue = 1;
+                        firstNonZeroIndex = i;
+                        break;
                     }
-                    // Otherwise "00", "000" - start from 0
+                }
+
+                if (firstNonZeroIndex >= 0)
+                {
+                    // Found non-zero digit: extract offset and determine padding
+                    // Offset is the value of the first non-zero digit
+                    offset = formatString[firstNonZeroIndex] - '0';
+                    // Padding is determined by the total length of the format string
+                    padding = formatString.Length;
+                }
+                else
+                {
+                    // All zeros: offset = 0, padding = length
+                    offset = 0;
+                    padding = formatString.Length;
                 }
             }
 
-            int value = index + startValue;
+            int value = index + offset;
             
             // Apply padding if format string has multiple digits
             if (padding > 0)

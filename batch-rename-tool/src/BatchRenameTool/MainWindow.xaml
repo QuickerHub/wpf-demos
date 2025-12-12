@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:BatchRenameTool.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:fa="clr-namespace:FontAwesome5.WPF;assembly=FontAwesomeIconsWpf"
     xmlns:local="clr-namespace:BatchRenameTool"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:BatchRenameTool.ViewModels"
@@ -39,199 +40,10 @@
                 FontSize="24"
                 FontWeight="Bold"
                 Text="批量重命名工具" />
-            <Button
-                x:Name="HelpButton"
+            <controls:PopupHelpButton
+                Title="使用帮助"
                 Grid.Column="1"
-                Padding="10,5"
-                Click="HelpButton_Click"
-                Content="❓ 帮助"
-                ToolTip="查看使用帮助" />
-            <Popup
-                x:Name="HelpPopup"
-                AllowsTransparency="True"
-                Placement="Bottom"
-                PlacementTarget="{Binding ElementName=HelpButton}"
-                PopupAnimation="Fade"
-                StaysOpen="False">
-                <Border
-                    MaxWidth="650"
-                    MaxHeight="600"
-                    Padding="0"
-                    Background="{DynamicResource RegionBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="4">
-                    <Border.Effect>
-                        <DropShadowEffect
-                            BlurRadius="10"
-                            Opacity="0.3"
-                            ShadowDepth="3"
-                            Color="Black" />
-                    </Border.Effect>
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <!--  Title  -->
-                        <Border
-                            Grid.Row="0"
-                            Padding="15,12"
-                            Background="{DynamicResource SecondaryRegionBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="0,0,0,1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    FontSize="16"
-                                    FontWeight="Bold"
-                                    Text="使用帮助" />
-                                <Button
-                                    Grid.Column="1"
-                                    Padding="5,2"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Click="CloseHelpPopup_Click"
-                                    Content="✕"
-                                    Cursor="Hand"
-                                    FontSize="14"
-                                    ToolTip="关闭" />
-                            </Grid>
-                        </Border>
-
-                        <!--  Content  -->
-                        <ScrollViewer
-                            Grid.Row="1"
-                            Padding="20"
-                            VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <!--  Basic Usage  -->
-                                <TextBlock
-                                    Margin="0,0,0,8"
-                                    FontSize="14"
-                                    FontWeight="Bold"
-                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                    Text="基本使用" />
-                                <TextBlock
-                                    Margin="0,0,0,16"
-                                    LineHeight="22"
-                                    TextWrapping="Wrap">
-                                    <Run FontWeight="Bold" Text="1. 点击" />
-                                    <Run FontWeight="Bold" Text="“选择文件夹”" />
-                                    <Run Text="按钮，选择包含要重命名文件的文件夹。" />
-                                    <LineBreak />
-                                    <Run Text="2. 文件列表会自动加载到预览窗口中，以表格形式显示重命名前后的文件名对比。" />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="3. 在" />
-                                    <Run FontWeight="Bold" Text="“重命名模式”" />
-                                    <Run Text="输入框中输入重命名规则（可选）。" />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="4. 预览重命名结果，确认无误后点击" />
-                                    <Run FontWeight="Bold" Text="“执行重命名”" />
-                                    <Run Text="按钮完成批量重命名。" />
-                                </TextBlock>
-
-                                <!--  Rename Pattern  -->
-                                <TextBlock
-                                    Margin="0,0,0,8"
-                                    FontSize="14"
-                                    FontWeight="Bold"
-                                    Text="重命名模式" />
-                                <TextBlock
-                                    Margin="0,0,0,16"
-                                    LineHeight="22"
-                                    TextWrapping="Wrap">
-                                    <Run FontWeight="Bold" Text="重命名模式支持以下占位符：" />
-                                    <LineBreak />
-                                    <Run Text="• {name} - 原文件名（不含扩展名）" />
-                                    <LineBreak />
-                                    <Run Text="• {ext} - 文件扩展名（不含点号）" />
-                                    <LineBreak />
-                                    <Run Text="• {fullname} - 完整文件名（包含扩展名）" />
-                                    <LineBreak />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="示例：" />
-                                    <LineBreak />
-                                    <Run FontStyle="Italic" Text="• 模式：" />
-                                    <Run FontFamily="Consolas" Text="name_backup.ext" />
-                                    <Run FontStyle="Italic" Text=" → 将" />
-                                    <Run FontFamily="Consolas" Text="file.txt" />
-                                    <Run FontStyle="Italic" Text="重命名为" />
-                                    <Run FontFamily="Consolas" Text="file_backup.txt" />
-                                    <LineBreak />
-                                    <Run FontStyle="Italic" Text="• 模式：" />
-                                    <Run FontFamily="Consolas" Text="New_{fullname}" />
-                                    <Run FontStyle="Italic" Text=" → 将" />
-                                    <Run FontFamily="Consolas" Text="file.txt" />
-                                    <Run FontStyle="Italic" Text="重命名为" />
-                                    <Run FontFamily="Consolas" Text="New_file.txt" />
-                                    <LineBreak />
-                                    <Run FontStyle="Italic" Text="• 留空模式 → 默认添加" />
-                                    <Run FontFamily="Consolas" Text="New_" />
-                                    <Run Text="前缀" />
-                                </TextBlock>
-
-                                <!--  Features  -->
-                                <TextBlock
-                                    Margin="0,0,0,8"
-                                    FontSize="14"
-                                    FontWeight="Bold"
-                                    Text="功能特性" />
-                                <TextBlock
-                                    Margin="0,0,0,16"
-                                    LineHeight="22"
-                                    TextWrapping="Wrap">
-                                    <Run FontWeight="Bold" Text="• " />
-                                    <Run FontWeight="Bold" Text="表格预览：" />
-                                    <Run Text="以表格形式显示重命名前后的文件名，方便对比查看" />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="• " />
-                                    <Run FontWeight="Bold" Text="高亮显示：" />
-                                    <Run Text="重命名后的文件名会以蓝色高亮显示，便于识别变化" />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="• " />
-                                    <Run FontWeight="Bold" Text="多选支持：" />
-                                    <Run Text="支持单选和多选，方便批量操作" />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="• " />
-                                    <Run FontWeight="Bold" Text="实时预览：" />
-                                    <Run Text="修改重命名模式后实时更新预览结果" />
-                                    <LineBreak />
-                                    <Run FontWeight="Bold" Text="• " />
-                                    <Run FontWeight="Bold" Text="多选支持：" />
-                                    <Run Text="按住 Ctrl 键点击多个项，或按住 Shift 键选择范围" />
-                                </TextBlock>
-
-                                <!--  Tips  -->
-                                <TextBlock
-                                    Margin="0,0,0,8"
-                                    FontSize="14"
-                                    FontWeight="Bold"
-                                    Text="使用技巧" />
-                                <TextBlock
-                                    Margin="0,0,0,0"
-                                    LineHeight="22"
-                                    TextWrapping="Wrap">
-                                    <Run Text="• 在预览列表中，可以拖动列标题调整列宽" />
-                                    <LineBreak />
-                                    <Run Text="• 使用键盘方向键可以在列表中导航" />
-                                    <LineBreak />
-                                    <Run Text="• 如果重命名后的文件名已存在，该文件会被跳过" />
-                                    <LineBreak />
-                                    <Run Text="• 重命名操作不可撤销，请谨慎操作" />
-                                </TextBlock>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
-            </Popup>
+                ResourcePath="Help.md" />
         </Grid>
 
         <!--  Controls  -->
@@ -272,6 +84,17 @@
                     Padding="10,5"
                     Command="{Binding ViewModel.ClearItemsCommand}"
                     Content="清空列表" />
+                <Button
+                    x:Name="DemoButton"
+                    Margin="8,0,0,0"
+                    Padding="10,5"
+                    Click="DemoButton_Click"
+                    Content="示例"
+                    ToolTip="查看模式串示例">
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="DemoMenu" />
+                    </Button.ContextMenu>
+                </Button>
             </StackPanel>
 
             <!--  Rename Pattern  -->
@@ -286,15 +109,35 @@
                     Margin="0,0,8,0"
                     VerticalAlignment="Center"
                     Text="重命名模式：" />
-                <controls:CodeTextBox
-                    x:Name="RenamePatternTextBox"
-                    Grid.Column="1"
-                    Margin="0,0,8,0"
-                    FontSize="15"
-                    VerticalContentAlignment="Center"
-                    CodeText="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
-                    CompletionService="{Binding ViewModel.CompletionService}"
-                    ToolTip="重命名模式，使用 {name} 表示原文件名（不含扩展名），{ext} 表示扩展名，{fullname} 表示完整文件名。留空则添加 New_ 前缀。输入 { 可查看可用变量。" />
+                <Grid Grid.Column="1" Margin="0,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        x:Name="AddPrefixButton"
+                        Grid.Column="0"
+                        Margin="0,0,5,0"
+                        Padding="10,5"
+                        Click="AddPrefixButton_Click"
+                        Content="加前缀"
+                        ToolTip="在文件名前添加前缀" />
+                    <Button
+                        x:Name="AddSuffixButton"
+                        Grid.Column="1"
+                        Margin="0,0,5,0"
+                        Padding="10,5"
+                        Click="AddSuffixButton_Click"
+                        Content="加后缀"
+                        ToolTip="在文件名后添加后缀" />
+                    <controls:TemplateInputBox
+                        x:Name="RenamePatternTextBox"
+                        Grid.Column="2"
+                        Text="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
+                        CompletionService="{Binding ViewModel.CompletionService}"
+                        ToolTip="重命名模式，使用 {name} 表示原文件名（不含扩展名），{ext} 表示扩展名，{fullname} 表示完整文件名。留空则添加 New_ 前缀。输入 { 可查看可用变量。" />
+                </Grid>
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button
                         Margin="0,0,8,0"

@@ -1,0 +1,52 @@
+<UserControl
+    x:Class="BatchRenameTool.Controls.TemplateInputBox"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
+    xmlns:fa="clr-namespace:FontAwesome5.WPF;assembly=FontAwesomeIconsWpf">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!--  Add Variable Button  -->
+        <Button
+            x:Name="AddVariableButton"
+            Grid.Column="0"
+            Margin="0,0,5,0"
+            Padding="8,5"
+            Click="AddVariableButton_Click"
+            ToolTip="添加变量">
+            <Button.ContextMenu>
+                <ContextMenu x:Name="VariableMenu" />
+            </Button.ContextMenu>
+            <fa:SvgAwesome
+                Width="14"
+                Height="14"
+                Foreground="{DynamicResource PrimaryTextBrush}"
+                Icon="Light_Plus" />
+        </Button>
+
+        <!--  AvalonEdit Text Editor  -->
+        <Border
+            Grid.Column="1"
+            MinWidth="100"
+            Padding="5,3"
+            Background="{DynamicResource SecondaryRegionBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="5">
+            <avalonEdit:TextEditor
+                x:Name="TextEditor"
+                VerticalContentAlignment="Center"
+                Background="Transparent"
+                BorderThickness="0"
+                FontFamily="Consolas"
+                FontSize="15"
+                Foreground="{DynamicResource PrimaryTextBrush}"
+                ShowLineNumbers="False"
+                WordWrap="False" />
+        </Border>
+    </Grid>
+</UserControl>
