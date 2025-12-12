@@ -232,13 +232,15 @@ public class TemplateCompletionService : ICompletionService
         }
 
         // Create all items first
+        // Only return variable name (e.g., "name"), not "{name}"
+        // The braces are handled separately when user types '{'
         var allItems = _variables.Select(varInfo => new CompletionItem
         {
             Text = varInfo.VariableName,
-            DisplayText = $"{{{varInfo.VariableName}}}",
+            DisplayText = $"{{{varInfo.VariableName}}}", // Display with braces for clarity
             Description = varInfo.Description,
-            ReplacementText = $"{{{varInfo.VariableName}}}",
-            CursorOffset = -1 // Position cursor before closing '}' to allow typing {name|}
+            ReplacementText = varInfo.VariableName, // Only variable name, no braces
+            CursorOffset = 0 // Position cursor after variable name
         }).ToList();
 
         // Filter items based on current input
@@ -249,7 +251,7 @@ public class TemplateCompletionService : ICompletionService
             Type = CompletionType.Variable,
             Items = filteredItems,
             OriginalItems = allItems, // Store original items for re-filtering
-            ReplaceStartOffset = bracePosition, // Replace from '{'
+            ReplaceStartOffset = filterStartOffset, // Replace from after '{' (only variable name part)
             ReplaceEndOffset = replaceEndOffset, // Replace to cursor (or before '}' if found)
             FilterStartOffset = filterStartOffset // Filter starts after '{'
         };

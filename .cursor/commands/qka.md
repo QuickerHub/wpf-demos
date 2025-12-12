@@ -140,3 +140,66 @@ using System.Windows;
 - `d:DataContext="{d:DesignInstance local:MainWindow, IsDesignTimeCreatable=True}"` - 设置设计时 DataContext，设计器会创建 MainWindow 实例以访问 ViewModel 属性
 - `d:DesignHeight` 和 `d:DesignWidth` - 设计时窗口尺寸
 - `mc:Ignorable="d"` - 告诉编译器忽略设计时属性，避免运行时错误
+
+**HandyControl 暗黑模式适配：**
+- 在设计窗口或控件时，必须使用 HandyControl 的颜色资源来设置前景和背景，以确保自动适配暗黑模式
+- 不要使用硬编码的颜色值（如 `Color="White"`、`Color="Black"`），应使用 `{DynamicResource ...}` 引用 HandyControl 的颜色资源
+- **最佳实践：通常只需要在顶级控件（如 Window、UserControl）设置 Foreground，子控件会自动继承父控件的 Foreground**
+- 常用的 HandyControl 颜色资源：
+
+```xml
+<!-- 前景颜色（用于 Foreground，文本颜色） -->
+Foreground="{DynamicResource PrimaryTextBrush}"              <!-- 主要文本颜色（亮色/暗色自动适配） -->
+Foreground="{DynamicResource SecondaryTextBrush}"            <!-- 次要文本颜色 -->
+Foreground="{DynamicResource ThirdlyTextBrush}"              <!-- 第三级文本颜色 -->
+<!-- ⚠️ 注意：不要使用 PrimaryBrush 作为 Foreground，它是蓝色强调色，不是文本颜色 -->
+
+<!-- 背景颜色（用于 Background） -->
+Background="{DynamicResource RegionBrush}"                    <!-- 主要区域背景 -->
+Background="{DynamicResource SecondaryRegionBrush}"          <!-- 次要区域背景 -->
+Background="{DynamicResource ThirdlyRegionBrush}"            <!-- 第三级区域背景 -->
+Background="{DynamicResource DefaultWindowBackgroundBrush}"  <!-- 默认窗口背景 -->
+
+<!-- 边框颜色（用于 BorderBrush） -->
+BorderBrush="{DynamicResource BorderBrush}"                  <!-- 边框颜色 -->
+
+<!-- 强调颜色（用于 Background，如按钮、高亮区域等） -->
+Background="{DynamicResource PrimaryBrush}"                  <!-- 主要强调色（蓝色） -->
+Background="{DynamicResource InfoBrush}"                     <!-- 信息色 -->
+Background="{DynamicResource SuccessBrush}"                  <!-- 成功色 -->
+Background="{DynamicResource WarningBrush}"                  <!-- 警告色 -->
+Background="{DynamicResource DangerBrush}"                   <!-- 危险色 -->
+```
+
+示例（推荐方式 - 在顶级控件设置 Foreground）：
+```xml
+<!-- Window 示例 -->
+<Window Background="{DynamicResource DefaultWindowBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+    <Grid Background="{DynamicResource RegionBrush}">
+        <Border BorderBrush="{DynamicResource BorderBrush}"
+                Background="{DynamicResource SecondaryRegionBrush}">
+            <!-- TextBlock 会自动继承 Window 的 Foreground，无需重复设置 -->
+            <TextBlock Text="示例文本" />
+        </Border>
+    </Grid>
+</Window>
+
+<!-- UserControl 示例 -->
+<UserControl Background="{DynamicResource RegionBrush}"
+             Foreground="{DynamicResource PrimaryTextBrush}">
+    <StackPanel>
+        <!-- 所有子控件会自动继承 Foreground -->
+        <TextBlock Text="标题" />
+        <TextBox Text="输入内容" />
+        <Button Content="按钮" />
+    </StackPanel>
+</UserControl>
+```
+
+**重要提示：**
+- 使用 `{DynamicResource ...}` 而不是 `{StaticResource ...}`，以确保主题切换时颜色能正确更新
+- HandyControl 会根据系统主题自动切换亮色/暗色模式，使用颜色资源可以自动适配
+- **Foreground 属性会向下继承**：在 Window/UserControl 等顶级控件设置后，子控件（如 TextBlock、Label、Button 等）会自动继承，无需在每个子控件上重复设置
+- 只有在需要特殊前景色的子控件上才需要单独设置 Foreground（如强调文本、禁用状态等）
+- **⚠️ 重要：Foreground 必须使用 `PrimaryTextBrush`、`SecondaryTextBrush` 等文本颜色资源，不要使用 `PrimaryBrush`（蓝色强调色）作为 Foreground**

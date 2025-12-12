@@ -36,6 +36,12 @@ internal class CompletionData : ICompletionData
     public int CompleteOffset { get; set; } = 0;
 
     /// <summary>
+    /// Maximum end offset for replacement (exclusive)
+    /// Used to prevent replacing content beyond the intended range (e.g., closing brace)
+    /// </summary>
+    public int ReplaceEndOffset { get; set; } = int.MaxValue;
+
+    /// <summary>
     /// Metadata for completion (e.g., method info for adding parentheses)
     /// </summary>
     public object? Metadata { get; set; }
@@ -50,9 +56,10 @@ internal class CompletionData : ICompletionData
         // Use actualText if set, otherwise use Text
         var actualText = string.IsNullOrEmpty(ActualText) ? Text : ActualText;
 
-        // Calculate replacement segment: adjust start by replaceOffset
-        // completionSegment.Offset is the StartOffset (FilterStartOffset)
-        // We need to replace from ReplaceStartOffset, which is ReplaceOffset characters before FilterStartOffset
+        // Calculate replacement segment start
+        // completionSegment.Offset is the StartOffset, which is FilterStartOffset (for filtering)
+        // We need to adjust it by ReplaceOffset to get ReplaceStartOffset (actual replacement start)
+        // ReplaceOffset = FilterStartOffset - ReplaceStartOffset
         var replaceStart = completionSegment.Offset - ReplaceOffset;
         
         // Ensure replaceStart is not negative and within document bounds
@@ -66,7 +73,20 @@ internal class CompletionData : ICompletionData
         }
 
         // Get replaceEnd from completionSegment
+        // completionSegment.EndOffset is the end of the segment that should be replaced
+        // We need to limit it to ReplaceEndOffset to prevent replacing beyond intended range
         var replaceEnd = completionSegment.EndOffset;
+        
+        // Always limit replaceEnd to ReplaceEndOffset if it's set
+        // This prevents replacing content beyond the intended range (e.g., closing brace in {name.|})
+        if (ReplaceEndOffset != int.MaxValue)
+        {
+            // Use the minimum of completionSegment.EndOffset and ReplaceEndOffset
+            replaceEnd = Math.Min(replaceEnd, ReplaceEndOffset);
+        }
+        
+        // If replaceEnd equals replaceStart after adjustment, it means we should only insert
+        // But we still need to ensure replaceEnd is at least replaceStart to avoid negative ranges
         
         // Ensure replaceEnd is within document bounds
         if (replaceEnd < 0)

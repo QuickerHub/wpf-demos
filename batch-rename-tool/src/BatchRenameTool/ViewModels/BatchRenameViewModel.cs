@@ -40,6 +40,12 @@ namespace BatchRenameTool.ViewModels
         public ICompletionService CompletionService { get; } = new TemplateCompletionService();
 
         /// <summary>
+        /// Status message for rename operations
+        /// </summary>
+        [ObservableProperty]
+        private string _statusMessage = "共 0 个文件";
+
+        /// <summary>
         /// Constructor with dependency injection
         /// </summary>
         public BatchRenameViewModel(TemplateParser parser)
@@ -53,6 +59,99 @@ namespace BatchRenameTool.ViewModels
                 OnPropertyChanged(nameof(CanUndo));
                 UndoRenameCommand.NotifyCanExecuteChanged();
             };
+            
+            // Listen to Items collection changes to update status
+            Items.CollectionChanged += (s, e) =>
+            {
+                UpdateStatus();
+                // Subscribe to NewName changes for new items
+                if (e.NewItems != null)
+                {
+                    foreach (FileRenameItem item in e.NewItems)
+                    {
+                        item.PropertyChanged -= Item_PropertyChanged;
+                        item.PropertyChanged += Item_PropertyChanged;
+                    }
+                }
+                // Unsubscribe from removed items
+                if (e.OldItems != null)
+                {
+                    foreach (FileRenameItem item in e.OldItems)
+                    {
+                        item.PropertyChanged -= Item_PropertyChanged;
+                    }
+                }
+            };
+            
+            // Subscribe to existing items
+            SubscribeToItems();
+        }
+        
+        /// <summary>
+        /// Subscribe to NewName property changes for all items
+        /// </summary>
+        private void SubscribeToItems()
+        {
+            foreach (var item in Items)
+            {
+                item.PropertyChanged -= Item_PropertyChanged;
+                item.PropertyChanged += Item_PropertyChanged;
+            }
+        }
+        
+        /// <summary>
+        /// Handle property changes from FileRenameItem
+        /// </summary>
+        private void Item_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(FileRenameItem.NewName))
+            {
+                UpdateStatus();
+            }
+        }
+        
+        /// <summary>
+        /// Update status message based on current items
+        /// </summary>
+        private void UpdateStatus()
+        {
+            if (Items.Count == 0)
+            {
+                StatusMessage = "共 0 个文件";
+                return;
+            }
+            
+            var changedCount = Items.Count(item => item.IsNameChanged);
+            var unchangedCount = Items.Count - changedCount;
+            
+            // Check for duplicate names (case-insensitive)
+            var duplicateGroups = Items
+                .Where(item => !string.IsNullOrWhiteSpace(item.NewName))
+                .GroupBy(item => item.NewName, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .ToList();
+            
+            var duplicateCount = duplicateGroups.Sum(g => g.Count());
+            
+            var statusParts = new List<string>();
+            statusParts.Add($"共 {Items.Count} 个文件");
+            
+            if (changedCount > 0)
+            {
+                statusParts.Add($"{changedCount} 个将改变");
+            }
+            
+            if (unchangedCount > 0)
+            {
+                statusParts.Add($"{unchangedCount} 个未改变");
+            }
+            
+            if (duplicateCount > 0)
+            {
+                statusParts.Add($"⚠ {duplicateCount} 个重复名称");
+            }
+            
+            StatusMessage = string.Join("，", statusParts);
         }
 
         /// <summary>
@@ -343,6 +442,7 @@ namespace BatchRenameTool.ViewModels
                     var item = Items[i];
                     item.NewName = item.OriginalName;
                 }
+                UpdateStatus();
                 return;
             }
 
@@ -407,6 +507,9 @@ namespace BatchRenameTool.ViewModels
                     item.NewName = $"[{errorMessage}]";
                 }
             }
+            
+            // Update status after preview update
+            UpdateStatus();
         }
 
         /// <summary>
@@ -466,7 +569,7 @@ namespace BatchRenameTool.ViewModels
             var fullMessage = message + (result.Errors.Count > 0 ? "\n\n错误详情:\n" + string.Join("\n", result.Errors) : "");
             if (result.ErrorCount > 0)
             {
-                MessageHelper.ShowWarning(fullMessage);
+                MessageHelper.ShowError(fullMessage);
             }
             else if (result.SuccessCount > 0)
             {

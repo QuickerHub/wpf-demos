@@ -140,12 +140,28 @@ public partial class CodeTextBox : UserControl
 
     private void TextArea_TextEntering(object? sender, TextCompositionEventArgs e)
     {
-        // Don't close completion window when typing inside braces
-        if (e.Text.Length > 0 && _completionWindow != null && CompletionService != null)
+        if (e.Text.Length == 0)
+            return;
+
+        var doc = TextEditor.Document;
+        var offset = TextEditor.TextArea.Caret.Offset;
+        var ch = e.Text[0];
+        
+        // Handle '}' character: if cursor is already at '}', skip input to avoid duplicate
+        if (ch == '}')
         {
-            var doc = TextEditor.Document;
-            var offset = TextEditor.TextArea.Caret.Offset;
-            
+            if (offset < doc.TextLength && doc.GetCharAt(offset) == '}')
+            {
+                // Cursor is already at '}', just move cursor forward
+                e.Handled = true;
+                TextEditor.TextArea.Caret.Offset = offset + 1;
+                return;
+            }
+        }
+        
+        // Don't close completion window when typing inside braces
+        if (_completionWindow != null && CompletionService != null)
+        {
             // Check if cursor is inside braces
             var bracePosition = CompletionService.IsInsideBraces(doc.Text, offset);
             if (bracePosition >= 0)
@@ -155,7 +171,6 @@ public partial class CodeTextBox : UserControl
             }
             
             // Outside braces, check if character should close completion
-            var ch = e.Text[0];
             // Allow letters, digits, underscore, and trigger characters
             if (!char.IsLetterOrDigit(ch) && ch != '_' && ch != '{' && ch != '.' && ch != ':')
             {
@@ -173,8 +188,42 @@ public partial class CodeTextBox : UserControl
         var offset = TextEditor.TextArea.Caret.Offset;
         var triggerChar = e.Text[0];
         
+        // Handle '{' character: automatically add closing '}'
+        if (triggerChar == '{')
+        {
+            // Insert '}' after '{' to create {|}
+            // The '{' has already been inserted by AvalonEdit, so offset is after '{'
+            _isUpdatingFromEditor = true;
+            try
+            {
+                if (offset <= doc.TextLength)
+                {
+                    // Insert '}' at current cursor position (after '{')
+                    doc.Insert(offset, "}");
+                    // After insertion, cursor automatically moves to after '}'
+                    // We need to move it back to between { and } (at offset)
+                    TextEditor.TextArea.Caret.Offset = offset;
+                    
+                    // Trigger completion for variable names
+                    // Use the updated document text and current cursor position (between braces)
+                    var updatedText = doc.Text;
+                    var context = CompletionService.GetCompletionContext(updatedText, offset, triggerChar);
+                    
+                    if (context != null && context.Items.Count > 0)
+                    {
+                        ShowCompletion(context);
+                    }
+                }
+            }
+            finally
+            {
+                _isUpdatingFromEditor = false;
+            }
+            return;
+        }
+        
         // Check if this is a completion trigger character, or if cursor is inside braces
-        if (triggerChar == '{' || triggerChar == '.' || triggerChar == ':')
+        if (triggerChar == '.' || triggerChar == ':')
         {
             // Ask service for completion context - service decides what type of completion to show
             var context = CompletionService.GetCompletionContext(doc.Text, offset, triggerChar);
@@ -214,11 +263,20 @@ public partial class CodeTextBox : UserControl
         // Create completion window
         _completionWindow = new CompletionWindow(textArea);
         
-        // Use ReplaceStartOffset for StartOffset to ensure completionSegment matches our replacement range
-        // FilterStartOffset is only used for filtering, but StartOffset controls the completionSegment range
-        // This ensures that when user types filter text (e.g., ".repl"), the completionSegment includes
-        // both the '.' and the filter text, matching our ReplaceStartOffset to ReplaceEndOffset range
-        _completionWindow.StartOffset = context.ReplaceStartOffset;
+        // Remove border from completion window
+        _completionWindow.BorderThickness = new Thickness(0);
+        
+        // Remove border from completion list
+        if (_completionWindow.CompletionList != null)
+        {
+            _completionWindow.CompletionList.BorderThickness = new Thickness(0);
+        }
+        
+        // Use FilterStartOffset for StartOffset to enable proper filtering
+        // AvalonEdit uses text between StartOffset and caret position for filtering
+        // FilterStartOffset is after '.' (for method completion) or after '{' (for variable completion)
+        // We'll use ReplaceOffset in CompletionData.Complete to adjust the actual replacement start
+        _completionWindow.StartOffset = context.FilterStartOffset;
 
         // Create completion data items based on type provided by service
         foreach (var item in context.Items)
@@ -253,7 +311,10 @@ public partial class CodeTextBox : UserControl
 
         var completionList = _completionWindow.CompletionList;        
         
-        // Update StartOffset if service changed it (use FilterStartOffset for filtering)
+        // Use FilterStartOffset for StartOffset to enable proper filtering
+        // AvalonEdit uses text between StartOffset and caret position for filtering
+        // FilterStartOffset is after '.' (for method completion) or after '{' (for variable completion)
+        // We'll use ReplaceOffset in CompletionData.Complete to adjust the actual replacement start
         if (_completionWindow.StartOffset != context.FilterStartOffset)
         {
             _completionWindow.StartOffset = context.FilterStartOffset;
@@ -281,8 +342,10 @@ public partial class CodeTextBox : UserControl
     private ICompletionData? CreateCompletionData(CompletionContext context, CompletionItem item)
     {
         // Calculate replaceOffset: difference between FilterStartOffset and ReplaceStartOffset
-        // This accounts for characters before the filter start (e.g., '.' for method completion)
-        // completionSegment.Offset will be FilterStartOffset, but we want to replace from ReplaceStartOffset
+        // Since StartOffset is set to ReplaceStartOffset, completionSegment.Offset will be ReplaceStartOffset
+        // So ReplaceOffset should be 0, but we keep it for backward compatibility
+        // Actually, if StartOffset is ReplaceStartOffset, we don't need ReplaceOffset
+        // But to be safe, we calculate it as the difference
         var replaceOffset = context.FilterStartOffset - context.ReplaceStartOffset;
 
         // Actual text to insert
@@ -296,6 +359,7 @@ public partial class CodeTextBox : UserControl
             ActualText = actualText,
             ReplaceOffset = replaceOffset,
             CompleteOffset = item.CursorOffset,
+            ReplaceEndOffset = context.ReplaceEndOffset, // Limit replacement range
             Metadata = item.Metadata // Pass metadata for method completion
         };
     }
