@@ -16,6 +16,7 @@ namespace BatchRenameTool.Template.Lexer
         RightParen,     // )
         Comma,          // ,
         Identifier,     // Variable name, method name, etc.
+        StringLiteral,  // "string" or 'string'
         EOF             // End of file
     }
 

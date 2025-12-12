@@ -136,6 +136,16 @@ namespace BatchRenameTool.Template.Lexer
                     // Outside braces, treat as text
                     return ReadText();
 
+                case '"':
+                case '\'':
+                    // String literal (only inside braces)
+                    if (insideBraces)
+                    {
+                        return ReadStringLiteral();
+                    }
+                    // Outside braces, treat as text
+                    return ReadText();
+
                 default:
                     // Read text or identifier
                     if (IsIdentifierStart(ch))
@@ -210,6 +220,52 @@ namespace BatchRenameTool.Template.Lexer
             return text.Length > 0
                 ? new Token(TokenType.Text, text, start)
                 : null;
+        }
+
+        private Token ReadStringLiteral()
+        {
+            var start = _position;
+            var quoteChar = _input[_position]; // ' or "
+            _position++; // Skip opening quote
+
+            var sb = new StringBuilder();
+
+            while (_position < _input.Length)
+            {
+                var ch = _input[_position];
+
+                if (ch == quoteChar)
+                {
+                    // Found closing quote
+                    _position++;
+                    return new Token(TokenType.StringLiteral, sb.ToString(), start);
+                }
+                else if (ch == '\\' && _position + 1 < _input.Length)
+                {
+                    // Handle escape sequences
+                    _position++;
+                    var escapedChar = _input[_position];
+                    switch (escapedChar)
+                    {
+                        case 'n': sb.Append('\n'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case 't': sb.Append('\t'); break;
+                        case '\\': sb.Append('\\'); break;
+                        case '"': sb.Append('"'); break;
+                        case '\'': sb.Append('\''); break;
+                        default: sb.Append(escapedChar); break; // Unknown escape, include as-is
+                    }
+                    _position++;
+                }
+                else
+                {
+                    sb.Append(ch);
+                    _position++;
+                }
+            }
+
+            // Unterminated string literal
+            throw new Exception($"Unterminated string literal starting at position {start}");
         }
 
         private Token ReadIdentifier()

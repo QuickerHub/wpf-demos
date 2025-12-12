@@ -280,6 +280,23 @@
                 <Button
                     Margin="8,0,0,0"
                     Padding="10,5"
+                    Command="{Binding ViewModel.AddFilesFromDialogCommand}"
+                    Content="添加文件" />
+                <Button
+                    Margin="8,0,0,0"
+                    Padding="10,5"
+                    Command="{Binding ViewModel.PasteFilesCommand}"
+                    Content="粘贴文件" />
+                <Button
+                    x:Name="RemoveSelectedButton"
+                    Margin="8,0,0,0"
+                    Padding="10,5"
+                    Click="RemoveSelectedItemsButton_Click"
+                    Content="排除选中"
+                    ToolTip="从列表中移除选中的文件" />
+                <Button
+                    Margin="8,0,0,0"
+                    Padding="10,5"
                     Command="{Binding ViewModel.ClearItemsCommand}"
                     Content="清空列表" />
             </StackPanel>
@@ -303,12 +320,19 @@
                     CodeText="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
                     CompletionService="{Binding ViewModel.CompletionService}"
                     ToolTip="重命名模式，使用 {name} 表示原文件名（不含扩展名），{ext} 表示扩展名，{fullname} 表示完整文件名。留空则添加 New_ 前缀。输入 { 可查看可用变量。" />
-                <Button
-                    Grid.Column="2"
-                    Padding="15,5"
-                    Command="{Binding ViewModel.ExecuteRenameCommand}"
-                    Content="执行重命名"
-                    FontWeight="Bold" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button
+                        Margin="0,0,8,0"
+                        Padding="15,5"
+                        Command="{Binding ViewModel.UndoRenameCommand}"
+                        Content="撤销"
+                        ToolTip="撤销上一次重命名操作" />
+                    <Button
+                        Padding="15,5"
+                        Command="{Binding ViewModel.ExecuteRenameCommand}"
+                        Content="执行重命名"
+                        FontWeight="Bold" />
+                </StackPanel>
             </Grid>
         </Grid>
 

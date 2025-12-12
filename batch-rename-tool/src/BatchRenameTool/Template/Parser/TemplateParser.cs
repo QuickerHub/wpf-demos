@@ -137,24 +137,130 @@ namespace BatchRenameTool.Template.Parser
             // Consume '{'
             Advance();
 
-            // Parse variable first (format specifier only applies to variables, not method calls)
+            // Look ahead to find colon and right brace
+            int colonIndex = -1;
+            int rightBraceIndex = -1;
+            for (int i = _currentIndex; i < _tokens.Count; i++)
+            {
+                if (_tokens[i].Type == TokenType.RightBrace)
+                {
+                    rightBraceIndex = i;
+                    break;
+                }
+                if (_tokens[i].Type == TokenType.Colon && colonIndex == -1)
+                {
+                    colonIndex = i;
+                }
+            }
+            
+            // Build content string (either before colon, or before '}' if no colon)
+            int contentEndIndex = colonIndex > _currentIndex ? colonIndex : rightBraceIndex;
+            if (contentEndIndex > _currentIndex)
+            {
+                var contentSb = new System.Text.StringBuilder();
+                for (int i = _currentIndex; i < contentEndIndex; i++)
+                {
+                    contentSb.Append(_tokens[i].Value);
+                }
+                var contentStr = contentSb.ToString();
+                
+                // Check if content looks like an expression
+                // Expression format should NOT contain method calls ('.' or '(') or slices ('[')
+                // It should only contain variable names and operators
+                bool isExpressionFormat = false;
+                if (contentStr.Length > 0)
+                {
+                    // Check if content contains method calls or slices - if so, it's NOT an expression
+                    bool hasMethodCall = false;
+                    for (int i = _currentIndex; i < contentEndIndex; i++)
+                    {
+                        if (_tokens[i].Type == TokenType.Dot || 
+                            _tokens[i].Type == TokenType.LeftParen ||
+                            _tokens[i].Type == TokenType.LeftBracket)
+                        {
+                            hasMethodCall = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!hasMethodCall)
+                    {
+                        // Starts with digit -> expression (e.g., "2i+1")
+                        if (char.IsDigit(contentStr[0]))
+                        {
+                            isExpressionFormat = true;
+                        }
+                        // Contains operators -> expression (e.g., "i*2+1", "i2+1")
+                        else if (contentStr.Contains("+") || contentStr.Contains("-") || 
+                                 contentStr.Contains("*") || contentStr.Contains("/"))
+                        {
+                            // But exclude single 'i' (which is {i:format} or {i})
+                            if (contentStr.ToLower() != "i")
+                            {
+                                isExpressionFormat = true;
+                            }
+                        }
+                    }
+                }
+                
+                if (isExpressionFormat)
+                {
+                    // Parse as expression format: {2i+1:00} or {i2+1}
+                    string expressionString;
+                    string formatString;
+                    
+                    if (colonIndex > _currentIndex)
+                    {
+                        // Has colon: {2i+1:00}
+                        var (expr, fmt) = ReadExpressionAndFormatFromStart();
+                        expressionString = expr;
+                        formatString = fmt;
+                    }
+                    else
+                    {
+                        // No colon: {i2+1}
+                        var exprSb = new System.Text.StringBuilder();
+                        while (!IsAtEnd() && Peek().Type != TokenType.RightBrace)
+                        {
+                            var token = Advance();
+                            exprSb.Append(token.Value);
+                        }
+                        expressionString = exprSb.ToString();
+                        formatString = string.Empty; // No format string
+                    }
+                    
+                    var dummyVariableNode = new VariableNode("i"); // Dummy node for FormatNode
+                    
+                    // Consume '}'
+                    if (Peek().Type != TokenType.RightBrace)
+                    {
+                        throw new ParseException($"Expected '}}' at position {Peek().Position}");
+                    }
+                    Advance();
+                    
+                    return new FormatNode(dummyVariableNode, expressionString, formatString);
+                }
+            }
+
+            // Parse variable first (format specifier applies to variables, not method calls)
             AstNode node = ParseVariable();
 
-            // Check for format specifier (only for 'i' variable)
-            if (Peek().Type == TokenType.Colon && node is VariableNode varNode && varNode.VariableName.ToLower() == "i")
+            // Check for format specifier (colon after variable)
+            // Format specifier is universal for all variables, not just 'i'
+            if (Peek().Type == TokenType.Colon && node is VariableNode)
             {
                 Advance(); // Consume ':'
                 
                 // Read format string until '}' or method call/slice
-                var formatString = ReadFormatString();
+                // For variable format, we don't support expression (like {i:2*i+1:000})
+                // Only support simple format: {variable:format}
+                string formatString = ReadFormatString();
                 
-                node = new FormatNode(node, formatString);
+                node = new FormatNode(node, null, formatString);
             }
-            else
-            {
-                // Parse method calls and slices (chain them)
-                node = ParseMethodCallsAndSlices(node);
-            }
+            
+            // Parse method calls and slices (chain them) - can be after format or directly after variable
+            node = ParseMethodCallsAndSlices(node);
 
             // Consume '}'
             if (Peek().Type != TokenType.RightBrace)
@@ -193,13 +299,127 @@ namespace BatchRenameTool.Template.Parser
             return node;
         }
 
+        /// <summary>
+        /// Read expression and format from the start of expression (for {2i+1:00} syntax)
+        /// </summary>
+        private (string expressionString, string formatString) ReadExpressionAndFormatFromStart()
+        {
+            var expressionSb = new System.Text.StringBuilder();
+            var formatSb = new System.Text.StringBuilder();
+            bool foundColon = false;
+            
+            // Read until '}' or ':' or method call/slice
+            while (!IsAtEnd() && Peek().Type != TokenType.RightBrace)
+            {
+                var token = Peek();
+                
+                // Check if this is a colon (separating expression and format)
+                if (token.Type == TokenType.Colon && !foundColon)
+                {
+                    // Found colon, switch to reading format string
+                    foundColon = true;
+                    Advance(); // Consume ':'
+                    continue;
+                }
+                
+                // Check for method call or slice (they end the format string)
+                if (token.Type == TokenType.Dot || token.Type == TokenType.LeftBracket)
+                {
+                    break;
+                }
+                
+                var advancedToken = Advance();
+                
+                // Append to expression or format based on whether we found colon
+                if (foundColon)
+                {
+                    formatSb.Append(advancedToken.Value);
+                }
+                else
+                {
+                    expressionSb.Append(advancedToken.Value);
+                }
+            }
+
+            var expressionString = expressionSb.ToString();
+            var formatString = formatSb.ToString();
+            
+            if (!foundColon)
+            {
+                throw new ParseException($"Expected ':' in expression format at position {Peek().Position}");
+            }
+            
+            return (expressionString, formatString);
+        }
+
+        private (string? expressionString, string formatString) ReadExpressionAndFormat()
+        {
+            var expressionSb = new System.Text.StringBuilder();
+            var formatSb = new System.Text.StringBuilder();
+            bool foundSecondColon = false;
+            
+            // Read until '}' or second ':' or method call/slice
+            while (!IsAtEnd() && Peek().Type != TokenType.RightBrace)
+            {
+                var token = Peek();
+                
+                // Check if this is a second colon (separating expression and format)
+                if (token.Type == TokenType.Colon && !foundSecondColon)
+                {
+                    // Found second colon, switch to reading format string
+                    foundSecondColon = true;
+                    Advance(); // Consume second ':'
+                    continue;
+                }
+                
+                // Check for method call or slice (they end the format string)
+                if (token.Type == TokenType.Dot || token.Type == TokenType.LeftBracket)
+                {
+                    break;
+                }
+                
+                var advancedToken = Advance();
+                
+                // Append to expression or format based on whether we found second colon
+                if (foundSecondColon)
+                {
+                    formatSb.Append(advancedToken.Value);
+                }
+                else
+                {
+                    expressionSb.Append(advancedToken.Value);
+                }
+            }
+
+            var expressionString = expressionSb.ToString();
+            var formatString = formatSb.ToString();
+            
+            // If we found a second colon, return expression and format
+            if (foundSecondColon)
+            {
+                return (expressionString, formatString);
+            }
+            
+            // No second colon found, treat entire content as format string (backward compatibility)
+            return (null, expressionString);
+        }
+
         private string ReadFormatString()
         {
             var sb = new System.Text.StringBuilder();
             
+            // Read format string until '}' or method call/slice
             while (!IsAtEnd() && Peek().Type != TokenType.RightBrace)
             {
-                var token = Advance();
+                var token = Peek();
+                
+                // Stop if we encounter method call or slice (they come after format)
+                if (token.Type == TokenType.Dot || token.Type == TokenType.LeftBracket)
+                {
+                    break;
+                }
+                
+                Advance();
                 sb.Append(token.Value);
             }
 
@@ -241,38 +461,88 @@ namespace BatchRenameTool.Template.Parser
             {
                 Advance(); // Consume '('
                 
-                // Parse arguments
-                while (!IsAtEnd() && Peek().Type != TokenType.RightParen && Peek().Type != TokenType.RightBrace)
+                // Parse arguments: arg1, arg2, arg3
+                while (!IsAtEnd())
                 {
                     var nextToken = Peek();
                     
-                    if (nextToken.Type == TokenType.Identifier)
+                    // End of arguments
+                    if (nextToken.Type == TokenType.RightParen || nextToken.Type == TokenType.RightBrace)
+                    {
+                        break;
+                    }
+                    
+                    // Skip commas
+                    if (nextToken.Type == TokenType.Comma)
+                    {
+                        Advance(); // Consume ','
+                        continue;
+                    }
+                    
+                    // Parse argument value
+                    AstNode argument;
+                    if (nextToken.Type == TokenType.StringLiteral)
                     {
                         var argValue = Advance().Value;
-                        // Try to parse as number, otherwise treat as string literal
+                        argument = new LiteralNode(argValue);
+                    }
+                    else if (nextToken.Type == TokenType.Identifier)
+                    {
+                        var argValue = Advance().Value;
+                        // Try to parse as number, otherwise treat as string
                         if (int.TryParse(argValue, out int intValue))
                         {
-                            arguments.Add(new LiteralNode(intValue));
+                            argument = new LiteralNode(intValue);
                         }
                         else
                         {
-                            arguments.Add(new LiteralNode(argValue));
+                            argument = new LiteralNode(argValue);
                         }
                     }
-                    else if (nextToken.Type == TokenType.Comma)
+                    else if (nextToken.Type == TokenType.Text)
                     {
-                        Advance(); // Consume ','
+                        // Text token might be a number (e.g., "10", "1", "3")
+                        var argValue = Advance().Value;
+                        if (int.TryParse(argValue, out int intValue))
+                        {
+                            argument = new LiteralNode(intValue);
+                        }
+                        else
+                        {
+                            // Not a number, treat as string
+                            argument = new LiteralNode(argValue);
+                        }
                     }
                     else
                     {
-                        break; // End of arguments or unexpected token
+                        // Unexpected token
+                        throw new ParseException($"Unexpected token {nextToken.Type} in method arguments at position {nextToken.Position}. Expected Identifier, StringLiteral, or Text.");
+                    }
+                    
+                    // Add argument
+                    arguments.Add(argument);
+                    
+                    // Check what follows: comma (more args) or ')' (end)
+                    var next = Peek();
+                    if (next.Type == TokenType.Comma)
+                    {
+                        Advance(); // Consume ',' and continue
+                    }
+                    else if (next.Type == TokenType.RightParen || next.Type == TokenType.RightBrace)
+                    {
+                        // End of arguments
+                        break;
+                    }
+                    else
+                    {
+                        throw new ParseException($"Unexpected token {next.Type} after argument at position {next.Position}. Expected comma or ')'.");
                     }
                 }
                 
                 // Consume ')'
                 if (Peek().Type != TokenType.RightParen)
                 {
-                    throw new ParseException($"Expected ')' at position {Peek().Position}");
+                    throw new ParseException($"Expected ')' at position {Peek().Position}, got {Peek().Type}");
                 }
                 Advance();
             }
@@ -289,7 +559,19 @@ namespace BatchRenameTool.Template.Parser
             AstNode? end = null;
             
             // Check for start index
-            if (Peek().Type == TokenType.Identifier)
+            if (Peek().Type == TokenType.Identifier || Peek().Type == TokenType.Text)
+            {
+                var startValue = Advance().Value;
+                if (int.TryParse(startValue, out int intValue))
+                {
+                    start = new LiteralNode(intValue);
+                }
+                else
+                {
+                    throw new ParseException($"Invalid slice start index: {startValue} at position {Peek().Position}");
+                }
+            }
+            else if (Peek().Type == TokenType.StringLiteral)
             {
                 var startValue = Advance().Value;
                 if (int.TryParse(startValue, out int intValue))
@@ -308,7 +590,19 @@ namespace BatchRenameTool.Template.Parser
                 Advance(); // Consume ':'
                 
                 // Check for end index
-                if (Peek().Type == TokenType.Identifier)
+                if (Peek().Type == TokenType.Identifier || Peek().Type == TokenType.Text)
+                {
+                    var endValue = Advance().Value;
+                    if (int.TryParse(endValue, out int intValue))
+                    {
+                        end = new LiteralNode(intValue);
+                    }
+                    else
+                    {
+                        throw new ParseException($"Invalid slice end index: {endValue} at position {Peek().Position}");
+                    }
+                }
+                else if (Peek().Type == TokenType.StringLiteral)
                 {
                     var endValue = Advance().Value;
                     if (int.TryParse(endValue, out int intValue))

@@ -194,17 +194,26 @@ namespace BatchRenameTool.Services
                 return;
 
             // Step 1: Rename all files in cycle to temporary names
-            var tempNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var tempOps = new List<(RenameOperation op, string tempName)>();
+            var tempOps = new List<(RenameOperation op, string tempName, string originalFullName, string tempFullName)>();
 
             foreach (var op in cycle)
             {
                 var originalFullName = Path.Combine(op.Directory, op.OriginalName);
+                
+                // Check if source file exists
+                if (!File.Exists(originalFullName))
+                {
+                    result.ErrorCount++;
+                    result.Errors.Add($"Source file does not exist: {op.OriginalName}");
+                    // Rollback any already renamed files
+                    RollbackTempRenames(tempOps);
+                    return;
+                }
+
                 var tempName = GenerateTempName(op.Directory, op.OriginalName, cycle);
                 var tempFullName = Path.Combine(op.Directory, tempName);
 
-                tempNames[originalFullName] = tempName;
-                tempOps.Add((op, tempName));
+                tempOps.Add((op, tempName, originalFullName, tempFullName));
 
                 if (TryRenameFile(originalFullName, tempFullName))
                 {
@@ -214,24 +223,50 @@ namespace BatchRenameTool.Services
                 {
                     result.ErrorCount++;
                     result.Errors.Add($"Failed to rename {op.OriginalName} to temporary name");
+                    // Rollback any already renamed files
+                    RollbackTempRenames(tempOps);
                     return; // Abort cycle rename if any step fails
                 }
             }
 
             // Step 2: Rename from temporary names to final names
-            foreach (var (op, tempName) in tempOps)
+            foreach (var (op, tempName, originalFullName, tempFullName) in tempOps)
             {
-                var tempFullName = Path.Combine(op.Directory, tempName);
                 var finalFullName = Path.Combine(op.Directory, op.NewName);
 
                 if (TryRenameFile(tempFullName, finalFullName))
                 {
-                    // Already counted in step 1, don't double count
+                    // Success - already counted in step 1
                 }
                 else
                 {
                     result.ErrorCount++;
                     result.Errors.Add($"Failed to rename {tempName} to {op.NewName}");
+                    // Try to rollback remaining files
+                    RollbackTempRenames(tempOps.Where(t => t.tempFullName != tempFullName).ToList());
+                }
+            }
+        }
+
+        /// <summary>
+        /// Rollback temporary renames (restore original names)
+        /// </summary>
+        private void RollbackTempRenames(List<(RenameOperation op, string tempName, string originalFullName, string tempFullName)> tempOps)
+        {
+            // Rollback in reverse order
+            for (int i = tempOps.Count - 1; i >= 0; i--)
+            {
+                var (op, tempName, originalFullName, tempFullName) = tempOps[i];
+                if (File.Exists(tempFullName))
+                {
+                    try
+                    {
+                        File.Move(tempFullName, originalFullName);
+                    }
+                    catch
+                    {
+                        // Ignore rollback errors
+                    }
                 }
             }
         }
@@ -305,13 +340,34 @@ namespace BatchRenameTool.Services
             try
             {
                 if (!File.Exists(sourcePath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Source file does not exist: {sourcePath}");
                     return false;
+                }
+
+                // Check if target already exists
+                if (File.Exists(targetPath))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Target file already exists: {targetPath}");
+                    return false;
+                }
 
                 File.Move(sourcePath, targetPath);
                 return true;
             }
-            catch
+            catch (UnauthorizedAccessException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Rename failed (UnauthorizedAccess): {sourcePath} -> {targetPath}, Error: {ex.Message}");
+                return false;
+            }
+            catch (IOException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Rename failed (IOException): {sourcePath} -> {targetPath}, Error: {ex.Message}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Rename failed: {sourcePath} -> {targetPath}, Error: {ex.Message}");
                 return false;
             }
         }

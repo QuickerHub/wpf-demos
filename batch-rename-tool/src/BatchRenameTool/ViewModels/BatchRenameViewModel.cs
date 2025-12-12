@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using BatchRenameTool.Controls;
@@ -28,6 +29,12 @@ namespace BatchRenameTool.ViewModels
         public partial string RenamePattern { get; set; } = "";
 
         /// <summary>
+        /// History of rename operations for undo functionality
+        /// </summary>
+        [ObservableProperty]
+        private ObservableCollection<RenameHistoryEntry> _renameHistory = new();
+
+        /// <summary>
         /// Completion service for variable and method completion
         /// </summary>
         public ICompletionService CompletionService { get; } = new TemplateCompletionService();
@@ -39,10 +46,17 @@ namespace BatchRenameTool.ViewModels
         {
             _parser = parser;
             _evaluator = new TemplateEvaluator();
+            
+            // Listen to history collection changes to update CanUndo
+            RenameHistory.CollectionChanged += (s, e) =>
+            {
+                OnPropertyChanged(nameof(CanUndo));
+                UndoRenameCommand.NotifyCanExecuteChanged();
+            };
         }
 
         /// <summary>
-        /// Add files to rename list
+        /// Add files to rename list from folder path
         /// </summary>
         [RelayCommand]
         private void AddFiles(string? folderPath)
@@ -51,29 +65,222 @@ namespace BatchRenameTool.ViewModels
                 return;
 
             var files = Directory.GetFiles(folderPath);
-            
+            AddFilesToList(files);
+        }
+
+        /// <summary>
+        /// Add files using file dialog (supports multiple selection)
+        /// </summary>
+        [RelayCommand]
+        private void AddFilesFromDialog()
+        {
+            var fileNames = FileDialog.ShowOpenFileDialog(
+                title: "选择文件",
+                filter: "所有文件 (*.*)|*.*",
+                filterIndex: 1);
+
+            if (fileNames != null && fileNames.Length > 0)
+            {
+                AddFilesToList(fileNames);
+            }
+        }
+
+        /// <summary>
+        /// Paste files from clipboard (supports text and file drop list)
+        /// </summary>
+        [RelayCommand]
+        private void PasteFiles()
+        {
+            try
+            {
+                var filesToAdd = new List<string>();
+                
+                // 1. Check for FileDrop format (Windows standard file drop list)
+                if (System.Windows.Clipboard.ContainsData(System.Windows.DataFormats.FileDrop))
+                {
+                    var fileDropData = System.Windows.Clipboard.GetData(System.Windows.DataFormats.FileDrop);
+                    if (fileDropData is string[] filePaths)
+                    {
+                        foreach (var filePath in filePaths)
+                        {
+                            if (File.Exists(filePath))
+                            {
+                                filesToAdd.Add(filePath);
+                            }
+                        }
+                    }
+                }
+                
+                // 2. Check for Quicker file drop list format
+                var quickerFormats = new[] { "filedroplist", "FileDropList", "quicker-filedroplist" };
+                foreach (var format in quickerFormats)
+                {
+                    if (System.Windows.Clipboard.ContainsData(format))
+                    {
+                        var data = System.Windows.Clipboard.GetData(format);
+                        if (data is string[] paths)
+                        {
+                            foreach (var path in paths)
+                            {
+                                if (File.Exists(path))
+                                {
+                                    filesToAdd.Add(path);
+                                }
+                            }
+                        }
+                        else if (data is string text)
+                        {
+                            // Try to parse as newline-separated paths
+                            var lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var line in lines)
+                            {
+                                var trimmedLine = line.Trim().Trim('"', '\'');
+                                if (File.Exists(trimmedLine))
+                                {
+                                    filesToAdd.Add(trimmedLine);
+                                }
+                            }
+                        }
+                        break; // Found and processed, no need to check other formats
+                    }
+                }
+                
+                // 3. Check for text content (fallback)
+                if (filesToAdd.Count == 0 && System.Windows.Clipboard.ContainsText())
+                {
+                    var clipboardText = System.Windows.Clipboard.GetText();
+                    if (!string.IsNullOrWhiteSpace(clipboardText))
+                    {
+                        // Split by newlines and process each line
+                        var lines = clipboardText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var line in lines)
+                        {
+                            var trimmedLine = line.Trim();
+                            if (string.IsNullOrEmpty(trimmedLine))
+                                continue;
+
+                            // Try to treat the line as a file path
+                            // Remove quotes if present
+                            trimmedLine = trimmedLine.Trim('"', '\'');
+
+                            if (File.Exists(trimmedLine))
+                            {
+                                filesToAdd.Add(trimmedLine);
+                            }
+                        }
+                    }
+                }
+                
+                // Remove duplicates
+                var uniqueFiles = filesToAdd.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                
+                int addedCount = 0;
+                int skippedCount = 0;
+                
+                // Check which files are already in the list
+                var existingPaths = new HashSet<string>(Items.Select(i => i.FullPath), StringComparer.OrdinalIgnoreCase);
+                
+                foreach (var file in uniqueFiles)
+                {
+                    if (!existingPaths.Contains(file))
+                    {
+                        // Add file to list
+                        var fileName = Path.GetFileName(file);
+
+                        // Initially, new name is same as original (will be updated by UpdateRenamePreview)
+                        Items.Add(new FileRenameItem
+                        {
+                            OriginalName = fileName,
+                            NewName = fileName,
+                            FullPath = file
+                        });
+                        addedCount++;
+                    }
+                    else
+                    {
+                        skippedCount++;
+                    }
+                }
+                
+                if (addedCount > 0)
+                {
+                    var message = $"已从剪贴板添加 {addedCount} 个文件";
+                    if (skippedCount > 0)
+                    {
+                        message += $"，跳过 {skippedCount} 个重复文件";
+                    }
+                    MessageHelper.ShowSuccess(message);
+                    UpdateRenamePreview();
+                }
+                else if (filesToAdd.Count > 0)
+                {
+                    MessageHelper.ShowWarning($"剪贴板中有 {filesToAdd.Count} 个文件，但都是重复的或无效的");
+                }
+                else
+                {
+                    MessageHelper.ShowWarning("剪贴板中没有找到有效的文件路径");
+                }
+            }
+            catch (Exception ex)
+            {
+                var message = $"从剪贴板粘贴文件失败: {ex.Message}";
+                MessageHelper.ShowError(message);
+            }
+        }
+
+        /// <summary>
+        /// Helper method to add files to the list
+        /// </summary>
+        private void AddFilesToList(string[] files)
+        {
+            if (files == null || files.Length == 0)
+                return;
+
+            // Filter only existing files
+            var existingFiles = files.Where(File.Exists).ToArray();
+            if (existingFiles.Length == 0)
+                return;
+
             // Sort files using natural sort order
             var comparer = new NaturalStringComparer();
-            var sortedFiles = files.OrderBy(Path.GetFileName, comparer).ToArray();
+            var sortedFiles = existingFiles.OrderBy(Path.GetFileName, comparer).ToArray();
+
+            // Get existing paths to avoid duplicates
+            var existingPaths = new HashSet<string>(Items.Select(i => i.FullPath), StringComparer.OrdinalIgnoreCase);
+
+            int addedCount = 0;
+            int skippedCount = 0;
 
             foreach (var file in sortedFiles)
             {
+                // Skip if already in list
+                if (existingPaths.Contains(file))
+                {
+                    skippedCount++;
+                    continue;
+                }
+
                 var fileName = Path.GetFileName(file);
-                var fileExtension = Path.GetExtension(file);
-                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);
 
-                // Generate new name (for now, just add prefix as example)
-                var newName = $"New_{fileNameWithoutExtension}{fileExtension}";
-
+                // Initially, new name is same as original (will be updated by UpdateRenamePreview)
                 Items.Add(new FileRenameItem
                 {
                     OriginalName = fileName,
-                    NewName = newName,
+                    NewName = fileName,
                     FullPath = file
                 });
+                addedCount++;
             }
 
-            UpdateRenamePreview();
+            if (addedCount > 0)
+            {
+                UpdateRenamePreview();
+            }
+
+            if (skippedCount > 0 && addedCount == 0)
+            {
+                MessageHelper.ShowInformation($"所有文件都已存在于列表中（{skippedCount} 个文件）");
+            }
         }
 
         /// <summary>
@@ -83,6 +290,32 @@ namespace BatchRenameTool.ViewModels
         private void ClearItems()
         {
             Items.Clear();
+        }
+
+        /// <summary>
+        /// Remove selected items from the list
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanRemoveItems))]
+        private void RemoveItems(object? selectedItems)
+        {
+            if (selectedItems is System.Collections.IList items)
+            {
+                var itemsToRemove = items.Cast<FileRenameItem>().ToList();
+                foreach (var item in itemsToRemove)
+                {
+                    Items.Remove(item);
+                }
+                
+                if (itemsToRemove.Count > 0)
+                {
+                    UpdateRenamePreview();
+                }
+            }
+        }
+
+        private bool CanRemoveItems(object? selectedItems)
+        {
+            return selectedItems is System.Collections.IList items && items.Count > 0;
         }
 
         /// <summary>
@@ -104,13 +337,11 @@ namespace BatchRenameTool.ViewModels
 
             if (string.IsNullOrWhiteSpace(RenamePattern))
             {
-                // Default: add prefix with extension preserved
+                // If pattern is empty, keep original names unchanged
                 for (int i = 0; i < Items.Count; i++)
                 {
                     var item = Items[i];
-                    var extension = Path.GetExtension(item.OriginalName);
-                    var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
-                    item.NewName = $"New_{nameWithoutExt}{extension}";
+                    item.NewName = item.OriginalName;
                 }
                 return;
             }
@@ -121,6 +352,7 @@ namespace BatchRenameTool.ViewModels
                 var templateNode = _parser.Parse(RenamePattern);
 
                 // Apply template to each file item
+                int totalCount = Items.Count;
                 for (int i = 0; i < Items.Count; i++)
                 {
                     var item = Items[i];
@@ -133,7 +365,8 @@ namespace BatchRenameTool.ViewModels
                         Name = nameWithoutExt,
                         Ext = extension.TrimStart('.'), // Remove leading dot
                         FullName = item.OriginalName,
-                        Index = i // Index starts from 0
+                        Index = i, // Index starts from 0
+                        TotalCount = totalCount // Total count for reverse index calculation
                     };
 
                     // Evaluate template with context
@@ -186,36 +419,198 @@ namespace BatchRenameTool.ViewModels
                 return;
 
             var executor = new BatchRenameExecutor();
-            var operations = Items.Select(item =>
+            
+            // Create mapping between operations and items
+            var operationItemMap = new Dictionary<BatchRenameExecutor.RenameOperation, FileRenameItem>();
+            var operations = new List<BatchRenameExecutor.RenameOperation>();
+
+            foreach (var item in Items)
             {
                 var directory = Path.GetDirectoryName(item.FullPath) ?? string.Empty;
-                return new BatchRenameExecutor.RenameOperation
+                var operation = new BatchRenameExecutor.RenameOperation
                 {
                     OriginalPath = item.FullPath,
                     OriginalName = item.OriginalName,
                     NewName = item.NewName,
                     Directory = directory
                 };
-            }).ToList();
+                operations.Add(operation);
+                operationItemMap[operation] = item;
+            }
 
+            // Execute rename operations
             var result = executor.Execute(operations);
 
-            // Update items after rename
-            foreach (var item in Items.ToList())
+            // Build result message
+            var messageParts = new List<string>();
+            if (result.SuccessCount > 0)
             {
-                var directory = Path.GetDirectoryName(item.FullPath);
-                if (directory == null)
+                messageParts.Add($"成功: {result.SuccessCount} 个文件");
+            }
+            if (result.SkippedCount > 0)
+            {
+                messageParts.Add($"跳过: {result.SkippedCount} 个文件");
+            }
+            if (result.ErrorCount > 0)
+            {
+                messageParts.Add($"失败: {result.ErrorCount} 个文件");
+            }
+
+            var message = string.Join("，", messageParts);
+            if (string.IsNullOrEmpty(message))
+            {
+                message = "没有执行任何重命名操作";
+            }
+
+            // Show result message
+            var fullMessage = message + (result.Errors.Count > 0 ? "\n\n错误详情:\n" + string.Join("\n", result.Errors) : "");
+            if (result.ErrorCount > 0)
+            {
+                MessageHelper.ShowWarning(fullMessage);
+            }
+            else if (result.SuccessCount > 0)
+            {
+                MessageHelper.ShowSuccess(fullMessage);
+            }
+            else
+            {
+                MessageHelper.ShowInformation(fullMessage);
+            }
+
+            // Record successful renames for undo functionality
+            var historyEntry = new RenameHistoryEntry
+            {
+                Timestamp = DateTime.Now,
+                Operations = new List<SingleRenameOperation>()
+            };
+
+            // Update only successfully renamed items
+            // Check each operation to see if it was successful
+            foreach (var operation in operations)
+            {
+                if (!operationItemMap.TryGetValue(operation, out var item))
                     continue;
 
-                var newFullPath = Path.Combine(directory, item.NewName);
-                if (File.Exists(newFullPath))
+                var newFullPath = Path.Combine(operation.Directory, operation.NewName);
+                var oldFullPath = operation.OriginalPath;
+
+                // Check if rename was successful:
+                // 1. New file exists
+                // 2. Old file doesn't exist (or names are the same, meaning no rename was needed)
+                bool wasRenamed = false;
+                if (string.Equals(oldFullPath, newFullPath, StringComparison.OrdinalIgnoreCase))
                 {
+                    // Same name, no rename needed
+                    wasRenamed = true;
+                }
+                else if (File.Exists(newFullPath) && !File.Exists(oldFullPath))
+                {
+                    // Successfully renamed
+                    wasRenamed = true;
+                }
+
+                if (wasRenamed)
+                {
+                    // Record for undo
+                    historyEntry.Operations.Add(new SingleRenameOperation
+                    {
+                        Directory = operation.Directory,
+                        OriginalName = operation.OriginalName,
+                        NewName = operation.NewName,
+                        OriginalFullPath = oldFullPath,
+                        NewFullPath = newFullPath
+                    });
+
+                    // Update the item with new path and name
                     item.FullPath = newFullPath;
-                    item.OriginalName = item.NewName;
+                    item.OriginalName = operation.NewName;
                 }
             }
 
-            // Refresh the list after rename
+            // Add to history if there were any successful renames
+            if (historyEntry.Operations.Count > 0)
+            {
+                RenameHistory.Add(historyEntry);
+                OnPropertyChanged(nameof(CanUndo));
+            }
+
+            // Refresh the preview for remaining items
+            UpdateRenamePreview();
+        }
+
+        /// <summary>
+        /// Check if undo is available
+        /// </summary>
+        public bool CanUndo => RenameHistory.Count > 0;
+
+        /// <summary>
+        /// Undo the last rename operation
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanUndo))]
+        private void UndoRename()
+        {
+            if (RenameHistory.Count == 0)
+                return;
+
+            // Get the last history entry
+            var lastEntry = RenameHistory[RenameHistory.Count - 1];
+
+            // Create reverse operations (rename back to original names)
+            var executor = new BatchRenameExecutor();
+            var undoOperations = lastEntry.Operations.Select(op => new BatchRenameExecutor.RenameOperation
+            {
+                Directory = op.Directory,
+                OriginalName = op.NewName,
+                NewName = op.OriginalName,
+                OriginalPath = op.NewFullPath
+            }).ToList();
+
+            // Execute undo
+            var result = executor.Execute(undoOperations);
+
+            // Update items list - match by the current file path (which is the new path after rename)
+            foreach (var historyOp in lastEntry.Operations)
+            {
+                // Find the item that matches the new full path (the file we're reverting)
+                var item = Items.FirstOrDefault(i => 
+                    string.Equals(i.FullPath, historyOp.NewFullPath, StringComparison.OrdinalIgnoreCase));
+
+                if (item != null)
+                {
+                    // After undo, the file should be at the original path
+                    var originalFullPath = historyOp.OriginalFullPath;
+                    if (File.Exists(originalFullPath))
+                    {
+                        item.FullPath = originalFullPath;
+                        item.OriginalName = historyOp.OriginalName;
+                    }
+                }
+            }
+
+            // Remove from history
+            RenameHistory.RemoveAt(RenameHistory.Count - 1);
+            OnPropertyChanged(nameof(CanUndo));
+
+            // Show result
+            var message = result.SuccessCount > 0 
+                ? $"已撤销 {result.SuccessCount} 个文件的重命名" 
+                : "撤销操作未成功";
+            
+            var fullMessage = message + (result.Errors.Count > 0 ? "\n\n错误详情:\n" + string.Join("\n", result.Errors) : "");
+            if (result.ErrorCount > 0)
+            {
+                MessageHelper.ShowWarning(fullMessage);
+            }
+            else if (result.SuccessCount > 0)
+            {
+                MessageHelper.ShowSuccess(fullMessage);
+            }
+            else
+            {
+                MessageHelper.ShowInformation(fullMessage);
+            }
+
+            // Refresh preview
             UpdateRenamePreview();
         }
     }
@@ -248,5 +643,26 @@ namespace BatchRenameTool.ViewModels
         {
             OnPropertyChanged(nameof(IsNameChanged));
         }
+    }
+
+    /// <summary>
+    /// Represents a single rename operation in history
+    /// </summary>
+    public class SingleRenameOperation
+    {
+        public string Directory { get; set; } = "";
+        public string OriginalName { get; set; } = "";
+        public string NewName { get; set; } = "";
+        public string OriginalFullPath { get; set; } = "";
+        public string NewFullPath { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Represents a history entry for a batch rename operation
+    /// </summary>
+    public class RenameHistoryEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public List<SingleRenameOperation> Operations { get; set; } = new();
     }
 }

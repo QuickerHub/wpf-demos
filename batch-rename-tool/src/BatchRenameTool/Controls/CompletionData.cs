@@ -6,60 +6,106 @@ using ICSharpCode.AvalonEdit.Editing;
 namespace BatchRenameTool.Controls;
 
 /// <summary>
-/// Unified completion data implementation
-/// All completion types use this single class, with cursor position controlled by CursorOffset
+/// Simplified completion data implementation based on QuickerTools pattern
+/// Uses replaceOffset to adjust replacement start and completeOffset for cursor positioning
 /// </summary>
 internal class CompletionData : ICompletionData
 {
     public string Text { get; set; } = string.Empty;
     public object Content { get; set; } = string.Empty;
     public object Description { get; set; } = string.Empty;
-    public int ReplaceStartOffset { get; set; }
-    public int ReplaceEndOffset { get; set; }
-    public int CursorOffset { get; set; } = 0; // Relative offset from replacement end
-    public string ReplacementText { get; set; } = string.Empty; // Actual text to insert
     public double Priority => 0;
     public System.Windows.Media.ImageSource? Image => null;
 
+    /// <summary>
+    /// Actual text to insert (defaults to Text if not set)
+    /// </summary>
+    public string ActualText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Offset to adjust replacement start position
+    /// Used when user has typed filter text (e.g., ".repl" -> replaceOffset = 4)
+    /// Replacement will start at completionSegment.Offset - replaceOffset
+    /// </summary>
+    public int ReplaceOffset { get; set; } = 0;
+
+    /// <summary>
+    /// Offset to adjust cursor position after completion
+    /// Negative values move cursor backward, positive forward
+    /// </summary>
+    public int CompleteOffset { get; set; } = 0;
+
+    /// <summary>
+    /// Metadata for completion (e.g., method info for adding parentheses)
+    /// </summary>
+    public object? Metadata { get; set; }
+
     public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
     {
-        var doc = textArea.Document;
-        if (doc == null)
+        if (textArea?.Document == null || completionSegment == null)
             return;
 
-        // Undo AvalonEdit's automatic insertion
-        textArea.UndoAvalonEditInsertion(completionSegment);
+        var doc = textArea.Document;
+
+        // Use actualText if set, otherwise use Text
+        var actualText = string.IsNullOrEmpty(ActualText) ? Text : ActualText;
+
+        // Calculate replacement segment: adjust start by replaceOffset
+        // completionSegment.Offset is the StartOffset (FilterStartOffset)
+        // We need to replace from ReplaceStartOffset, which is ReplaceOffset characters before FilterStartOffset
+        var replaceStart = completionSegment.Offset - ReplaceOffset;
         
-        // Use ReplaceEndOffset provided by service (original cursor position before insertion)
-        var replaceEndOffset = ReplaceEndOffset;
-        
-        // Ensure ReplaceStartOffset is valid (allow insertion at end of document)
-        if (ReplaceStartOffset < 0 || ReplaceStartOffset > doc.TextLength)
+        // Ensure replaceStart is not negative and within document bounds
+        if (replaceStart < 0)
         {
-            return; // Invalid start offset
+            replaceStart = 0;
+        }
+        if (replaceStart > doc.TextLength)
+        {
+            replaceStart = doc.TextLength;
+        }
+
+        // Get replaceEnd from completionSegment
+        var replaceEnd = completionSegment.EndOffset;
+        
+        // Ensure replaceEnd is within document bounds
+        if (replaceEnd < 0)
+        {
+            replaceEnd = 0;
+        }
+        if (replaceEnd > doc.TextLength)
+        {
+            replaceEnd = doc.TextLength;
         }
         
-        // Clamp replaceEndOffset to valid range
-        replaceEndOffset = Math.Min(replaceEndOffset, doc.TextLength);
-        replaceEndOffset = Math.Max(ReplaceStartOffset, replaceEndOffset);
-        
-        // Perform replacement (allow insertion at end: replaceLength can be 0)
-        var replaceLength = replaceEndOffset - ReplaceStartOffset;
-        if (!doc.SafeReplace(ReplaceStartOffset, replaceLength, ReplacementText))
+        // Ensure replaceEnd is not less than replaceStart
+        if (replaceEnd < replaceStart)
         {
-            return; // Replacement failed
+            replaceEnd = replaceStart;
         }
-        
-        // Calculate cursor position after replacement: replacement end + CursorOffset
-        var replacementEnd = ReplaceStartOffset + ReplacementText.Length;
-        var cursorOffset = replacementEnd + CursorOffset;
-        
-        // Ensure cursor offset is within valid bounds
-        var currentDocLength = doc.TextLength;
-        cursorOffset = Math.Max(ReplaceStartOffset, cursorOffset);
-        cursorOffset = Math.Min(cursorOffset, currentDocLength);
-        
+
+        var replaceSegment = new SelectionSegment(replaceStart, replaceEnd);
+
+        // Perform replacement
+        doc.Replace(replaceSegment, actualText);
+
+        // Calculate new cursor position after replacement
+        var newCursorOffset = replaceStart + actualText.Length;
+
+        // Adjust cursor position by CompleteOffset (add to move forward, subtract to move backward)
+        newCursorOffset += CompleteOffset;
+
+        // Ensure cursor offset is within document bounds
+        newCursorOffset = Math.Max(0, Math.Min(newCursorOffset, doc.TextLength));
+
         // Set cursor position
-        textArea.SafeSetCaretOffset(cursorOffset);
+        textArea.Caret.Offset = newCursorOffset;
+
+        // If this is a method with parameters, add parentheses and move cursor inside
+        if (Metadata is TemplateCompletionService.MethodInfo methodInfo && methodInfo.HasParameters)
+        {
+            var methodEndOffset = textArea.Caret.Offset;
+            CodeTextBoxExtensions.InsertParenthesesAndMoveCursor(textArea, methodEndOffset);
+        }
     }
 }

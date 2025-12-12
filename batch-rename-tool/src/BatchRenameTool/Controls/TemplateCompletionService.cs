@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BatchRenameTool.Template;
 
 namespace BatchRenameTool.Controls;
 
@@ -9,18 +10,12 @@ namespace BatchRenameTool.Controls;
 /// </summary>
 public class TemplateCompletionService : ICompletionService
 {
-    private readonly Dictionary<string, string> _variableDescriptions;
+    private readonly List<VariableInfo> _variables;
     private readonly List<MethodInfo> _stringMethods;
 
     public TemplateCompletionService()
     {
-        _variableDescriptions = new Dictionary<string, string>
-        {
-            { "name", "原文件名（不含扩展名）" },
-            { "ext", "文件扩展名（不含点号）" },
-            { "fullname", "完整文件名（包含扩展名）" },
-            { "i", "序号变量，从0开始。可使用格式：{i:00}, {i:01}, {i:1}, {i:零}, {i:一}, {i:壹}" }
-        };
+        _variables = VariableInfo.GetAllVariables();
 
         _stringMethods = new List<MethodInfo>
         {
@@ -207,11 +202,29 @@ public class TemplateCompletionService : ICompletionService
         // FilterStartOffset should be right after '{' for filtering
         var filterStartOffset = bracePosition + 1;
         
-        // Get filter text (text between '{' and cursor)
-        string filterText = string.Empty;
-        if (caretOffset > filterStartOffset && filterStartOffset < documentText.Length)
+        // Find the end of the replacement range
+        // We should only replace from '{' to cursor, but stop at '}' if it exists before cursor
+        int replaceEndOffset = caretOffset;
+        
+        // Check if there's a closing brace between '{' and cursor
+        // If found, we should only replace up to (but not including) the closing brace
+        for (int i = bracePosition + 1; i < caretOffset && i < documentText.Length; i++)
         {
-            var filterLength = Math.Min(caretOffset - filterStartOffset, documentText.Length - filterStartOffset);
+            if (documentText[i] == '}')
+            {
+                // Found closing brace before cursor
+                // Only replace up to the closing brace (don't include it)
+                // This prevents replacing content after the closing brace
+                replaceEndOffset = i;
+                break;
+            }
+        }
+        
+        // Get filter text (text between '{' and replaceEndOffset, excluding '}' if found)
+        string filterText = string.Empty;
+        if (replaceEndOffset > filterStartOffset && filterStartOffset < documentText.Length)
+        {
+            var filterLength = Math.Min(replaceEndOffset - filterStartOffset, documentText.Length - filterStartOffset);
             if (filterLength > 0)
             {
                 filterText = documentText.Substring(filterStartOffset, filterLength);
@@ -219,12 +232,12 @@ public class TemplateCompletionService : ICompletionService
         }
 
         // Create all items first
-        var allItems = _variableDescriptions.Keys.Select(key => new CompletionItem
+        var allItems = _variables.Select(varInfo => new CompletionItem
         {
-            Text = key,
-            DisplayText = $"{{{key}}}",
-            Description = _variableDescriptions[key],
-            ReplacementText = $"{{{key}}}",
+            Text = varInfo.VariableName,
+            DisplayText = $"{{{varInfo.VariableName}}}",
+            Description = varInfo.Description,
+            ReplacementText = $"{{{varInfo.VariableName}}}",
             CursorOffset = -1 // Position cursor before closing '}' to allow typing {name|}
         }).ToList();
 
@@ -237,7 +250,7 @@ public class TemplateCompletionService : ICompletionService
             Items = filteredItems,
             OriginalItems = allItems, // Store original items for re-filtering
             ReplaceStartOffset = bracePosition, // Replace from '{'
-            ReplaceEndOffset = caretOffset, // Replace to current cursor
+            ReplaceEndOffset = replaceEndOffset, // Replace to cursor (or before '}' if found)
             FilterStartOffset = filterStartOffset // Filter starts after '{'
         };
     }
@@ -293,23 +306,32 @@ public class TemplateCompletionService : ICompletionService
         }
 
         var dotPosition = caretOffset - 1;
+        
+        // Find the end of the replacement range
+        // We should only replace from '.' to cursor, but stop at '}' if it exists before cursor
+        int replaceEndOffset = caretOffset;
+        
+        // Check if there's a closing brace between '.' and cursor
+        // If found, we should only replace up to (but not including) the closing brace
+        for (int i = dotPosition + 1; i < caretOffset && i < documentText.Length; i++)
+        {
+            if (documentText[i] == '}')
+            {
+                // Found closing brace before cursor
+                // Only replace up to the closing brace (don't include it)
+                // This prevents replacing content after the closing brace
+                replaceEndOffset = i;
+                break;
+            }
+        }
+        
         var items = new List<CompletionItem>();
 
         foreach (var method in _stringMethods)
         {
-            // Determine replacement text and cursor offset based on method parameters
-            string replacementText;
-            int cursorOffset;
-            if (method.HasParameters)
-            {
-                replacementText = $".{method.Name}()";
-                cursorOffset = -1; // Position cursor before ')' to allow typing parameters
-            }
-            else
-            {
-                replacementText = $".{method.Name}";
-                cursorOffset = 0; // Position cursor after method name
-            }
+            // Step 1: Only complete method name without parentheses
+            // Step 2: Add parentheses will be handled in CompletionData.Complete if HasParameters is true
+            var replacementText = $".{method.Name}";
 
             // Add method name
             items.Add(new CompletionItem
@@ -318,7 +340,7 @@ public class TemplateCompletionService : ICompletionService
                 DisplayText = $".{method.Name}()",
                 Description = method.Description,
                 ReplacementText = replacementText,
-                CursorOffset = cursorOffset,
+                CursorOffset = 0, // Position cursor after method name
                 Metadata = method // Store method info for completion
             });
 
@@ -331,7 +353,7 @@ public class TemplateCompletionService : ICompletionService
                     DisplayText = $".{alias}()",
                     Description = method.Description,
                     ReplacementText = replacementText,
-                    CursorOffset = cursorOffset,
+                    CursorOffset = 0, // Position cursor after method name
                     Metadata = method // Store method info for completion
                 });
             }
@@ -343,14 +365,14 @@ public class TemplateCompletionService : ICompletionService
             Items = items,
             OriginalItems = items, // Store original items for re-filtering
             ReplaceStartOffset = dotPosition, // Replace from '.'
-            ReplaceEndOffset = caretOffset, // Replace to current cursor
-            FilterStartOffset = caretOffset // Filter starts after '.'
+            ReplaceEndOffset = replaceEndOffset, // Replace to current cursor position (or '}' if found)
+            FilterStartOffset = dotPosition + 1 // Filter starts after '.' (for filtering method names)
         };
     }
 
     private CompletionContext? GetFormatCompletionContext(string documentText, int caretOffset)
     {
-        // Check if we have '{i:' pattern
+        // Check if we have '{variable:' pattern
         if (caretOffset < 3 || caretOffset > documentText.Length)
         {
             return null;
@@ -358,20 +380,34 @@ public class TemplateCompletionService : ICompletionService
 
         // Find the colon position by searching backwards from cursor
         int colonPosition = -1;
-        for (int i = caretOffset - 1; i >= 0 && i >= caretOffset - 10; i--) // Search up to 10 chars back
+        string? variableName = null;
+        
+        for (int i = caretOffset - 1; i >= 0 && i >= caretOffset - 50; i--) // Search up to 50 chars back
         {
             if (documentText[i] == ':')
             {
-                // Check if character before ':' is 'i'
-                if (i >= 1 && (documentText[i - 1] == 'i' || documentText[i - 1] == 'I'))
+                colonPosition = i;
+                // Extract variable name before ':'
+                int varStart = -1;
+                for (int j = i - 1; j >= 0; j--)
                 {
-                    // Check if character before 'i' is '{'
-                    if (i >= 2 && documentText[i - 2] == '{')
+                    if (documentText[j] == '{')
                     {
-                        colonPosition = i;
+                        varStart = j + 1;
                         break;
                     }
+                    if (documentText[j] == '}' || documentText[j] == ':')
+                    {
+                        // Found closing brace or another colon, not a valid format context
+                        return null;
+                    }
                 }
+                
+                if (varStart >= 0 && varStart < i)
+                {
+                    variableName = documentText.Substring(varStart, i - varStart);
+                }
+                break;
             }
             // Stop if we hit a '{' or '}' (we're outside the expression)
             if (documentText[i] == '{' || documentText[i] == '}')
@@ -380,27 +416,24 @@ public class TemplateCompletionService : ICompletionService
             }
         }
 
-        if (colonPosition < 0)
+        if (colonPosition < 0 || string.IsNullOrEmpty(variableName))
         {
             return null;
         }
 
-        var bracePosition = colonPosition - 2;
+        // Get variable info
+        var variableInfo = VariableInfo.GetVariable(variableName);
+        if (variableInfo == null || variableInfo.FormatOptions.Count == 0)
+        {
+            // Variable doesn't support format or doesn't exist
+            return null;
+        }
+
         // ReplaceStartOffset should be right after ':', regardless of what's currently there
         var replaceStartOffset = colonPosition + 1;
 
-        var formatOptions = new[]
-        {
-            new { Text = "00", Description = "2位数字，从00开始：00, 01, 02..." },
-            new { Text = "000", Description = "3位数字，从000开始：000, 001, 002..." },
-            new { Text = "01", Description = "2位数字，从01开始：01, 02, 03..." },
-            new { Text = "1", Description = "序号，从1开始：1, 2, 3..." },
-            new { Text = "零", Description = "中文序号，从零开始：零, 一, 二..." },
-            new { Text = "一", Description = "中文序号，从一开始：一, 二, 三..." },
-            new { Text = "壹", Description = "中文序号（大写），从壹开始：壹, 贰, 叁..." }
-        };
-
-        var items = formatOptions.Select(opt => new CompletionItem
+        // Get format options for this variable
+        var items = variableInfo.FormatOptions.Select(opt => new CompletionItem
         {
             Text = opt.Text,
             DisplayText = opt.Text,

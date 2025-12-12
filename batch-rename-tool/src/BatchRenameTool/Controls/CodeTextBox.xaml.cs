@@ -214,8 +214,11 @@ public partial class CodeTextBox : UserControl
         // Create completion window
         _completionWindow = new CompletionWindow(textArea);
         
-        // Use StartOffset provided by service (service decides based on completion type)
-        _completionWindow.StartOffset = context.FilterStartOffset;
+        // Use ReplaceStartOffset for StartOffset to ensure completionSegment matches our replacement range
+        // FilterStartOffset is only used for filtering, but StartOffset controls the completionSegment range
+        // This ensures that when user types filter text (e.g., ".repl"), the completionSegment includes
+        // both the '.' and the filter text, matching our ReplaceStartOffset to ReplaceEndOffset range
+        _completionWindow.StartOffset = context.ReplaceStartOffset;
 
         // Create completion data items based on type provided by service
         foreach (var item in context.Items)
@@ -248,9 +251,9 @@ public partial class CodeTextBox : UserControl
         if (_completionWindow == null)
             return;
 
-        var completionList = _completionWindow.CompletionList;
+        var completionList = _completionWindow.CompletionList;        
         
-        // Update StartOffset if service changed it
+        // Update StartOffset if service changed it (use FilterStartOffset for filtering)
         if (_completionWindow.StartOffset != context.FilterStartOffset)
         {
             _completionWindow.StartOffset = context.FilterStartOffset;
@@ -277,17 +280,23 @@ public partial class CodeTextBox : UserControl
 
     private ICompletionData? CreateCompletionData(CompletionContext context, CompletionItem item)
     {
-        // Use unified CompletionData class for all completion types
-        // All completion logic (replacement text, cursor position) is determined by the service
+        // Calculate replaceOffset: difference between FilterStartOffset and ReplaceStartOffset
+        // This accounts for characters before the filter start (e.g., '.' for method completion)
+        // completionSegment.Offset will be FilterStartOffset, but we want to replace from ReplaceStartOffset
+        var replaceOffset = context.FilterStartOffset - context.ReplaceStartOffset;
+
+        // Actual text to insert
+        var actualText = item.ReplacementText ?? item.DisplayText ?? item.Text;
+
         return new CompletionData
         {
             Text = item.Text,
             Content = item.DisplayText,
             Description = item.Description,
-            ReplacementText = item.ReplacementText ?? item.DisplayText ?? item.Text,
-            CursorOffset = item.CursorOffset,
-            ReplaceStartOffset = context.ReplaceStartOffset,
-            ReplaceEndOffset = context.ReplaceEndOffset
+            ActualText = actualText,
+            ReplaceOffset = replaceOffset,
+            CompleteOffset = item.CursorOffset,
+            Metadata = item.Metadata // Pass metadata for method completion
         };
     }
 
@@ -333,4 +342,33 @@ public partial class CodeTextBox : UserControl
     /// Gets the underlying TextEditor instance for advanced operations
     /// </summary>
     public TextEditor Editor => TextEditor;
+}
+
+/// <summary>
+/// Extension methods for CodeTextBox operations
+/// </summary>
+internal static class CodeTextBoxExtensions
+{
+    /// <summary>
+    /// Insert parentheses at the specified offset and move cursor inside
+    /// </summary>
+    public static void InsertParenthesesAndMoveCursor(TextArea textArea, int offset)
+    {
+        if (textArea?.Document == null)
+            return;
+
+        var doc = textArea.Document;
+        
+        // Ensure offset is valid
+        if (offset < 0 || offset > doc.TextLength)
+            return;
+
+        // Insert "()" at the offset
+        if (!doc.SafeInsert(offset, "()"))
+            return;
+
+        // Move cursor inside parentheses (after '(')
+        var cursorOffset = offset + 1;
+        textArea.SafeSetCaretOffset(cursorOffset);
+    }
 }
