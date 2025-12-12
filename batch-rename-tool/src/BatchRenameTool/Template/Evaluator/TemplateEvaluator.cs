@@ -474,24 +474,6 @@ namespace BatchRenameTool.Template.Evaluator
             // Get method name (case-insensitive)
             var methodName = node.MethodName.ToLower();
             
-            // Handle method aliases
-            var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "??", "replace" },
-                { "??", "upper" },
-                { "??", "lower" },
-                { "???", "trim" },
-                { "??", "sub" },
-                { "??", "sub" },
-                { "???", "padleft" },
-                { "???", "padright" }
-            };
-            
-            if (aliasMap.ContainsKey(methodName))
-            {
-                methodName = aliasMap[methodName];
-            }
-            
             // Execute method based on name
             return methodName switch
             {

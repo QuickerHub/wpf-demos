@@ -11,64 +11,84 @@ namespace BatchRenameTool.Controls;
 public class TemplateCompletionService : ICompletionService
 {
     private readonly List<VariableInfo> _variables;
-    private readonly List<MethodInfo> _stringMethods;
+    private readonly Dictionary<VariableType, List<MethodInfo>> _methodsByType;
 
     public TemplateCompletionService()
     {
         _variables = VariableInfo.GetAllVariables();
 
-        _stringMethods = new List<MethodInfo>
+        // Initialize methods by variable type
+        _methodsByType = new Dictionary<VariableType, List<MethodInfo>>();
+
+        // String methods
+        _methodsByType[VariableType.String] = new List<MethodInfo>
         {
             new MethodInfo
             {
                 Name = "replace",
-                Aliases = new[] { "替换" },
+                DisplayName = "[替换]replace",
                 Description = "替换字符串。用法：{name.replace(old,new)}",
                 HasParameters = true
             },
             new MethodInfo
             {
                 Name = "upper",
-                Aliases = new[] { "大写" },
+                DisplayName = "[大写]upper",
                 Description = "转换为大写。用法：{name.upper} 或 {name.upper()}",
                 HasParameters = false
             },
             new MethodInfo
             {
                 Name = "lower",
-                Aliases = new[] { "小写" },
+                DisplayName = "[小写]lower",
                 Description = "转换为小写。用法：{name.lower} 或 {name.lower()}",
                 HasParameters = false
             },
             new MethodInfo
             {
                 Name = "trim",
-                Aliases = new[] { "去空格" },
+                DisplayName = "[去空格]trim",
                 Description = "去除首尾空格。用法：{name.trim} 或 {name.trim()}",
                 HasParameters = false
             },
             new MethodInfo
             {
                 Name = "sub",
-                Aliases = new[] { "截取", "切片" },
+                DisplayName = "[截取]sub",
                 Description = "截取字符串。用法：{name.sub(start)} 或 {name.sub(start,end)} 或 {name[start:end]}",
                 HasParameters = true
             },
             new MethodInfo
             {
                 Name = "padLeft",
-                Aliases = new[] { "左填充" },
+                DisplayName = "[左填充]padLeft",
                 Description = "左侧填充。用法：{name.padLeft(10)} 或 {name.padLeft(10,0)}",
                 HasParameters = true
             },
             new MethodInfo
             {
                 Name = "padRight",
-                Aliases = new[] { "右填充" },
+                DisplayName = "[右填充]padRight",
                 Description = "右侧填充。用法：{name.padRight(10)} 或 {name.padRight(10,-)}",
                 HasParameters = true
             }
         };
+
+        // Number methods (for i, iv variables) - currently none, but can be added in future
+        _methodsByType[VariableType.Number] = new List<MethodInfo>();
+
+        // Date methods - currently none, but can be added in future
+        _methodsByType[VariableType.Date] = new List<MethodInfo>();
+        _methodsByType[VariableType.DateTime] = new List<MethodInfo>();
+
+        // Image methods - currently none, but can be added in future
+        _methodsByType[VariableType.Image] = new List<MethodInfo>();
+
+        // File methods - currently none, but can be added in future
+        _methodsByType[VariableType.File] = new List<MethodInfo>();
+
+        // Size methods - currently none, but can be added in future
+        _methodsByType[VariableType.Size] = new List<MethodInfo>();
     }
 
     public CompletionContext? GetCompletionContext(string documentText, int caretOffset, char triggerChar)
@@ -301,10 +321,17 @@ public class TemplateCompletionService : ICompletionService
             return null;
         }
 
-        // Only show methods for string variables (not 'i')
-        if (variableName.Equals("i", StringComparison.OrdinalIgnoreCase))
+        // Get variable info to determine variable type
+        var variableInfo = VariableInfo.GetVariable(variableName);
+        if (variableInfo == null)
         {
-            return null;
+            return null; // Variable not found
+        }
+
+        // Get methods for this variable type
+        if (!_methodsByType.TryGetValue(variableInfo.Type, out var methods) || methods.Count == 0)
+        {
+            return null; // No methods available for this variable type
         }
 
         var dotPosition = caretOffset - 1;
@@ -329,36 +356,24 @@ public class TemplateCompletionService : ICompletionService
         
         var items = new List<CompletionItem>();
 
-        foreach (var method in _stringMethods)
+        foreach (var method in methods)
         {
             // Step 1: Only complete method name without parentheses
             // Step 2: Add parentheses will be handled in CompletionData.Complete if HasParameters is true
             var replacementText = $".{method.Name}";
 
-            // Add method name
+            // Add method completion item
+            // Text is used for filtering/searching (English method name only)
+            // DisplayText shows Chinese hint for user understanding
             items.Add(new CompletionItem
             {
-                Text = method.Name,
-                DisplayText = $".{method.Name}()",
+                Text = method.Name, // Search/filter based on English name only
+                DisplayText = $".{method.DisplayName}()", // Show Chinese hint in display
                 Description = method.Description,
                 ReplacementText = replacementText,
                 CursorOffset = 0, // Position cursor after method name
                 Metadata = method // Store method info for completion
             });
-
-            // Add aliases
-            foreach (var alias in method.Aliases)
-            {
-                items.Add(new CompletionItem
-                {
-                    Text = alias,
-                    DisplayText = $".{alias}()",
-                    Description = method.Description,
-                    ReplacementText = replacementText,
-                    CursorOffset = 0, // Position cursor after method name
-                    Metadata = method // Store method info for completion
-                });
-            }
         }
 
         return new CompletionContext
@@ -462,16 +477,17 @@ public class TemplateCompletionService : ICompletionService
             return items;
         }
 
+        // Only filter based on Text (English method name), not DisplayText
+        // This ensures search is based on actual method names, not Chinese hints
         return items.Where(item =>
-            item.Text.StartsWith(filterText, StringComparison.OrdinalIgnoreCase) ||
-            item.DisplayText.StartsWith(filterText, StringComparison.OrdinalIgnoreCase)
+            item.Text.StartsWith(filterText, StringComparison.OrdinalIgnoreCase)
         ).ToList();
     }
 
     public class MethodInfo
     {
         public string Name { get; set; } = string.Empty;
-        public string[] Aliases { get; set; } = Array.Empty<string>();
+        public string DisplayName { get; set; } = string.Empty; // Display name with Chinese hint, e.g., "[替换]replace"
         public string Description { get; set; } = string.Empty;
         public bool HasParameters { get; set; }
     }
