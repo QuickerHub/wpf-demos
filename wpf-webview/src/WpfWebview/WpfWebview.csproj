@@ -1,0 +1,114 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net472</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<LangVersion>preview</LangVersion>
+		<PlatformTarget>x64</PlatformTarget>
+		<Version Condition="'$(Version)' == ''">1.0.0.0</Version>
+		<AssemblyName Condition="'$(Configuration)' != 'Release'">$(MSBuildProjectName)</AssemblyName>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<OutputType>Library</OutputType>
+		<AssemblyName>$(MSBuildProjectName).$(Version)</AssemblyName>
+		<ApplicationDefinition />
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(Configuration)' == 'Release'">
+		<Compile Remove="App.xaml.cs" />
+		<Page Remove="App.xaml" />
+		<ApplicationDefinition Remove="App.xaml" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="log4net" Version="2.0.15" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3240.44" />
+		<PackageReference Include="DependencyPropertyGenerator" Version="1.5.0" />
+	</ItemGroup>
+
+	<!-- Web project path -->
+	<PropertyGroup>
+		<WebProjectPath>$(MSBuildThisFileDirectory)..\WpfWebview.Web</WebProjectPath>
+		<WebDistPath>$(WebProjectPath)\dist</WebDistPath>
+	</PropertyGroup>
+
+	<!-- Define web files item group for incremental build -->
+	<ItemGroup>
+		<WebFiles Include="$(WebDistPath)\**\*.*" Condition="Exists('$(WebDistPath)')" />
+	</ItemGroup>
+
+	<!-- Build web project before building WPF project -->
+	<!-- Release: build for production -->
+	<Target Name="BuildWebProject" BeforeTargets="BeforeBuild" Condition="'$(Configuration)' == 'Release'">
+		<Message Text="Building web project for production..." Importance="high" />
+		<Exec Command="pnpm install" WorkingDirectory="$(WebProjectPath)" Condition="!Exists('$(WebProjectPath)\node_modules')" />
+		<Exec Command="pnpm build" WorkingDirectory="$(WebProjectPath)" />
+		<Message Text="Web project build completed." Importance="high" />
+	</Target>
+
+	<!-- Copy web dist files to output directory -->
+	<Target Name="CopyWebFiles" AfterTargets="Build" Condition="Exists('$(WebDistPath)')">
+		<PropertyGroup>
+			<ShouldSkipUnchangedFiles Condition="'$(Configuration)' == 'Release'">false</ShouldSkipUnchangedFiles>
+			<ShouldSkipUnchangedFiles Condition="'$(Configuration)' != 'Release'">true</ShouldSkipUnchangedFiles>
+			<!-- Use TargetDir which is the actual output directory (bin/Debug/net472/ or bin/Release/net472/) -->
+			<WebOutputDir>$(TargetDir)</WebOutputDir>
+		</PropertyGroup>
+		<ItemGroup>
+			<WebFiles Include="$(WebDistPath)\**\*.*" />
+			<!-- Find existing web files in output directory to delete before copying -->
+			<ExistingWebFiles Include="$(WebOutputDir)index.html" Condition="Exists('$(WebOutputDir)index.html')" />
+			<ExistingWebFiles Include="$(WebOutputDir)assets\**\*.*" Condition="Exists('$(WebOutputDir)assets')" />
+		</ItemGroup>
+		<!-- Delete existing web files before copying new ones (full overwrite strategy) -->
+		<Message Text="Deleting existing web files from $(WebOutputDir)" Importance="high" />
+		<Delete Files="@(ExistingWebFiles)" ContinueOnError="true" />
+		<RemoveDir Directories="$(WebOutputDir)assets" Condition="Exists('$(WebOutputDir)assets')" ContinueOnError="true" />
+		<!-- Copy new web files -->
+		<Message Text="Copying web files from $(WebDistPath) to $(WebOutputDir)" Importance="high" />
+		<Copy SourceFiles="@(WebFiles)" 
+		      DestinationFolder="$(WebOutputDir)%(RecursiveDir)" 
+		      SkipUnchangedFiles="$(ShouldSkipUnchangedFiles)" />
+		<Message Text="Copied @(WebFiles->Count()) web files to $(WebOutputDir)" Importance="high" Condition="@(WebFiles->Count()) > 0" />
+		<Warning Text="Web dist folder is empty: $(WebDistPath)" Condition="@(WebFiles->Count()) == 0" />
+	</Target>
+
+	<ItemGroup>
+		<Reference Include="Microsoft.CSharp" />
+		<Reference Include="System.Net.Http" />
+		<Reference Include="Quicker">
+			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
+		</Reference>
+		<Reference Include="Quicker.Common">
+			<HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
+		</Reference>
+		<Reference Include="Quicker.Public">
+			<HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
+		</Reference>
+		<Reference Include="DotNetProjects.SVGImage">
+			<HintPath>C:\Program Files\Quicker\DotNetProjects.SVGImage.dll</HintPath>
+		</Reference>
+		<Reference Include="DotNetProjects.Wpf.Extended.Toolkit">
+			<HintPath>C:\Program Files\Quicker\DotNetProjects.Wpf.Extended.Toolkit.dll</HintPath>
+		</Reference>
+		<Reference Include="FontAwesomeIconsWpf">
+			<HintPath>C:\Program Files\Quicker\FontAwesomeIconsWpf.dll</HintPath>
+		</Reference>
+		<Reference Include="HandyControl">
+			<HintPath>C:\Program Files\Quicker\HandyControl.dll</HintPath>
+		</Reference>
+		<Reference Include="ICSharpCode.AvalonEdit">
+			<HintPath>C:\Program Files\Quicker\ICSharpCode.AvalonEdit.dll</HintPath>
+		</Reference>
+		<Reference Include="ICSharpCode.SharpZipLib">
+			<HintPath>C:\Program Files\Quicker\ICSharpCode.SharpZipLib.dll</HintPath>
+		</Reference>
+		<Reference Include="MdXaml">
+			<HintPath>C:\Program Files\Quicker\MdXaml.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+</Project>
