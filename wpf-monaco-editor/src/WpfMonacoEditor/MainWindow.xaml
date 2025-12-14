@@ -3,8 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="clr-namespace:WpfMonacoEditor"
     xmlns:ext="clr-namespace:WpfMonacoEditor.Extensions"
+    xmlns:local="clr-namespace:WpfMonacoEditor"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     Title="Monaco Editor Diff Editor"
@@ -25,7 +25,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Toolbar -->
+        <!--  Toolbar  -->
         <Border
             Grid.Row="0"
             Padding="10"
@@ -38,6 +38,11 @@
                     Padding="10,5"
                     Command="{Binding ViewModel.UpdateEditorContentCommand}"
                     Content="更新编辑器" />
+                <Button
+                    Margin="5,0"
+                    Padding="10,5"
+                    Command="{Binding ViewModel.TestShowDiffEditorCommand}"
+                    Content="测试 DiffEditor" />
                 <Separator Margin="10,0" />
                 <TextBlock
                     Margin="10,0"
@@ -60,7 +65,7 @@
             </StackPanel>
         </Border>
 
-        <!-- WebView -->
+        <!--  WebView  -->
         <Border
             Grid.Row="1"
             Background="{DynamicResource RegionBrush}"
@@ -69,7 +74,7 @@
             <Grid>
                 <wv2:WebView2 x:Name="WebViewControl" />
 
-                <!-- Loading overlay -->
+                <!--  Loading overlay  -->
                 <Border
                     Background="{DynamicResource RegionBrush}"
                     Opacity="0.95"
@@ -78,18 +83,17 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Orientation="Vertical">
-                        <!-- Loading progress bar -->
+                        <!--  Loading progress bar  -->
                         <ProgressBar
                             Width="200"
                             Height="4"
-                            Margin="0,0,0,20"
                             IsIndeterminate="True" />
                     </StackPanel>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- Status Bar -->
+        <!--  Status Bar  -->
         <Border
             Grid.Row="2"
             Padding="10,5"

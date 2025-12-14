@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import monacoEditorPlugin from 'vite-plugin-monaco-editor';
 import { writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -10,7 +9,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [
     react(),
-    monacoEditorPlugin({}),
     {
       name: 'dev-server-info',
       configureServer(server) {
@@ -46,8 +44,36 @@ export default defineConfig({
     emptyOutDir: true,
     assetsDir: 'assets',
     rollupOptions: {
-      input: './index.html'
-    }
+      input: './index.html',
+      output: {
+        // Optimize chunk splitting for better caching and parallel loading
+        manualChunks: (id) => {
+          // Split node_modules into separate chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('monaco-editor')) {
+              return 'monaco-vendor';
+            }
+            // Other vendor libraries
+            return 'vendor';
+          }
+        },
+        // Optimize file names for better caching
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
+      }
+    },
+    // Use esbuild for faster minification (default in Vite 5)
+    minify: 'esbuild',
+    // Increase chunk size warning limit (Monaco Editor is large)
+    chunkSizeWarningLimit: 2000,
+    // Disable source maps for smaller bundle size
+    sourcemap: false,
+    // Enable CSS code splitting
+    cssCodeSplit: true
   },
   base: './'
 });

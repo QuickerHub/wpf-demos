@@ -312,7 +312,7 @@ namespace WpfMonacoEditor
         {
             if (string.IsNullOrWhiteSpace(url)) return;
 
-            if (_webView?.CoreWebView2 != null)
+            if (_webView?.CoreWebView2 != null && url != null)
             {
                 if (!url.StartsWith("http://") && !url.StartsWith("https://") && !url.StartsWith("file://"))
                 {
@@ -347,6 +347,38 @@ namespace WpfMonacoEditor
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"执行脚本失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Send HandyControl theme to web page
+        /// </summary>
+        public async Task SendThemeToWebAsync()
+        {
+            if (_webView?.CoreWebView2 == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var theme = ThemeHelper.GetCurrentTheme();
+                var themeJson = Newtonsoft.Json.JsonConvert.SerializeObject(theme);
+                var script = $@"
+                    (function() {{
+                        if (window.setWpfTheme) {{
+                            window.setWpfTheme({themeJson});
+                        }} else {{
+                            // Store theme for later use
+                            window.wpfTheme = {themeJson};
+                        }}
+                    }})();
+                ";
+                await ExecuteScriptAsync(script);
+            }
+            catch
+            {
+                // Ignore errors when sending theme
             }
         }
     }

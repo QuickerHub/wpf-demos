@@ -32,11 +32,7 @@ namespace WpfMonacoEditor
                 // Subscribe to message received event
                 _webViewManager.WebMessageReceived += (sender, message) =>
                 {
-                    if (!string.IsNullOrEmpty(message))
-                    {
-                        System.Diagnostics.Debug.WriteLine($"MainViewModel: 收到消息: '{message}'");
-                        // Handle messages from Monaco Editor if needed
-                    }
+                    // Handle messages from Monaco Editor if needed
                 };
                 
                 // Initialize WebView
@@ -45,11 +41,17 @@ namespace WpfMonacoEditor
                 // Subscribe to navigation events AFTER initialization is complete
                 if (webView.CoreWebView2 != null)
                 {
-                    webView.CoreWebView2.NavigationCompleted += (sender, e) =>
+                    webView.CoreWebView2.NavigationCompleted += async (sender, e) =>
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        await Application.Current.Dispatcher.InvokeAsync(async () =>
                         {
                             IsLoading = false;
+                            
+                            // Send HandyControl theme to web page
+                            if (_webViewManager != null)
+                            {
+                                await _webViewManager.SendThemeToWebAsync();
+                            }
                         });
                     };
                 }
@@ -57,7 +59,6 @@ namespace WpfMonacoEditor
             catch (Exception ex)
             {
                 IsLoading = false;
-                System.Diagnostics.Debug.WriteLine($"MainViewModel: 初始化失败: {ex.Message}");
             }
             finally
             {
@@ -90,6 +91,34 @@ namespace WpfMonacoEditor
             catch (Exception ex)
             {
                 MessageBox.Show($"更新编辑器内容失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        [RelayCommand]
+        private void TestShowDiffEditor()
+        {
+            try
+            {
+                // Test with sample content
+                var originalText = @"// Original code
+function hello() {
+    console.log('Hello, World!');
+    return true;
+}";
+
+                var modifiedText = @"// Modified code
+function hello() {
+    console.log('Hello, World!');
+    console.log('Modified!');
+    return true;
+}";
+
+                // Show diff editor with test content
+                Runner.ShowDiffEditor(originalText, modifiedText, "javascript", "test-editor-1");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"测试失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

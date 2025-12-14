@@ -1,0 +1,76 @@
+# Build outputs
+dist/
+build/
+out/
+
+# Web build output
+src/WpfMonacoEditor.Web/dist/
+src/WpfMonacoEditor.Web/build/
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+
+# Production
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vite
+.vite-dev-server
+*.local
+
+# Debug
+.vscode/launch.json
+.vscode/tasks.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# WPF
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.pdb
+*.dll
+*.exe
+!src/WpfMonacoEditor/bin/Debug/net8.0-windows/*.dll
+!src/WpfMonacoEditor/bin/Debug/net8.0-windows/*.exe
+!src/WpfMonacoEditor/bin/Release/net8.0-windows/*.dll
+!src/WpfMonacoEditor/bin/Release/net8.0-windows/*.exe
+
+# WebView2 data (debug mode)
+src/WpfMonacoEditor/WebView2Data/
+
+# Publish
+src/WpfMonacoEditor/publish/
+

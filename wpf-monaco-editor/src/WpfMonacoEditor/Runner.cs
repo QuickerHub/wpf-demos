@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Windows;
 
 namespace WpfMonacoEditor
@@ -8,6 +10,7 @@ namespace WpfMonacoEditor
     public static class Runner
     {
         private static MainWindow? _mainWindow;
+        private static readonly Dictionary<string, DiffEditorWindow> _diffEditorWindows = new Dictionary<string, DiffEditorWindow>();
 
         /// <summary>
         /// Show main window (UI thread only, singleton)
@@ -37,6 +40,73 @@ namespace WpfMonacoEditor
                 _mainWindow.WindowState = WindowState.Normal;
                 _mainWindow.Show();
                 _mainWindow.Activate();
+            });
+        }
+
+        /// <summary>
+        /// Show DiffEditor window with content
+        /// </summary>
+        /// <param name="originalText">Original text to display</param>
+        /// <param name="modifiedText">Modified text to display</param>
+        /// <param name="language">Language for syntax highlighting (default: plaintext)</param>
+        /// <param name="editorId">Editor ID to reuse existing window. If null or empty, creates a new window</param>
+        public static void ShowDiffEditor(string originalText, string modifiedText, string language = "plaintext", string? editorId = null)
+        {
+            Application.Current.Dispatcher.Invoke(async () =>
+            {
+                try
+                {
+                    // Generate editor ID if not provided
+                    if (string.IsNullOrEmpty(editorId))
+                    {
+                        editorId = Guid.NewGuid().ToString();
+                    }
+
+                    // Ensure editorId is not null (should not happen after above check, but for compiler)
+                    var safeEditorId = editorId ?? Guid.NewGuid().ToString();
+
+                    // Check if window with this ID already exists
+                    if (_diffEditorWindows.TryGetValue(safeEditorId, out var existingWindow))
+                    {
+                        // Window exists, update content and show it
+                        if (existingWindow.IsLoaded)
+                        {
+                            await existingWindow.UpdateContentAsync(originalText, modifiedText, language);
+                            existingWindow.WindowState = WindowState.Normal;
+                            existingWindow.Show();
+                            existingWindow.Activate();
+                            return;
+                        }
+                        else
+                        {
+                            // Window was closed, remove from dictionary
+                            _diffEditorWindows.Remove(safeEditorId);
+                        }
+                    }
+
+                    // Create new window
+                    var window = new DiffEditorWindow();
+                    window.Title = "Diff Editor";
+
+                    // Remove from dictionary when window is closed
+                    window.Closed += (s, e) =>
+                    {
+                        _diffEditorWindows.Remove(safeEditorId);
+                    };
+
+                    // Show window first, then initialize
+                    window.WindowState = WindowState.Normal;
+                    window.Show();
+                    window.Activate();
+
+                    // Initialize WebView after window is shown
+                    await window.InitializeAsync(originalText, modifiedText, language);
+                    _diffEditorWindows[safeEditorId] = window;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"创建 DiffEditor 窗口失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             });
         }
     }

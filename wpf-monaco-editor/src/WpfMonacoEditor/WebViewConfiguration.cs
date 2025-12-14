@@ -100,8 +100,15 @@ namespace WpfMonacoEditor
             var assemblyDirectory = Path.GetDirectoryName(assembly.Location);
             WebBasePath = Path.GetFullPath(Path.Combine(assemblyDirectory, "Web"));
 
-            // Set user data folder in assembly directory to avoid permission issues
+            // Set user data folder based on build mode
+            #if DEBUG
+            // Debug mode: Use assembly directory to avoid permission issues
             UserDataFolder = Path.GetFullPath(Path.Combine(assemblyDirectory, "WebView2Data"));
+            #else
+            // Release mode: Use My Documents/Quicker/cea.wpf-monaco-editor
+            var myDocuments = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            UserDataFolder = Path.GetFullPath(Path.Combine(myDocuments, "Quicker", "cea.wpf-monaco-editor"));
+            #endif
 
             // Set virtual host name
             VirtualHostName = virtualHostName ?? DefaultVirtualHostName;
