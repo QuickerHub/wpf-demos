@@ -156,10 +156,10 @@ public partial class TemplateInputBox : UserControl
         var offset = TextEditor.TextArea.Caret.Offset;
         var ch = e.Text[0];
         
-        // Handle '}' character: if cursor is already at '}', skip input to avoid duplicate
-        if (ch == '}')
+        // Handle closing brackets: if cursor is already at the closing bracket, skip input to avoid duplicate
+        if (ch == '}' || ch == ')' || ch == ']')
         {
-            if (offset < doc.TextLength && doc.GetCharAt(offset) == '}')
+            if (offset < doc.TextLength && doc.GetCharAt(offset) == ch)
             {
                 e.Handled = true;
                 TextEditor.TextArea.Caret.Offset = offset + 1;
@@ -176,7 +176,7 @@ public partial class TemplateInputBox : UserControl
                 return;
             }
             
-            if (!char.IsLetterOrDigit(ch) && ch != '_' && ch != '{' && ch != '.' && ch != ':')
+            if (!char.IsLetterOrDigit(ch) && ch != '_' && ch != '{' && ch != '(' && ch != '[' && ch != '.' && ch != ':')
             {
                 CloseCompletionWindow();
             }
@@ -192,23 +192,39 @@ public partial class TemplateInputBox : UserControl
         var offset = TextEditor.TextArea.Caret.Offset;
         var triggerChar = e.Text[0];
         
-        // Handle '{' character: automatically add closing '}'
-        if (triggerChar == '{')
+        // Handle opening brackets: automatically add closing brackets
+        if (triggerChar == '{' || triggerChar == '(' || triggerChar == '[')
         {
             _isUpdatingText = true;
             try
             {
                 if (offset <= doc.TextLength)
                 {
-                    doc.Insert(offset, "}");
-                    TextEditor.TextArea.Caret.Offset = offset;
-                    
-                    var updatedText = doc.Text;
-                    var context = CompletionService.GetCompletionContext(updatedText, offset, triggerChar);
-                    
-                    if (context != null && context.Items.Count > 0)
+                    // Insert corresponding closing bracket
+                    string closingBracket = triggerChar switch
                     {
-                        ShowCompletion(context);
+                        '{' => "}",
+                        '(' => ")",
+                        '[' => "]",
+                        _ => ""
+                    };
+                    
+                    if (!string.IsNullOrEmpty(closingBracket))
+                    {
+                        doc.Insert(offset, closingBracket);
+                        TextEditor.TextArea.Caret.Offset = offset;
+                        
+                        // For '{', trigger completion
+                        if (triggerChar == '{')
+                        {
+                            var updatedText = doc.Text;
+                            var context = CompletionService.GetCompletionContext(updatedText, offset, triggerChar);
+                            
+                            if (context != null && context.Items.Count > 0)
+                            {
+                                ShowCompletion(context);
+                            }
+                        }
                     }
                 }
             }

@@ -68,7 +68,42 @@
 
 ### sub / 截取 / 切片
 
-- `{name.sub(start)}` 或 `{name.sub(start,end)}` 或 `{name[start:end]}` - 截取字符串
+字符串截取是重命名中非常常用的功能，支持两种语法形式：
+
+#### 语法糖形式 `[a:b]`（推荐）
+
+`[a:b]` 是 `sub()` 方法的简洁写法，更直观易用：
+
+- `{name[:3]}` - 截取前3个字符（从开始到索引3，不包含3）
+  - 示例：`file.txt` → `fil`
+- `{name[3:]}` - 从索引3开始截取到末尾
+  - 示例：`file.txt` → `e.txt`
+- `{name[1:4]}` - 从索引1截取到索引4（不包含4）
+  - 示例：`file.txt` → `ile`
+- `{name[:]}` - 完整字符串（等同于 `{name}`）
+  - 示例：`file.txt` → `file.txt`
+
+**索引说明**：
+- 索引从 0 开始计数
+- `[a:b]` 表示从索引 `a` 到索引 `b`（不包含 `b`）
+- `[:b]` 表示从开始到索引 `b`（不包含 `b`）
+- `[a:]` 表示从索引 `a` 到末尾
+
+#### 方法调用形式 `sub()`
+
+- `{name.sub(start)}` - 从 `start` 开始截取到末尾
+- `{name.sub(start,end)}` - 从 `start` 截取到 `end`（不包含 `end`）
+
+**语法糖转换规则**：
+- `{name[:b]}` 等同于 `{name.sub(0,b)}`
+- `{name[a:]}` 等同于 `{name.sub(a)}`
+- `{name[a:b]}` 等同于 `{name.sub(a,b)}`
+- `{name[:]}` 等同于 `{name}`
+
+**实际应用场景**：
+- 截取文件名前缀：`{name[:5]}` 获取前5个字符
+- 去除文件名前缀：`{name[3:]}` 跳过前3个字符
+- 提取中间部分：`{name[2:6]}` 提取索引2到6之间的字符
 
 ### padLeft / 左填充
 
@@ -84,11 +119,81 @@
 
 ## 示例
 
+### 基础重命名示例
+
 - 模式：`{name}_backup.{ext}` → 将 `file.txt` 重命名为 `file_backup.txt`
 - 模式：`New_{fullname}` → 将 `file.txt` 重命名为 `New_file.txt`
 - 模式：`{i:00}_{name}.{ext}` → 添加序号前缀，如 `00_file.txt`
 - 模式：`{name.upper.replace(_,-)}.{ext}` → 转大写并替换下划线，如 `MY-FILE.txt`
 - 留空模式 → 保持原文件名不变（不添加 New_ 前缀）
+
+### 字符串截取 `[a:b]` 示例（重点）
+
+字符串截取是批量重命名中最常用的功能之一，以下是一些典型应用场景：
+
+#### 示例1：截取文件名前缀
+- **模式**：`{name[:5]}_{i:00}.{ext}`
+- **原文件名**：`document.txt`, `picture.jpg`, `archive.zip`
+- **结果**：`docum_00.txt`, `pictu_01.jpg`, `archi_02.zip`
+- **说明**：截取前5个字符，然后添加序号
+
+#### 示例2：去除文件名前缀
+- **模式**：`{name[4:]}.{ext}`
+- **原文件名**：`IMG_photo.jpg`, `IMG_landscape.png`, `IMG_portrait.gif`
+- **结果**：`photo.jpg`, `landscape.png`, `portrait.gif`
+- **说明**：跳过前4个字符（`IMG_`），保留后面的文件名
+
+#### 示例3：提取中间部分
+- **模式**：`{name[2:6]}_{i:00}.{ext}`
+- **原文件名**：`20240101_report.pdf`, `20240102_data.xlsx`, `20240103_summary.docx`
+- **结果**：`2401_00.pdf`, `2401_01.xlsx`, `2401_02.docx`
+- **说明**：提取索引2到6之间的字符（年份的后两位和月份）
+
+#### 示例4：截取并组合
+- **模式**：`{name[:3]}_{name[3:]}.{ext}`
+- **原文件名**：`ABC123file.txt`, `XYZ456data.csv`
+- **结果**：`ABC_123file.txt`, `XYZ_456data.csv`
+- **说明**：将文件名分为两部分，中间用下划线连接
+
+#### 示例5：截取后添加序号
+- **模式**：`{name[:8]}_{i:000}.{ext}`
+- **原文件名**：`longfilename1.txt`, `longfilename2.txt`, `longfilename3.txt`
+- **结果**：`longfile_000.txt`, `longfile_001.txt`, `longfile_002.txt`
+- **说明**：截取前8个字符，然后添加3位序号
+
+#### 示例6：截取与替换组合
+- **模式**：`{name[:10].replace(_,-)}.{ext}`
+- **原文件名**：`file_name_with_underscores.txt`
+- **结果**：`file-name-.txt`
+- **说明**：先截取前10个字符，再将下划线替换为短横线
+
+#### 示例7：从指定位置截取到末尾
+- **模式**：`{name[7:]}.{ext}`
+- **原文件名**：`prefix_filename.txt`, `prefix_document.pdf`
+- **结果**：`filename.txt`, `document.pdf`
+- **说明**：跳过前7个字符（`prefix_`），保留后面的内容
+
+#### 示例8：处理日期格式文件名
+- **模式**：`{name[4:6]}-{name[6:8]}-{name[8:10]}_{name[11:]}.{ext}`
+- **原文件名**：`20240115_report.txt`, `20240220_data.csv`
+- **结果**：`01-15-report.txt`, `02-20-data.csv`
+- **说明**：将 `YYYYMMDD` 格式转换为 `MM-DD` 格式，并保留后面的文件名
+
+#### 示例9：截取与大小写转换
+- **模式**：`{name[:4].upper}_{name[4:]}.{ext}`
+- **原文件名**：`testfile.txt`, `demo123.txt`
+- **结果**：`TEST_file.txt`, `DEMO_123.txt`
+- **说明**：前4个字符转大写，后面保持原样，中间用下划线连接
+
+#### 示例10：去除文件名后缀并添加新后缀
+- **模式**：`{name[:7]}_new.{ext}`
+- **原文件名**：`oldfile_backup.txt`, `document_old.pdf`
+- **结果**：`oldfile_new.txt`, `document_new.pdf`
+- **说明**：截取前7个字符（去除 `_backup` 或 `_old` 后缀），然后添加 `_new` 后缀
+
+> **提示**：如果只是想在文件名后添加后缀，可以直接使用 `{name}_new.{ext}`，无需截取。
+
+> **提示**：`[a:b]` 语法非常灵活，可以与其他方法组合使用，实现复杂的重命名需求。在实际使用中，建议先预览结果，确认截取位置是否正确。
 
 ## 功能特性
 

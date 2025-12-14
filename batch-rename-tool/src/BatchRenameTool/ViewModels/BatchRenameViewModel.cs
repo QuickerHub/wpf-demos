@@ -666,40 +666,94 @@ namespace BatchRenameTool.ViewModels
             // Execute rename operations
             var result = executor.Execute(operations);
 
-            // Build result message
-            var messageParts = new List<string>();
-            if (result.SuccessCount > 0)
+            // Build result message - focus on failures if any
+            string message;
+            string fullMessage;
+            
+            if (result.ErrorCount > 0 || result.ErrorDetails.Count > 0)
             {
-                messageParts.Add($"成功: {result.SuccessCount} 个文件");
-            }
-            if (result.SkippedCount > 0)
-            {
-                messageParts.Add($"跳过: {result.SkippedCount} 个文件");
-            }
-            if (result.ErrorCount > 0)
-            {
-                messageParts.Add($"失败: {result.ErrorCount} 个文件");
-            }
+                // If there are failures, focus on them
+                var errorDetails = result.ErrorDetails;
+                if (errorDetails.Count == 0 && result.Errors.Count > 0)
+                {
+                    // Fallback to old error format if ErrorDetails is empty
+                    errorDetails = result.Errors.Select((error, index) => new BatchRenameExecutor.ErrorDetail
+                    {
+                        OriginalName = $"文件 {index + 1}",
+                        NewName = "",
+                        Reason = error
+                    }).ToList();
+                }
 
-            var message = string.Join("，", messageParts);
-            if (string.IsNullOrEmpty(message))
-            {
-                message = "没有执行任何重命名操作";
-            }
+                var errorMessages = new List<string>();
+                errorMessages.Add($"❌ 重命名失败: {result.ErrorCount} 个文件\n");
+                
+                foreach (var errorDetail in errorDetails)
+                {
+                    var fileName = Path.GetFileName(errorDetail.OriginalPath);
+                    if (string.IsNullOrEmpty(fileName))
+                    {
+                        fileName = errorDetail.OriginalName;
+                    }
+                    errorMessages.Add($"  • {fileName}");
+                    if (!string.IsNullOrEmpty(errorDetail.NewName) && errorDetail.NewName != errorDetail.OriginalName)
+                    {
+                        errorMessages.Add($"    目标名称: {errorDetail.NewName}");
+                    }
+                    errorMessages.Add($"    失败原因: {errorDetail.Reason}");
+                    if (!string.IsNullOrEmpty(errorDetail.OriginalPath))
+                    {
+                        errorMessages.Add($"    文件路径: {errorDetail.OriginalPath}");
+                    }
+                    errorMessages.Add("");
+                }
 
-            // Show result message
-            var fullMessage = message + (result.Errors.Count > 0 ? "\n\n错误详情:\n" + string.Join("\n", result.Errors) : "");
-            if (result.ErrorCount > 0)
-            {
+                // Add summary at the end
+                var summaryParts = new List<string>();
+                if (result.SuccessCount > 0)
+                {
+                    summaryParts.Add($"成功: {result.SuccessCount} 个");
+                }
+                if (result.SkippedCount > 0)
+                {
+                    summaryParts.Add($"跳过: {result.SkippedCount} 个");
+                }
+                if (summaryParts.Count > 0)
+                {
+                    errorMessages.Add($"\n总计: {string.Join("，", summaryParts)}");
+                }
+
+                fullMessage = string.Join("\n", errorMessages);
                 MessageHelper.ShowError(fullMessage);
-            }
-            else if (result.SuccessCount > 0)
-            {
-                MessageHelper.ShowSuccess(fullMessage);
             }
             else
             {
-                MessageHelper.ShowInformation(fullMessage);
+                // No errors, show success summary
+                var messageParts = new List<string>();
+                if (result.SuccessCount > 0)
+                {
+                    messageParts.Add($"成功: {result.SuccessCount} 个文件");
+                }
+                if (result.SkippedCount > 0)
+                {
+                    messageParts.Add($"跳过: {result.SkippedCount} 个文件");
+                }
+
+                message = string.Join("，", messageParts);
+                if (string.IsNullOrEmpty(message))
+                {
+                    message = "没有执行任何重命名操作";
+                }
+
+                fullMessage = message;
+                if (result.SuccessCount > 0)
+                {
+                    MessageHelper.ShowSuccess(fullMessage);
+                }
+                else
+                {
+                    MessageHelper.ShowInformation(fullMessage);
+                }
             }
 
             // Record successful renames for undo functionality

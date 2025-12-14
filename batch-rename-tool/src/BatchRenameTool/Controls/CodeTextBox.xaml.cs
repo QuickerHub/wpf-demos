@@ -147,12 +147,12 @@ public partial class CodeTextBox : UserControl
         var offset = TextEditor.TextArea.Caret.Offset;
         var ch = e.Text[0];
         
-        // Handle '}' character: if cursor is already at '}', skip input to avoid duplicate
-        if (ch == '}')
+        // Handle closing brackets: if cursor is already at the closing bracket, skip input to avoid duplicate
+        if (ch == '}' || ch == ')' || ch == ']')
         {
-            if (offset < doc.TextLength && doc.GetCharAt(offset) == '}')
+            if (offset < doc.TextLength && doc.GetCharAt(offset) == ch)
             {
-                // Cursor is already at '}', just move cursor forward
+                // Cursor is already at the closing bracket, just move cursor forward
                 e.Handled = true;
                 TextEditor.TextArea.Caret.Offset = offset + 1;
                 return;
@@ -172,7 +172,7 @@ public partial class CodeTextBox : UserControl
             
             // Outside braces, check if character should close completion
             // Allow letters, digits, underscore, and trigger characters
-            if (!char.IsLetterOrDigit(ch) && ch != '_' && ch != '{' && ch != '.' && ch != ':')
+            if (!char.IsLetterOrDigit(ch) && ch != '_' && ch != '{' && ch != '(' && ch != '[' && ch != '.' && ch != ':')
             {
                 CloseCompletionWindow();
             }
@@ -188,30 +188,45 @@ public partial class CodeTextBox : UserControl
         var offset = TextEditor.TextArea.Caret.Offset;
         var triggerChar = e.Text[0];
         
-        // Handle '{' character: automatically add closing '}'
-        if (triggerChar == '{')
+        // Handle opening brackets: automatically add closing brackets
+        if (triggerChar == '{' || triggerChar == '(' || triggerChar == '[')
         {
-            // Insert '}' after '{' to create {|}
-            // The '{' has already been inserted by AvalonEdit, so offset is after '{'
+            // Insert closing bracket after opening bracket
+            // The opening bracket has already been inserted by AvalonEdit, so offset is after it
             _isUpdatingFromEditor = true;
             try
             {
                 if (offset <= doc.TextLength)
                 {
-                    // Insert '}' at current cursor position (after '{')
-                    doc.Insert(offset, "}");
-                    // After insertion, cursor automatically moves to after '}'
-                    // We need to move it back to between { and } (at offset)
-                    TextEditor.TextArea.Caret.Offset = offset;
-                    
-                    // Trigger completion for variable names
-                    // Use the updated document text and current cursor position (between braces)
-                    var updatedText = doc.Text;
-                    var context = CompletionService.GetCompletionContext(updatedText, offset, triggerChar);
-                    
-                    if (context != null && context.Items.Count > 0)
+                    // Insert corresponding closing bracket
+                    string closingBracket = triggerChar switch
                     {
-                        ShowCompletion(context);
+                        '{' => "}",
+                        '(' => ")",
+                        '[' => "]",
+                        _ => ""
+                    };
+                    
+                    if (!string.IsNullOrEmpty(closingBracket))
+                    {
+                        // Insert closing bracket at current cursor position (after opening bracket)
+                        doc.Insert(offset, closingBracket);
+                        // After insertion, cursor automatically moves to after closing bracket
+                        // We need to move it back to between opening and closing brackets (at offset)
+                        TextEditor.TextArea.Caret.Offset = offset;
+                        
+                        // For '{', trigger completion for variable names
+                        if (triggerChar == '{')
+                        {
+                            // Use the updated document text and current cursor position (between braces)
+                            var updatedText = doc.Text;
+                            var context = CompletionService.GetCompletionContext(updatedText, offset, triggerChar);
+                            
+                            if (context != null && context.Items.Count > 0)
+                            {
+                                ShowCompletion(context);
+                            }
+                        }
                     }
                 }
             }

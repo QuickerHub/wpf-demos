@@ -30,6 +30,22 @@ namespace BatchRenameTool.Services
             public int SkippedCount { get; set; }
             public int ErrorCount { get; set; }
             public List<string> Errors { get; set; } = new List<string>();
+            
+            /// <summary>
+            /// Detailed error information with file paths and reasons
+            /// </summary>
+            public List<ErrorDetail> ErrorDetails { get; set; } = new List<ErrorDetail>();
+        }
+
+        /// <summary>
+        /// Detailed error information for a failed rename operation
+        /// </summary>
+        public class ErrorDetail
+        {
+            public string OriginalPath { get; set; } = string.Empty;
+            public string OriginalName { get; set; } = string.Empty;
+            public string NewName { get; set; } = string.Empty;
+            public string Reason { get; set; } = string.Empty;
         }
 
         /// <summary>
@@ -61,6 +77,12 @@ namespace BatchRenameTool.Services
             foreach (var cycle in cycles)
             {
                 ExecuteCycleRename(cycle, result);
+            }
+
+            // Build error messages from error details
+            foreach (var errorDetail in result.ErrorDetails)
+            {
+                result.Errors.Add($"{errorDetail.OriginalName} -> {errorDetail.NewName}: {errorDetail.Reason}");
             }
 
             return result;
@@ -204,7 +226,13 @@ namespace BatchRenameTool.Services
                 if (!File.Exists(originalFullName))
                 {
                     result.ErrorCount++;
-                    result.Errors.Add($"Source file does not exist: {op.OriginalName}");
+                    result.ErrorDetails.Add(new ErrorDetail
+                    {
+                        OriginalPath = originalFullName,
+                        OriginalName = op.OriginalName,
+                        NewName = op.NewName,
+                        Reason = "源文件不存在"
+                    });
                     // Rollback any already renamed files
                     RollbackTempRenames(tempOps);
                     return;
@@ -215,14 +243,20 @@ namespace BatchRenameTool.Services
 
                 tempOps.Add((op, tempName, originalFullName, tempFullName));
 
-                if (TryRenameFile(originalFullName, tempFullName))
+                if (TryRenameFile(originalFullName, tempFullName, out string? errorReason))
                 {
                     result.SuccessCount++;
                 }
                 else
                 {
                     result.ErrorCount++;
-                    result.Errors.Add($"Failed to rename {op.OriginalName} to temporary name");
+                    result.ErrorDetails.Add(new ErrorDetail
+                    {
+                        OriginalPath = originalFullName,
+                        OriginalName = op.OriginalName,
+                        NewName = op.NewName,
+                        Reason = $"重命名为临时文件名失败: {errorReason ?? "未知错误"}"
+                    });
                     // Rollback any already renamed files
                     RollbackTempRenames(tempOps);
                     return; // Abort cycle rename if any step fails
@@ -234,14 +268,20 @@ namespace BatchRenameTool.Services
             {
                 var finalFullName = Path.Combine(op.Directory, op.NewName);
 
-                if (TryRenameFile(tempFullName, finalFullName))
+                if (TryRenameFile(tempFullName, finalFullName, out string? errorReason))
                 {
                     // Success - already counted in step 1
                 }
                 else
                 {
                     result.ErrorCount++;
-                    result.Errors.Add($"Failed to rename {tempName} to {op.NewName}");
+                    result.ErrorDetails.Add(new ErrorDetail
+                    {
+                        OriginalPath = originalFullName,
+                        OriginalName = op.OriginalName,
+                        NewName = op.NewName,
+                        Reason = $"从临时文件名重命名为目标文件名失败: {errorReason ?? "未知错误"}"
+                    });
                     // Try to rollback remaining files
                     RollbackTempRenames(tempOps.Where(t => t.tempFullName != tempFullName).ToList());
                 }
@@ -324,23 +364,46 @@ namespace BatchRenameTool.Services
             // Check if target already exists
             if (File.Exists(newFullName))
             {
-                result.SkippedCount++;
-                result.Errors.Add($"Target file already exists: {op.NewName}");
+                result.ErrorCount++;
+                result.ErrorDetails.Add(new ErrorDetail
+                {
+                    OriginalPath = originalFullName,
+                    OriginalName = op.OriginalName,
+                    NewName = op.NewName,
+                    Reason = "目标文件已存在"
+                });
                 return false;
             }
 
-            return TryRenameFile(originalFullName, newFullName);
+            if (TryRenameFile(originalFullName, newFullName, out string? errorReason))
+            {
+                return true;
+            }
+            else
+            {
+                result.ErrorCount++;
+                result.ErrorDetails.Add(new ErrorDetail
+                {
+                    OriginalPath = originalFullName,
+                    OriginalName = op.OriginalName,
+                    NewName = op.NewName,
+                    Reason = errorReason ?? "未知错误"
+                });
+                return false;
+            }
         }
 
         /// <summary>
         /// Try to rename a file
         /// </summary>
-        private bool TryRenameFile(string sourcePath, string targetPath)
+        private bool TryRenameFile(string sourcePath, string targetPath, out string? errorReason)
         {
+            errorReason = null;
             try
             {
                 if (!File.Exists(sourcePath))
                 {
+                    errorReason = "源文件不存在";
                     System.Diagnostics.Debug.WriteLine($"Source file does not exist: {sourcePath}");
                     return false;
                 }
@@ -348,6 +411,7 @@ namespace BatchRenameTool.Services
                 // Check if target already exists
                 if (File.Exists(targetPath))
                 {
+                    errorReason = "目标文件已存在";
                     System.Diagnostics.Debug.WriteLine($"Target file already exists: {targetPath}");
                     return false;
                 }
@@ -357,16 +421,19 @@ namespace BatchRenameTool.Services
             }
             catch (UnauthorizedAccessException ex)
             {
+                errorReason = $"权限不足: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Rename failed (UnauthorizedAccess): {sourcePath} -> {targetPath}, Error: {ex.Message}");
                 return false;
             }
             catch (IOException ex)
             {
+                errorReason = $"IO错误: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Rename failed (IOException): {sourcePath} -> {targetPath}, Error: {ex.Message}");
                 return false;
             }
             catch (Exception ex)
             {
+                errorReason = $"错误: {ex.Message}";
                 System.Diagnostics.Debug.WriteLine($"Rename failed: {sourcePath} -> {targetPath}, Error: {ex.Message}");
                 return false;
             }

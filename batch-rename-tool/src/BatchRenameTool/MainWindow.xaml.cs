@@ -156,61 +156,199 @@ namespace BatchRenameTool
 
         /// <summary>
         /// Build demo menu with various pattern examples
+        /// Organized in hierarchical menu structure with high information density
         /// </summary>
         private void BuildDemoMenu()
         {
             if (DemoMenu == null)
                 return;
 
-            var demoPatterns = new List<(string Pattern, string Description)>
+            // 字符串截取 [a:b] 重点菜单（多级菜单）
+            var sliceMenu = new System.Windows.Controls.MenuItem
             {
-                // Basic patterns
-                ("{i:001}_{name}.{ext}", "序号(001) + 原文件名"),
-                ("{i:01}_{name}.{ext}", "序号(01) + 原文件名"),
-                ("{i:1}_{name}.{ext}", "序号(1) + 原文件名"),
-                ("{iv:001}_{name}.{ext}", "倒序序号(001) + 原文件名"),
-                
-                // Expression patterns
-                ("{i2+1:000}_{fullname}", "表达式序号(2*i+1) + 完整文件名"),
-                ("{i3-2:00}_{name}.{ext}", "表达式序号(i*3-2) + 原文件名"),
-                ("{i+10:0000}_{name}.{ext}", "表达式序号(i+10) + 原文件名"),
-                
-                // String method patterns
-                ("{name.upper}.{ext}", "大写文件名"),
-                ("{name.lower}.{ext}", "小写文件名"),
-                ("{name.trim}.{ext}", "去除首尾空格的文件名"),
-                ("{i:001}_{name.upper}.{ext}", "序号 + 大写文件名"),
-                
-                // Date patterns
-                ("{today:yyyyMMdd}_{name}.{ext}", "日期(yyyyMMdd) + 文件名"),
-                ("{today:yyyy-MM-dd}_{name}.{ext}", "日期(yyyy-MM-dd) + 文件名"),
-                ("{today:yyyy年MM月dd日}_{name}.{ext}", "日期(中文) + 文件名"),
-                ("{i:001}_{today:yyyyMMdd}_{name}.{ext}", "序号 + 日期 + 文件名"),
-                
-                // DateTime patterns
-                ("{now:yyyyMMddHHmmss}_{name}.{ext}", "日期时间(yyyyMMddHHmmss) + 文件名"),
-                ("{now:yyyyMMddHHmm}_{name}.{ext}", "日期时间(yyyyMMddHHmm) + 文件名"),
-                ("{now:yyyy年MM月dd日 HH时mm分}_{name}.{ext}", "日期时间(中文) + 文件名"),
-                
-                // Complex patterns
-                ("{i:001}_{name.replace(old,new)}.{ext}", "序号 + 替换后的文件名"),
-                ("{today:yyyyMMdd}_{name.upper}_{i:000}.{ext}", "日期 + 大写文件名 + 序号"),
-                ("{i2+1:000}_{name.lower}.{ext}", "表达式序号 + 小写文件名"),
-                ("{fullname}", "保持原文件名不变"),
+                Header = "字符串截取 [a:b] ⭐",
+                ToolTip = "重点语法：使用 [a:b] 截取文件名"
             };
 
-            foreach (var (pattern, description) in demoPatterns)
+            var sliceExamples = new List<(string Pattern, string Description, string Example)>
+            {
+                // 基础截取语法
+                ("{name[:5]}_{i:00}.{ext}", "前5字符+序号", "docum_00.txt ← document.txt"),
+                ("{name[4:]}.{ext}", "跳过前4字符", "photo.jpg ← IMG_photo.jpg"),
+                ("{name[1:4]}.{ext}", "索引1-4", "ile ← file.txt"),
+                ("{name[:3]}_{name[3:]}.{ext}", "前3+剩余", "ABC_123file.txt ← ABC123file.txt"),
+                
+                // 去除前缀/后缀
+                ("{name[7:]}.{ext}", "去除前缀", "filename.txt ← prefix_filename.txt"),
+                ("{name[:7]}_new.{ext}", "去除后缀", "oldfile_new.txt ← oldfile_backup.txt"),
+                
+                // 提取中间部分
+                ("{name[2:6]}_{i:00}.{ext}", "提取中间+序号", "2401_00.pdf ← 20240101_report.pdf"),
+                ("{name[4:6]}-{name[6:8]}-{name[8:10]}_{name[11:]}.{ext}", "日期转换", "01-15-report.txt ← 20240115_report.txt"),
+                
+                // 截取+序号
+                ("{name[:8]}_{i:000}.{ext}", "前8字符+3位序号", "longfile_000.txt"),
+                
+                // 截取+方法组合（重点）
+                ("{name[:10].replace(_,-)}.{ext}", "截取+替换", "file-name-.txt ← file_name_with_underscores.txt"),
+                ("{name[:4].upper}_{name[4:]}.{ext}", "前4大写+剩余", "TEST_file.txt ← testfile.txt"),
+                ("{name[4:].upper.replace(_,-)}.{ext}", "跳过+大写+替换", "PHOTO-JPG ← IMG_photo.jpg"),
+            };
+
+            AddChildMenus(sliceMenu, sliceExamples);
+            DemoMenu.Items.Add(sliceMenu);
+
+            // 分隔线
+            DemoMenu.Items.Add(new System.Windows.Controls.Separator());
+
+            // 基础变量菜单
+            var basicMenu = new System.Windows.Controls.MenuItem
+            {
+                Header = "基础变量"
+            };
+
+            var basicExamples = new List<(string Pattern, string Description)>
+            {
+                ("{i:001}_{name}.{ext}", "3位序号(001)"),
+                ("{i:01}_{name}.{ext}", "2位序号(01)"),
+                ("{i:1}_{name}.{ext}", "从1开始"),
+                ("{iv:001}_{name}.{ext}", "倒序序号"),
+                ("{i:2*i+1:000}_{name}.{ext}", "表达式(2*i+1)"),
+                ("{i:i*3-2:00}_{name}.{ext}", "表达式(i*3-2)"),
+            };
+
+            AddChildMenus(basicMenu, basicExamples);
+            DemoMenu.Items.Add(basicMenu);
+
+            // 字符串方法菜单
+            var methodMenu = new System.Windows.Controls.MenuItem
+            {
+                Header = "字符串方法"
+            };
+
+            var methodExamples = new List<(string Pattern, string Description)>
+            {
+                ("{name.upper}.{ext}", "转大写"),
+                ("{name.lower}.{ext}", "转小写"),
+                ("{name.trim}.{ext}", "去首尾空格"),
+                ("{name.replace(_,-)}.{ext}", "下划线→短横线"),
+                ("{name.replace( ,)}.{ext}", "删除空格"),
+                ("{i:001}_{name.upper}.{ext}", "序号+大写"),
+                ("{name.upper.replace(_,-)}.{ext}", "大写+替换"),
+                ("{name.replace(old,new)}.{ext}", "自定义替换"),
+            };
+
+            AddChildMenus(methodMenu, methodExamples);
+            DemoMenu.Items.Add(methodMenu);
+
+            // 日期时间菜单
+            var dateMenu = new System.Windows.Controls.MenuItem
+            {
+                Header = "日期时间"
+            };
+
+            var dateExamples = new List<(string Pattern, string Description)>
+            {
+                ("{today:yyyyMMdd}_{name}.{ext}", "日期(yyyyMMdd)"),
+                ("{today:yyyy-MM-dd}_{name}.{ext}", "日期(yyyy-MM-dd)"),
+                ("{today:yyyy年MM月dd日}_{name}.{ext}", "日期(中文)"),
+                ("{now:yyyyMMddHHmmss}_{name}.{ext}", "日期时间(精确到秒)"),
+                ("{now:yyyyMMddHHmm}_{name}.{ext}", "日期时间(精确到分)"),
+                ("{i:001}_{today:yyyyMMdd}_{name}.{ext}", "序号+日期"),
+            };
+
+            AddChildMenus(dateMenu, dateExamples);
+            DemoMenu.Items.Add(dateMenu);
+
+            // 组合使用菜单
+            var comboMenu = new System.Windows.Controls.MenuItem
+            {
+                Header = "组合使用"
+            };
+
+            var comboExamples = new List<(string Pattern, string Description)>
+            {
+                ("{today:yyyyMMdd}_{name.upper}_{i:000}.{ext}", "日期+大写+序号"),
+                ("{i:2*i+1:000}_{name.lower}.{ext}", "表达式+小写"),
+                ("{name[:5].replace(_,-).upper}_{i:00}.{ext}", "截取+替换+大写+序号"),
+                ("{name[4:].upper.replace(_,-)}.{ext}", "跳过+大写+替换"),
+                ("{i:001}_{today:yyyyMMdd}_{name[:8]}.{ext}", "序号+日期+截取"),
+            };
+
+            AddChildMenus(comboMenu, comboExamples);
+            DemoMenu.Items.Add(comboMenu);
+
+            // 分隔线
+            DemoMenu.Items.Add(new System.Windows.Controls.Separator());
+
+            // 其他常用
+            var otherExamples = new List<(string Pattern, string Description)>
+            {
+                ("{fullname}", "保持原文件名不变"),
+                ("{name}_backup.{ext}", "添加 backup 后缀"),
+                ("New_{fullname}", "添加 New_ 前缀"),
+            };
+
+            AddChildMenus(DemoMenu, otherExamples);
+        }
+
+        /// <summary>
+        /// Add child menu items to a parent menu item with pattern examples (with example)
+        /// </summary>
+        private void AddChildMenus(System.Windows.Controls.MenuItem parentMenu, IEnumerable<(string Pattern, string Description, string Example)> examples)
+        {
+            foreach (var (pattern, description, example) in examples)
             {
                 var menuItem = new System.Windows.Controls.MenuItem
                 {
-                    Header = description,
+                    Header = $"{description} | {example}",
+                    ToolTip = $"模式: {pattern}\n示例: {example}"
+                };
+                menuItem.Click += (s, e) =>
+                {
+                    _viewModel.RenamePattern = pattern;
+                };
+                parentMenu.Items.Add(menuItem);
+            }
+        }
+
+        /// <summary>
+        /// Add child menu items to a parent menu item with pattern examples (without example)
+        /// </summary>
+        private void AddChildMenus(System.Windows.Controls.MenuItem parentMenu, IEnumerable<(string Pattern, string Description)> examples)
+        {
+            foreach (var (pattern, description) in examples)
+            {
+                var menuItem = new System.Windows.Controls.MenuItem
+                {
+                    Header = $"{description} | {pattern}",
                     ToolTip = pattern
                 };
                 menuItem.Click += (s, e) =>
                 {
                     _viewModel.RenamePattern = pattern;
                 };
-                DemoMenu.Items.Add(menuItem);
+                parentMenu.Items.Add(menuItem);
+            }
+        }
+
+        /// <summary>
+        /// Add child menu items directly to the demo menu (for top-level items)
+        /// </summary>
+        private void AddChildMenus(System.Windows.Controls.ItemsControl parentMenu, IEnumerable<(string Pattern, string Description)> examples)
+        {
+            foreach (var (pattern, description) in examples)
+            {
+                var menuItem = new System.Windows.Controls.MenuItem
+                {
+                    Header = $"{description} | {pattern}",
+                    ToolTip = pattern
+                };
+                menuItem.Click += (s, e) =>
+                {
+                    _viewModel.RenamePattern = pattern;
+                };
+                parentMenu.Items.Add(menuItem);
             }
         }
 
