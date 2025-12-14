@@ -53,7 +53,8 @@ function App() {
     window.wpfBridge?.sendMessage(message);
     setMessageToWpf('');
     
-    setTimeout(() => setIsSending(false), 200);
+    // Reset sending state immediately to avoid button disabled state
+    setIsSending(false);
   }, [messageToWpf, isSending]);
 
   // Call WPF method
@@ -93,7 +94,7 @@ function App() {
             onKeyDown={handleKeyDown}
             placeholder="输入要发送到 WPF 的消息"
           />
-          <button className="primary" onClick={handleSendToWpf} disabled={isSending}>
+          <button className="primary" onClick={handleSendToWpf}>
             发送到 WPF
           </button>
           <button className="secondary" onClick={handleCallWpfMethod}>
