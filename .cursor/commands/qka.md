@@ -3,79 +3,124 @@
 name/
 ├── src/
 │   └── {ProjectName}/  // 大驼峰命名
-│       └── {ProjectName}.csproj 
+│       ├── {ProjectName}.csproj 
+│       └── QuickerWpf.Build.props  // 项目构建配置文件
 ├── {ProjectName}.sln
 └── README.md  // 项目说明
 ├── build.yaml
 ├── build.ps1
 ├── version.json
 参考 rules，使用 mvvm 开发规范
-主项目的 csproj 模版
+
+**项目配置文件：**
+
+主项目的 csproj 模版（使用 QuickerWpf.Build.props 统一配置）：
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-	<PropertyGroup>
-		<OutputType>WinExe</OutputType>
-		<TargetFramework>net472</TargetFramework>
-		<Nullable>enable</Nullable>
-		<UseWPF>true</UseWPF>
-		<LangVersion>preview</LangVersion>
-		<PlatformTarget>x64</PlatformTarget>
-		<Version Condition="'$(Version)' == ''">1.0.0.0</Version>
-		<AssemblyName Condition="'$(Configuration)' != 'Release'">$(MSBuildProjectName)</AssemblyName>
-	</PropertyGroup>
+	<!-- Import Quicker WPF build configuration -->
+	<Import Project="QuickerWpf.Build.props" />
+</Project>
+```
 
-	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
-		<OutputType>Library</OutputType>
-		<AssemblyName>$(MSBuildProjectName).$(Version)</AssemblyName>
-		<ApplicationDefinition />
-	</PropertyGroup>
+QuickerWpf.Build.props 文件模版（需要创建在项目目录中，与 .csproj 同级）：
 
-	<ItemGroup Condition="'$(Configuration)' == 'Release'">
-		<Compile Remove="App.xaml.cs" />
-		<Page Remove="App.xaml" />
-		<ApplicationDefinition Remove="App.xaml" />
-	</ItemGroup>
+```xml
+<Project>
+  <!--
+    Quicker WPF Project Build Configuration
+    This file provides unified build configuration for WPF .NET Framework 4.7.2 projects.
+    
+    Usage:
+    1. Import this file in your .csproj (at the top, after Project tag):
+       <Import Project="QuickerWpf.Build.props" />
+    
+    2. Optional: Override default values before import:
+       <PropertyGroup>
+         <Version>1.0.1.0</Version>
+         <LangVersion>11.0</LangVersion>
+       </PropertyGroup>
+       <Import Project="QuickerWpf.Build.props" />
+    
+    3. Optional: Add additional PackageReference or Reference after import:
+       <ItemGroup>
+         <PackageReference Include="YourPackage" Version="1.0.0" />
+       </ItemGroup>
+  -->
 
-	<ItemGroup>
-		<PackageReference Include="log4net" Version="2.0.15" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-	</ItemGroup>
+  <!-- Default project properties -->
+  <PropertyGroup>
+    <OutputType >WinExe</OutputType>
+    <TargetFramework >net472</TargetFramework>
+    <Nullable >enable</Nullable>
+    <UseWPF >true</UseWPF>
+    <LangVersion >preview</LangVersion>
+    <PlatformTarget >x64</PlatformTarget>
+    <Version >1.0.0.0</Version>
+    <AssemblyName Condition="'$(Configuration)' != 'Release'">$(MSBuildProjectName)</AssemblyName>
+  </PropertyGroup>
 
+  <!-- Release configuration: Output as Library for Quicker integration -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <OutputType>Library</OutputType>
+    <AssemblyName>$(MSBuildProjectName).$(Version)</AssemblyName>
+    <ApplicationDefinition />
+  </PropertyGroup>
 
-	<ItemGroup>
-		<Reference Include="Quicker">
-			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Common">
-			<HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Public">
-			<HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
-		</Reference>
-		<Reference Include="DotNetProjects.SVGImage">
-			<HintPath>C:\Program Files\Quicker\DotNetProjects.SVGImage.dll</HintPath>
-		</Reference>
-		<Reference Include="DotNetProjects.Wpf.Extended.Toolkit">
-			<HintPath>C:\Program Files\Quicker\DotNetProjects.Wpf.Extended.Toolkit.dll</HintPath>
-		</Reference>
-		<Reference Include="FontAwesomeIconsWpf">
-			<HintPath>C:\Program Files\Quicker\FontAwesomeIconsWpf.dll</HintPath>
-		</Reference>
-		<Reference Include="HandyControl">
-			<HintPath>C:\Program Files\Quicker\HandyControl.dll</HintPath>
-		</Reference>
-		<Reference Include="ICSharpCode.AvalonEdit">
-			<HintPath>C:\Program Files\Quicker\ICSharpCode.AvalonEdit.dll</HintPath>
-		</Reference>
-		<Reference Include="ICSharpCode.SharpZipLib">
-			<HintPath>C:\Program Files\Quicker\ICSharpCode.SharpZipLib.dll</HintPath>
-		</Reference>
-		<Reference Include="MdXaml">
-			<HintPath>C:\Program Files\Quicker\MdXaml.dll</HintPath>
-		</Reference>
-	</ItemGroup>
+  <!-- Remove App.xaml files in Release mode (not needed for library) -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Compile Remove="App.xaml.cs" />
+    <Page Remove="App.xaml" />
+    <ApplicationDefinition Remove="App.xaml" />
+  </ItemGroup>
+
+  <!-- Standard NuGet packages -->
+  <ItemGroup>
+    <PackageReference Include="log4net" Version="2.0.15" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="DependencyPropertyGenerator" Version="1.5.0" />
+  </ItemGroup>
+
+  <!-- Standard framework references -->
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <!-- Quicker framework references -->
+  <ItemGroup>
+    <Reference Include="Quicker">
+      <HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
+    </Reference>
+    <Reference Include="Quicker.Common">
+      <HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Quicker.Public">
+      <HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
+    </Reference>
+    <Reference Include="DotNetProjects.SVGImage">
+      <HintPath>C:\Program Files\Quicker\DotNetProjects.SVGImage.dll</HintPath>
+    </Reference>
+    <Reference Include="DotNetProjects.Wpf.Extended.Toolkit">
+      <HintPath>C:\Program Files\Quicker\DotNetProjects.Wpf.Extended.Toolkit.dll</HintPath>
+    </Reference>
+    <Reference Include="FontAwesomeIconsWpf">
+      <HintPath>C:\Program Files\Quicker\FontAwesomeIconsWpf.dll</HintPath>
+    </Reference>
+    <Reference Include="HandyControl">
+      <HintPath>C:\Program Files\Quicker\HandyControl.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.AvalonEdit">
+      <HintPath>C:\Program Files\Quicker\ICSharpCode.AvalonEdit.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib">
+      <HintPath>C:\Program Files\Quicker\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="MdXaml">
+      <HintPath>C:\Program Files\Quicker\MdXaml.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>
 ```
 主项目的 app.xaml 模版
