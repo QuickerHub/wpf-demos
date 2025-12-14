@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 
 namespace WpfWebview
 {
@@ -14,6 +15,10 @@ namespace WpfWebview
         public MainWindow()
         {
             InitializeComponent();
+            
+            // Set WebView2 default background color from HandyControl theme
+            WebViewControl.SetBackgroundColor(this.Background);
+            
             _viewModel = new MainViewModel();
             DataContext = this; // Set DataContext to this, not ViewModel
             

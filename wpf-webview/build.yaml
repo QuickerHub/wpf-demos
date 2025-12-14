@@ -17,6 +17,7 @@ instruction: WPF WebView 交互演示
 # 文件处理配置
 filesToInclude:                    # 要包含的文件（支持通配符，如果指定则只包含匹配的文件）
   - "WpfWebview*.dll"
+  - "Web/**/*"              
 filesToExclude:                    # 要排除的文件（支持通配符）
   - "*.pdb"
   - "*.xml"

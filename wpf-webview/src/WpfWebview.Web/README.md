@@ -1,70 +1,101 @@
-# WpfWebview.Web
+# WPF WebView Web Frontend
 
-WPF WebView 演示项目的前端部分。
+React + TypeScript 前端项目，用于 WPF WebView2 集成。
 
 ## 技术栈
 
-- **Vite** - 快速的前端构建工具和开发服务器
-- **原生 HTML/CSS/JavaScript** - 轻量级，无需框架
-
-## 开发
-
-### 安装依赖
-
-```bash
-pnpm install
-```
-
-### 启动开发服务器
-
-```bash
-pnpm dev
-```
-
-开发服务器将在 `http://localhost:5173` 启动。
-
-### 构建生产版本
-
-```bash
-pnpm build
-```
-
-构建输出将在 `dist/` 目录中。
-
-## 与 WPF 交互
-
-### JavaScript 调用 C# 方法
-
-```javascript
-const wpfHost = window.chrome.webview.hostObjects.wpfHost;
-const result = await wpfHost.ShowMessage('Hello from JavaScript!');
-```
-
-### 发送消息到 WPF
-
-```javascript
-window.wpfBridge.sendMessage('Hello from WebView!');
-```
-
-### 接收来自 WPF 的消息
-
-```javascript
-window.onWpfMessage = function(message) {
-    console.log('收到 WPF 消息:', message);
-};
-```
+- **React 18** - UI 框架
+- **TypeScript** - 类型安全
+- **Vite** - 构建工具和开发服务器
 
 ## 项目结构
 
 ```
 WpfWebview.Web/
-├── index.html          # 主 HTML 文件
-├── styles/
-│   └── main.css        # 样式文件
-├── scripts/
-│   └── main.js         # 主 JavaScript 文件
-├── package.json        # 项目配置
-├── vite.config.js      # Vite 配置
-└── README.md           # 项目说明
+├── src/
+│   ├── App.tsx              # 主应用组件
+│   ├── App.css              # 应用样式
+│   ├── main.tsx             # 应用入口
+│   ├── lib/
+│   │   └── wpf-bridge.ts    # WPF Bridge 封装
+│   └── types/
+│       └── wpf-bridge.d.ts  # WPF Bridge 类型定义
+├── index.html               # HTML 入口
+├── package.json             # 项目配置
+├── tsconfig.json            # TypeScript 配置
+└── vite.config.ts           # Vite 配置
 ```
 
+## 安装依赖
+
+```bash
+pnpm install
+```
+
+## 开发
+
+启动开发服务器：
+
+```bash
+pnpm dev
+```
+
+开发服务器会在 `http://localhost:5173` 启动，并自动将 URL 写入 `.vite-dev-server` 文件供 WPF 应用读取。
+
+## 构建
+
+构建生产版本：
+
+```bash
+pnpm build
+```
+
+构建输出在 `dist/` 目录。
+
+## 类型检查
+
+运行 TypeScript 类型检查：
+
+```bash
+pnpm type-check
+```
+
+## WPF Bridge API
+
+### 发送消息到 WPF
+
+```typescript
+import { initWpfBridge } from './lib/wpf-bridge';
+
+// 初始化 bridge
+initWpfBridge();
+
+// 发送消息
+if (window.wpfBridge) {
+  window.wpfBridge.sendMessage('Hello from React!');
+}
+```
+
+### 接收来自 WPF 的消息
+
+```typescript
+window.onWpfMessage = (message: { type: string; data: string }) => {
+  console.log('收到 WPF 消息:', message.data);
+};
+```
+
+### 调用 WPF 方法
+
+```typescript
+import { callWpfMethod } from './lib/wpf-bridge';
+
+// 调用 WPF 方法
+const result = await callWpfMethod('ShowMessage', 'Hello from React!');
+console.log('WPF 响应:', result);
+```
+
+## 注意事项
+
+- Bridge 会在应用启动时自动初始化
+- 在非 WebView2 环境中，bridge 会创建 mock 实现用于开发测试
+- 所有与 WPF 的通信都通过 `window.wpfBridge` 和 `window.chrome.webview` API

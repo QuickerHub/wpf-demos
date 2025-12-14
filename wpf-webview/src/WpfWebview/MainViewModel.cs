@@ -30,6 +30,8 @@ namespace WpfWebview
                 IsLoading = true;
                 CurrentUrl = "正在初始化...";
                 
+                // Create WebViewManager with default configuration
+                // Configuration will automatically detect output directory and look for web files there
                 _webViewManager = new WebViewManager(webView);
                 
                 // Subscribe to message received event

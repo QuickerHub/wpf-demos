@@ -4,34 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WPF WebView Demo</title>
-    <link rel="stylesheet" href="./styles/main.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🌐 WPF WebView 交互演示</h1>
-        
-        <div class="section">
-            <h2>📤 发送消息到 WPF</h2>
-            <div class="input-group">
-                <input type="text" id="messageInput" placeholder="输入要发送到 WPF 的消息">
-                <button class="primary" id="sendButton">发送到 WPF</button>
-                <button class="secondary" id="callButton">调用 WPF 方法</button>
-            </div>
-            <div class="message-box" id="wpfResponse"></div>
-        </div>
-
-        <div class="section">
-            <h2>📥 接收来自 WPF 的消息</h2>
-            <div class="message-box" id="wpfMessage"></div>
-        </div>
-
-        <div class="section">
-            <h2>📋 交互日志</h2>
-            <div class="log" id="log"></div>
-        </div>
-    </div>
-
-    <script type="module" src="./scripts/main.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
-
