@@ -172,40 +172,58 @@
                 x:Name="FileListView"
                 BorderThickness="0"
                 ItemsSource="{Binding ViewModel.Items}"
-                SelectionMode="Extended">
+                SelectionMode="Extended"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Width="Auto" Header="重命名前">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock
-                                        Margin="5,2"
-                                        Text="{Binding OriginalName}"
-                                        TextWrapping="Wrap"
-                                        ToolTip="{Binding OriginalName}"
-                                        ToolTipService.InitialShowDelay="500" />
+                                    <StackPanel Orientation="Horizontal" Margin="5,2">
+                                        <controls:FileIconControl
+                                            Margin="0,0,8,0"
+                                            FilePath="{Binding FullPath}"
+                                            IconSize="16"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Text="{Binding OriginalName}"
+                                            TextWrapping="NoWrap"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTip="{Binding OriginalName}"
+                                            ToolTipService.InitialShowDelay="500" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <GridViewColumn Width="Auto" Header="重命名后">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock
-                                        Margin="5,2"
-                                        Text="{Binding NewName}"
-                                        TextWrapping="Wrap"
-                                        ToolTip="{Binding NewName}"
-                                        ToolTipService.InitialShowDelay="500">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsNameChanged}" Value="True">
-                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <StackPanel Orientation="Horizontal" Margin="5,2">
+                                        <controls:FileIconControl
+                                            Margin="0,0,8,0"
+                                            FilePath="{Binding FullPath}"
+                                            IconSize="16"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Text="{Binding NewName}"
+                                            TextWrapping="NoWrap"
+                                            TextTrimming="CharacterEllipsis"
+                                            ToolTip="{Binding NewName}"
+                                            ToolTipService.InitialShowDelay="500">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsNameChanged}" Value="True">
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

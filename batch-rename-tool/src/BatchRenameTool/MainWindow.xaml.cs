@@ -77,12 +77,13 @@ namespace BatchRenameTool
         {
             if (FileListView?.View is System.Windows.Controls.GridView gridView && gridView.Columns.Count >= 2)
             {
-                var availableWidth = FileListView.ActualWidth - SystemParameters.VerticalScrollBarWidth;
+                var availableWidth = FileListView.ActualWidth - SystemParameters.VerticalScrollBarWidth - 20; // Reserve some space for padding
                 if (availableWidth > 0)
                 {
+                    // Divide space equally between the two columns
                     var columnWidth = availableWidth / 2.0;
-                    gridView.Columns[0].Width = columnWidth;
-                    gridView.Columns[1].Width = columnWidth;
+                    gridView.Columns[0].Width = columnWidth; // 重命名前
+                    gridView.Columns[1].Width = columnWidth; // 重命名后
                 }
             }
         }
