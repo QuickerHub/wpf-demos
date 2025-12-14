@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:WpfWebview"
+    xmlns:ext="clr-namespace:WpfWebview.Extensions"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     Title="WPF WebView 交互演示"
@@ -48,17 +49,16 @@
                     Padding="10,5"
                     Command="{Binding ViewModel.ReloadPageCommand}"
                     Content="🔄 刷新" />
-                <Button
-                    Margin="5,0"
-                    Padding="10,5"
-                    Command="{Binding ViewModel.NavigateToUrlCommand}"
-                    Content="🌐 导航" />
                 <Separator Margin="10,0" />
-                <TextBlock
+                <TextBox
+                    x:Name="NavigationUrlTextBox"
                     Margin="10,0"
                     VerticalAlignment="Center"
-                    Text="{Binding ViewModel.CurrentUrl}"
-                    TextTrimming="CharacterEllipsis" />
+                    MinWidth="400"
+                    Padding="5,3"
+                    Text="{Binding ViewModel.NavigationUrl, UpdateSourceTrigger=PropertyChanged}"
+                    ext:TextBoxExtensions.SelectAllOnFocus="True"
+                    KeyDown="NavigationUrlTextBox_KeyDown" />
             </StackPanel>
         </Border>
 

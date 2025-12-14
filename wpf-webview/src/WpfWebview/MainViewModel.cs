@@ -19,6 +19,9 @@ namespace WpfWebview
         public partial string CurrentUrl { get; set; } = "";
 
         [ObservableProperty]
+        public partial string NavigationUrl { get; set; } = "";
+
+        [ObservableProperty]
         public partial bool IsLoading { get; set; } = true;
 
         private WebViewManager? _webViewManager;
@@ -68,13 +71,17 @@ namespace WpfWebview
                         Application.Current.Dispatcher.Invoke(() =>
                         {
                             IsLoading = false;
-                            CurrentUrl = _webViewManager?.GetCurrentUrl() ?? "加载完成";
+                            var url = _webViewManager?.GetCurrentUrl() ?? "加载完成";
+                            CurrentUrl = url;
+                            NavigationUrl = url;
                         });
                     };
                 }
                 
                 // Update current URL
-                CurrentUrl = _webViewManager.GetCurrentUrl() ?? "就绪";
+                var initialUrl = _webViewManager.GetCurrentUrl() ?? "就绪";
+                CurrentUrl = initialUrl;
+                NavigationUrl = initialUrl;
             }
             catch (Exception ex)
             {
@@ -115,31 +122,28 @@ namespace WpfWebview
         }
 
         [RelayCommand]
-        private async Task NavigateToUrl()
+        private void NavigateToUrl()
+        {
+            NavigateToUrl(NavigationUrl);
+        }
+
+        public void NavigateToUrl(string? url = null)
         {
             if (_webViewManager == null) return;
 
-            string? url = null;
-            Application.Current.Dispatcher.Invoke(() =>
+            if (string.IsNullOrWhiteSpace(url))
             {
-                var dialog = new InputDialog("https://www.example.com");
-                if (dialog.ShowDialog() == true)
-                {
-                    url = dialog.InputText;
-                }
-            });
+                return;
+            }
 
-            if (!string.IsNullOrWhiteSpace(url))
+            try
             {
-                try
-                {
-                    _webViewManager.Navigate(url);
-                    CurrentUrl = _webViewManager.GetCurrentUrl() ?? url;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"导航失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                _webViewManager.Navigate(url);
+                CurrentUrl = url;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导航失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

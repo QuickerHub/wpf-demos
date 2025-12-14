@@ -33,6 +33,15 @@ namespace WpfWebview
             // Don't wait for WebView's Loaded event
             await _viewModel.SetWebViewAsync(WebViewControl);
         }
+
+        private void NavigationUrlTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+            {
+                _viewModel.NavigateToUrl();
+                e.Handled = true;
+            }
+        }
     }
 }
 
