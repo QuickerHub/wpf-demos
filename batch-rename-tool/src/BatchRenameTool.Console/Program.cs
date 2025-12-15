@@ -6,13 +6,8 @@ namespace BatchRenameTool
     {
         static void Main(string[] args)
         {
-            // Test template parser with method calls
-            var templateTests = new TemplateParserTests();
-            templateTests.RunAllTests();
-            
-            // Test batch rename executor (optional, can be commented out)
-            // var renameTests = new BatchRenameExecutorTests();
-            // renameTests.RunAllTests();
+            var tests = new BatchRenameExecutorTests();
+            tests.RunAllTests();
         }
     }
 }

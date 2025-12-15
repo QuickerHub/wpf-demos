@@ -30,7 +30,7 @@
                     <Setter Property="avalonEdit:TextEditor.HorizontalScrollBarVisibility" Value="Disabled" />
                     <Setter Property="avalonEdit:TextEditor.VerticalScrollBarVisibility" Value="Auto" />
                     <Setter Property="WordWrap" Value="True" />
-                    <Setter Property="Background" Value="{DynamicResource CodeBlockBackgroundBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource RegionBrush}" />
                     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                     <Setter Property="BorderThickness" Value="1" />
@@ -90,7 +90,7 @@
                         <Trigger Property="FrameworkContentElement.Tag" Value="CodeBlock">
                             <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
                             <Setter Property="TextElement.FontSize" Value="12" />
-                            <Setter Property="TextElement.Background" Value="{DynamicResource CodeBlockBackgroundBrush}" />
+                            <Setter Property="TextElement.Background" Value="{DynamicResource RegionBrush}" />
                             <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryTextBrush}" />
                             <Setter Property="Block.Padding" Value="20,10" />
                         </Trigger>
@@ -104,8 +104,8 @@
                             <Setter Property="TextElement.FontFamily" Value="Consolas, 'Courier New', monospace" />
                             <Setter Property="TextElement.FontSize" Value="12" />
                             <!--  Use custom background color for better visibility  -->
-                            <Setter Property="TextElement.Background" Value="{DynamicResource CodeBlockBackgroundBrush}" />
-                            <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                            <Setter Property="TextElement.Background" Value="{DynamicResource RegionBrush}" />
+                            <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryBrush}" />
                             <Setter Property="TextElement.FontWeight" Value="Normal" />
                         </Trigger>
                     </Style.Triggers>

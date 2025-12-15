@@ -8,6 +8,7 @@
     xmlns:local="clr-namespace:BatchRenameTool"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:BatchRenameTool.ViewModels"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
     Title="批量重命名工具"
     Width="1000"
     Height="600"
@@ -20,6 +21,9 @@
     ResizeMode="CanResize"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Window.Resources>
     <Grid Margin="16" Background="{DynamicResource RegionBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -233,10 +237,33 @@
         </GroupBox>
 
         <!--  Status Bar  -->
-        <TextBlock
-            Grid.Row="3"
-            Margin="0,16,0,0"
-            Foreground="{DynamicResource SecondaryTextBrush}"
-            Text="{Binding ViewModel.StatusMessage}" />
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                Grid.Column="0"
+                VerticalAlignment="Center"
+                Foreground="{DynamicResource SecondaryTextBrush}"
+                Text="{Binding ViewModel.StatusMessage}" />
+            
+            <!--  Progress Bar (Bottom Right)  -->
+            <StackPanel
+                Grid.Column="1"
+                MinWidth="300"
+                Orientation="Vertical"
+                Visibility="{Binding ViewModel.IsRenaming, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock
+                    Margin="0,0,0,4"
+                    FontSize="12"
+                    Foreground="{DynamicResource SecondaryTextBrush}"
+                    Text="{Binding ViewModel.ProgressText}" />
+                <ProgressBar
+                    Height="20"
+                    Maximum="100"
+                    Value="{Binding ViewModel.ProgressValue}" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

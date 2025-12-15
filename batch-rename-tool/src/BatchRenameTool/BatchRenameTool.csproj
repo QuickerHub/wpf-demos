@@ -29,6 +29,9 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="DependencyPropertyGenerator" Version="1.5.0" />
+		<PackageReference Include="DynamicData" Version="9.3.2" />
+		<PackageReference Include="ReactiveUI" Version="20.3.1" />
+		<PackageReference Include="Costura.Fody" Version="5.7.0" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -52,6 +52,12 @@ namespace BatchRenameTool
                 RemoveSelectedButton.IsEnabled = FileListView.SelectedItems.Count > 0;
             };
 
+            // Setup lazy evaluation: calculate NewName only when items become visible
+            SetupLazyEvaluation();
+
+            // Setup lazy evaluation: calculate NewName only when items become visible
+            SetupLazyEvaluation();
+
             // Setup history popup
             if (HistoryPopupButton?.PopupContent is PatternHistoryListControl historyListControl)
             {
@@ -89,18 +95,110 @@ namespace BatchRenameTool
         }
 
         /// <summary>
+        /// Setup lazy evaluation: calculate NewName only when items become visible
+        /// </summary>
+        private void SetupLazyEvaluation()
+        {
+            // Listen to container generation events
+            FileListView.ItemContainerGenerator.StatusChanged += (s, e) =>
+            {
+                if (FileListView.ItemContainerGenerator.Status == System.Windows.Controls.Primitives.GeneratorStatus.ContainersGenerated)
+                {
+                    CalculateVisibleItems();
+                }
+            };
+
+            // Listen to scroll events to calculate newly visible items
+            FileListView.Loaded += (s, e) =>
+            {
+                // Find ScrollViewer in ListView template
+                var scrollViewer = FindVisualChild<System.Windows.Controls.ScrollViewer>(FileListView);
+                if (scrollViewer != null)
+                {
+                    scrollViewer.ScrollChanged += (sender, args) =>
+                    {
+                        CalculateVisibleItems();
+                    };
+                }
+            };
+
+            // Also listen to layout updates
+            FileListView.LayoutUpdated += (s, e) =>
+            {
+                CalculateVisibleItems();
+            };
+        }
+
+        /// <summary>
+        /// Find a visual child of a specific type
+        /// </summary>
+        private static T? FindVisualChild<T>(System.Windows.DependencyObject parent) where T : System.Windows.DependencyObject
+        {
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                {
+                    return result;
+                }
+                var childOfChild = FindVisualChild<T>(child);
+                if (childOfChild != null)
+                {
+                    return childOfChild;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Calculate NewName for all currently visible items
+        /// </summary>
+        private void CalculateVisibleItems()
+        {
+            if (_viewModel == null || FileListView.ItemsSource == null)
+                return;
+
+            var items = _viewModel.Items;
+            if (items == null || items.Count == 0)
+                return;
+
+            // Get visible items using ItemContainerGenerator
+            var generator = FileListView.ItemContainerGenerator;
+            var processedIndices = new HashSet<int>();
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var container = generator.ContainerFromIndex(i);
+                if (container != null && container is System.Windows.FrameworkElement element)
+                {
+                    // Check if item is actually visible in viewport
+                    var isVisible = element.IsVisible && 
+                                   element.ActualHeight > 0 && 
+                                   element.ActualWidth > 0;
+                    
+                    if (isVisible && items[i] is ViewModels.FileRenameItem item && item.NeedsRecalculation)
+                    {
+                        processedIndices.Add(i);
+                        // Calculate NewName for this visible item
+                        _viewModel.CalculateItemNewName(item, i);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Handle folder selection button click
         /// </summary>
         private void SelectFolderButton_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
-            {
-                Description = "选择包含要重命名文件的文件夹"
-            };
+            var selectedPath = FileDialog.ShowFolderBrowserDialog(
+                description: "选择包含要重命名文件的文件夹",
+                selectedPath: null,
+                showNewFolderButton: true);
 
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (!string.IsNullOrEmpty(selectedPath))
             {
-                _viewModel.AddFilesCommand.Execute(dialog.SelectedPath);
+                _viewModel.ResetFilesFromFolderCommand.Execute(selectedPath);
             }
         }
 
@@ -288,6 +386,8 @@ namespace BatchRenameTool
                 ("{fullname}", "保持原文件名不变"),
                 ("{name}_backup.{ext}", "添加 backup 后缀"),
                 ("New_{fullname}", "添加 New_ 前缀"),
+                ("{dirname}_{name}.{ext}", "文件夹名+文件名"),
+                ("{dirname}_{i:001}_{name}.{ext}", "文件夹名+序号+文件名"),
             };
 
             AddChildMenus(DemoMenu, otherExamples);

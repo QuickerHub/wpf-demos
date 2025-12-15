@@ -12,7 +12,7 @@
                 <!--  HandyControl Theme with system theme sync  -->
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
-                <hc:Theme SyncWithSystem="True" />
+                <!--<hc:Theme SyncWithSystem="True" />-->
             </ResourceDictionary.MergedDictionaries>
 
             <!--  Custom color for code blocks - More visible in dark mode  -->

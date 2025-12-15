@@ -10,24 +10,7 @@
 
 	<ItemGroup>
 		<!-- Reference Template folder source files for testing -->
-		<Compile Include="..\BatchRenameTool\Template\Ast\AstNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\FormatNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\LiteralNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\MethodNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\SliceNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\TemplateNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\TextNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Ast\VariableNode.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Evaluator\IEvaluationContext.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Evaluator\IImageInfo.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Evaluator\ImageInfo.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Evaluator\TemplateEvaluator.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Lexer\TemplateLexer.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Lexer\Token.cs" />
-		<Compile Include="..\BatchRenameTool\Template\MethodAliasAttribute.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Parser\TemplateParser.cs" />
-		<Compile Include="..\BatchRenameTool\Template\Utils\ChineseNumberConverter.cs" />
-		<Compile Include="..\BatchRenameTool\Template\VariableInfo.cs" />
+		<Compile Include="..\BatchRenameTool\Template\**\*.cs" />
 		<!-- Reference Services folder - only BatchRenameExecutor for testing -->
 		<Compile Include="..\BatchRenameTool\Services\BatchRenameExecutor.cs" />
 	</ItemGroup>

@@ -697,7 +697,34 @@ namespace BatchRenameTool.Template.Parser
             }
             Advance();
             
-            return new SliceNode(target, start, end);
+            // Convert slice syntax to method call: .slice(start, end)
+            // [:3] -> .slice(0, 3)  (start is null, add 0)
+            // [3:] -> .slice(3)    (end is null, only start)
+            // [1:3] -> .slice(1, 3) (both start and end)
+            // [:] -> .slice()      (both null, no arguments - return full string)
+            var arguments = new List<AstNode>();
+            
+            if (start == null && end != null)
+            {
+                // [:3] -> .slice(0, 3)
+                arguments.Add(new LiteralNode(0));
+                arguments.Add(end);
+            }
+            else if (start != null && end == null)
+            {
+                // [3:] -> .slice(3)
+                arguments.Add(start);
+            }
+            else if (start != null && end != null)
+            {
+                // [1:3] -> .slice(1, 3)
+                arguments.Add(start);
+                arguments.Add(end);
+            }
+            // else: [:] -> .slice() - no arguments, return full string
+            
+            // Return MethodNode instead of SliceNode
+            return new MethodNode(target, "slice", arguments);
         }
 
         private Token Peek()

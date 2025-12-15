@@ -24,6 +24,7 @@ namespace BatchRenameTool.Template.Evaluator
         public string Ext { get; }
         public string FullName { get; }
         public string FullPath { get; }
+        public string DirName { get; }
         public int Index { get; }
         public int TotalCount { get; }
         public DateTime Today { get; }
@@ -56,6 +57,7 @@ namespace BatchRenameTool.Template.Evaluator
             Ext = ext;
             FullName = fullName;
             FullPath = fullPath;
+            DirName = Path.GetFileName(Path.GetDirectoryName(fullPath) ?? string.Empty);
             Index = index;
             TotalCount = totalCount;
             Today = DateTime.Today;
@@ -111,6 +113,7 @@ namespace BatchRenameTool.Template.Evaluator
                 "name" => context.Name,
                 "ext" => context.Ext,
                 "fullname" => context.FullName,
+                "dirname" => context.DirName,
                 "i" => context.Index.ToString(),
                 "iv" => (context.TotalCount - 1 - context.Index).ToString(), // Reverse index
                 "today" => context.Today.ToString("yyyy-MM-dd"), // Default format
@@ -482,6 +485,7 @@ namespace BatchRenameTool.Template.Evaluator
                 "lower" => ExecuteLower(targetValue),
                 "trim" => ExecuteTrim(targetValue),
                 "sub" => ExecuteSub(targetValue, arguments),
+                "slice" => ExecuteSlice(targetValue, arguments),
                 "padleft" => ExecutePadLeft(targetValue, arguments),
                 "padright" => ExecutePadRight(targetValue, arguments),
                 _ => $"[????: {node.MethodName}]"
@@ -521,6 +525,71 @@ namespace BatchRenameTool.Template.Evaluator
             if (arguments.Count == 0)
             {
                 return target; // No arguments, return original
+            }
+            
+            // Get start index
+            int start = 0;
+            if (arguments[0] is int startInt)
+            {
+                start = startInt;
+            }
+            else if (int.TryParse(arguments[0]?.ToString(), out int parsedStart))
+            {
+                start = parsedStart;
+            }
+            
+            // Handle negative indices (Python-style)
+            if (start < 0)
+            {
+                start = target.Length + start;
+            }
+            
+            // Clamp start to valid range
+            start = Math.Max(0, Math.Min(start, target.Length));
+            
+            // Get end index (optional)
+            if (arguments.Count >= 2)
+            {
+                int end = target.Length;
+                if (arguments[1] is int endInt)
+                {
+                    end = endInt;
+                }
+                else if (int.TryParse(arguments[1]?.ToString(), out int parsedEnd))
+                {
+                    end = parsedEnd;
+                }
+                
+                // Handle negative indices
+                if (end < 0)
+                {
+                    end = target.Length + end;
+                }
+                
+                // Clamp end to valid range
+                end = Math.Max(0, Math.Min(end, target.Length));
+                
+                // Extract substring
+                if (start >= end)
+                {
+                    return ""; // Invalid range
+                }
+                
+                return target.Substring(start, end - start);
+            }
+            else
+            {
+                // Only start index provided, return from start to end
+                return target.Substring(start);
+            }
+        }
+
+        private string ExecuteSlice(string target, List<object> arguments)
+        {
+            // slice() - no arguments, return full string
+            if (arguments.Count == 0)
+            {
+                return target;
             }
             
             // Get start index

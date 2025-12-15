@@ -13,6 +13,7 @@ public interface IEvaluationContext
     string Ext { get; }            // Extension without dot
     string FullName { get; }       // Full file name
     string FullPath { get; }       // Full file path
+    string DirName { get; }         // Directory name (folder name containing the file)
     int Index { get; }              // Index for {i} variable
     int TotalCount { get; }         // Total count for {iv} variable (reverse index)
     DateTime Today { get; }         // Current date for {today} variable

@@ -90,6 +90,13 @@ namespace BatchRenameTool.Template
                     Description = "完整文件名（包含扩展名）",
                     FormatOptions = new List<FormatOption>() // String variables don't support format
                 },
+                new VariableInfo
+                {
+                    VariableName = "dirname",
+                    Type = VariableType.String,
+                    Description = "文件所在文件夹的名称",
+                    FormatOptions = new List<FormatOption>() // String variables don't support format
+                },
 
                 // Number variable
                 new VariableInfo

@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using BatchRenameTool.Services;
-using BatchRenameTool.Template.Evaluator;
-using BatchRenameTool.Template.Parser;
 using BatchRenameTool.ViewModels;
 
 namespace BatchRenameTool
@@ -90,80 +88,8 @@ namespace BatchRenameTool
         /// <returns>Rename result</returns>
         public static BatchRenameExecutor.RenameResult RenameFiles(List<string> filePaths, string pattern)
         {
-            if (filePaths == null || filePaths.Count == 0)
-            {
-                return new BatchRenameExecutor.RenameResult();
-            }
-
-            if (string.IsNullOrWhiteSpace(pattern))
-            {
-                // Empty pattern means no rename
-                return new BatchRenameExecutor.RenameResult
-                {
-                    SkippedCount = filePaths.Count
-                };
-            }
-
-            // Filter valid files
-            var validFiles = filePaths.Where(File.Exists).ToList();
-            if (validFiles.Count == 0)
-            {
-                return new BatchRenameExecutor.RenameResult();
-            }
-
-            // Create parser and evaluator
-            var parser = new TemplateParser(new List<Type>());
-            var evaluator = new TemplateEvaluator();
-            var executor = new BatchRenameExecutor();
-
-            // Parse template
-            var templateNode = parser.Parse(pattern);
-
-            // Generate rename operations
-            var operations = new List<BatchRenameExecutor.RenameOperation>();
-            int totalCount = validFiles.Count;
-
-            for (int i = 0; i < validFiles.Count; i++)
-            {
-                var filePath = validFiles[i];
-                var directory = Path.GetDirectoryName(filePath) ?? string.Empty;
-                var originalName = Path.GetFileName(filePath);
-                var extension = Path.GetExtension(originalName);
-                var nameWithoutExt = Path.GetFileNameWithoutExtension(originalName);
-
-                // Create evaluation context
-                var context = new EvaluationContext(
-                    name: nameWithoutExt,
-                    ext: extension.TrimStart('.'),
-                    fullName: originalName,
-                    fullPath: filePath,
-                    index: i,
-                    totalCount: totalCount);
-
-                // Evaluate template
-                var newName = evaluator.Evaluate(templateNode, context);
-
-                // Auto-add extension if template doesn't include it
-                if (!string.IsNullOrEmpty(extension) && !newName.Contains("."))
-                {
-                    bool templateHasExt = pattern.Contains("{ext}", StringComparison.OrdinalIgnoreCase);
-                    if (!templateHasExt)
-                    {
-                        newName += extension;
-                    }
-                }
-
-                operations.Add(new BatchRenameExecutor.RenameOperation
-                {
-                    OriginalPath = filePath,
-                    OriginalName = originalName,
-                    NewName = newName,
-                    Directory = directory
-                });
-            }
-
-            // Execute rename
-            return executor.Execute(operations);
+            var service = new BatchRenameService();
+            return service.RenameFiles(filePaths, pattern);
         }
 
         /// <summary>
@@ -174,50 +100,8 @@ namespace BatchRenameTool
         /// <returns>Rename result</returns>
         public static BatchRenameExecutor.RenameResult RenameFiles(List<string> filePaths, List<string> newNames)
         {
-            if (filePaths == null || newNames == null)
-            {
-                return new BatchRenameExecutor.RenameResult();
-            }
-
-            if (filePaths.Count != newNames.Count)
-            {
-                throw new ArgumentException($"File paths count ({filePaths.Count}) does not match new names count ({newNames.Count})");
-            }
-
-            // Filter valid files
-            var validPairs = new List<(string filePath, string newName)>();
-            for (int i = 0; i < filePaths.Count; i++)
-            {
-                if (File.Exists(filePaths[i]))
-                {
-                    validPairs.Add((filePaths[i], newNames[i]));
-                }
-            }
-
-            if (validPairs.Count == 0)
-            {
-                return new BatchRenameExecutor.RenameResult();
-            }
-
-            // Create executor
-            var executor = new BatchRenameExecutor();
-
-            // Generate rename operations
-            var operations = validPairs.Select(pair =>
-            {
-                var directory = Path.GetDirectoryName(pair.filePath) ?? string.Empty;
-                var originalName = Path.GetFileName(pair.filePath);
-                return new BatchRenameExecutor.RenameOperation
-                {
-                    OriginalPath = pair.filePath,
-                    OriginalName = originalName,
-                    NewName = pair.newName,
-                    Directory = directory
-                };
-            }).ToList();
-
-            // Execute rename
-            return executor.Execute(operations);
+            var service = new BatchRenameService();
+            return service.RenameFiles(filePaths, newNames);
         }
     }
 }

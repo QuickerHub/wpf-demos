@@ -11,7 +11,7 @@ namespace BatchRenameTool
     /// </summary>
     public class BatchRenameExecutorTests
     {
-        private const string TestDirectory = @"C:\Users\ldy\Desktop\cmm";
+        private readonly string _baseDir = Path.Combine(Path.GetTempPath(), "BatchRenameExecutorTests");
 
         public void RunAllTests()
         {
@@ -20,28 +20,12 @@ namespace BatchRenameTool
 
             try
             {
-                // Setup test files
-                SetupTestFiles();
-
-                // Test 1: Direct rename (no cycle)
-                Console.WriteLine("Test 1: Direct rename (no cycle)");
                 TestDirectRename();
-                Console.WriteLine();
-
-                // Test 2: Cycle rename (A->B, B->A)
-                Console.WriteLine("Test 2: Cycle rename (A->B, B->A)");
+                TestReverseChain();
                 TestCycleRename();
-                Console.WriteLine();
-
-                // Test 3: Complex cycle (A->B, B->C, C->A)
-                Console.WriteLine("Test 3: Complex cycle (A->B, B->C, C->A)");
                 TestComplexCycle();
-                Console.WriteLine();
-
-                // Test 4: Mixed (some direct, some cycle)
-                Console.WriteLine("Test 4: Mixed (some direct, some cycle)");
                 TestMixed();
-                Console.WriteLine();
+                TestShift123To234();
 
                 Console.WriteLine("All tests completed!");
             }
@@ -52,108 +36,151 @@ namespace BatchRenameTool
             }
         }
 
-        private void SetupTestFiles()
+        private string PrepareDirectory(string name, params string[] files)
         {
-            Console.WriteLine($"Setting up test files in {TestDirectory}...");
-
-            // Clean up existing test files
-            if (Directory.Exists(TestDirectory))
+            var dir = Path.Combine(_baseDir, name);
+            if (Directory.Exists(dir))
             {
-                var existingFiles = Directory.GetFiles(TestDirectory, "test_*.txt");
-                foreach (var file in existingFiles)
-                {
-                    try { File.Delete(file); } catch { }
-                }
+                Directory.Delete(dir, true);
             }
-            else
+            Directory.CreateDirectory(dir);
+
+            foreach (var file in files)
             {
-                Directory.CreateDirectory(TestDirectory);
+                File.WriteAllText(Path.Combine(dir, file), $"Content of {file}");
             }
 
-            // Create test files
-            var testFiles = new[] { "test_A.txt", "test_B.txt", "test_C.txt", "test_D.txt", "test_E.txt" };
-            foreach (var fileName in testFiles)
-            {
-                var filePath = Path.Combine(TestDirectory, fileName);
-                File.WriteAllText(filePath, $"Content of {fileName}");
-            }
-
-            Console.WriteLine($"Created {testFiles.Length} test files.");
+            return dir;
         }
 
         private void TestDirectRename()
         {
+            Console.WriteLine("Test 1: Direct rename (no cycle)");
+            var dir = PrepareDirectory("direct", "1.txt", "2.txt");
+
             var executor = new BatchRenameExecutor();
             var operations = new List<BatchRenameExecutor.RenameOperation>
             {
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_D.txt",
-                    NewName = "test_D_renamed.txt"
-                },
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_E.txt",
-                    NewName = "test_E_renamed.txt"
-                }
+                new(Path.Combine(dir, "1.txt"), "1_renamed.txt"),
+                new(Path.Combine(dir, "2.txt"), "2_renamed.txt")
             };
 
+            PrintOperations(operations);
+            var result = executor.Execute(operations);
+            PrintResult(result);
+            VerifyFiles(operations);
+            Console.WriteLine();
+        }
+
+        private void TestReverseChain()
+        {
+            Console.WriteLine("Test 2: Reverse chain (i+1 -> i)");
+            var dir = PrepareDirectory("reverse_chain", "1.txt", "2.txt", "3.txt");
+
+            var executor = new BatchRenameExecutor();
+            var operations = new List<BatchRenameExecutor.RenameOperation>
+            {
+                new(Path.Combine(dir, "2.txt"), "1.txt"),
+                new(Path.Combine(dir, "3.txt"), "2.txt")
+            };
+
+            PrintOperations(operations);
+            var result = executor.Execute(operations);
+            PrintResult(result);
+            VerifyFiles(operations);
+            Console.WriteLine();
+        }
+
+        private void TestCycleRename()
+        {
+            Console.WriteLine("Test 3: Cycle rename (1->2, 2->1)");
+            var dir = PrepareDirectory("cycle", "1.txt", "2.txt");
+
+            var executor = new BatchRenameExecutor();
+            var operations = new List<BatchRenameExecutor.RenameOperation>
+            {
+                new(Path.Combine(dir, "1.txt"), "2.txt"),
+                new(Path.Combine(dir, "2.txt"), "1.txt")
+            };
+
+            PrintOperations(operations);
+            var result = executor.Execute(operations);
+            PrintResult(result);
+            VerifyFiles(operations);
+            Console.WriteLine();
+        }
+
+        private void TestComplexCycle()
+        {
+            Console.WriteLine("Test 4: Complex cycle (1->2, 2->3, 3->1)");
+            var dir = PrepareDirectory("complex", "1.txt", "2.txt", "3.txt");
+
+            var executor = new BatchRenameExecutor();
+            var operations = new List<BatchRenameExecutor.RenameOperation>
+            {
+                new(Path.Combine(dir, "1.txt"), "2.txt"),
+                new(Path.Combine(dir, "2.txt"), "3.txt"),
+                new(Path.Combine(dir, "3.txt"), "1.txt")
+            };
+
+            PrintOperations(operations);
+            var result = executor.Execute(operations);
+            PrintResult(result);
+            VerifyFiles(operations);
+            Console.WriteLine();
+        }
+
+        private void TestMixed()
+        {
+            Console.WriteLine("Test 5: Mixed (direct + cycle)");
+            var dir = PrepareDirectory("mixed", "1.txt", "2.txt", "3.txt", "4.txt");
+
+            var executor = new BatchRenameExecutor();
+            var operations = new List<BatchRenameExecutor.RenameOperation>
+            {
+                new(Path.Combine(dir, "1.txt"), "1_direct.txt"),
+                new(Path.Combine(dir, "2.txt"), "3.txt"),
+                new(Path.Combine(dir, "3.txt"), "2.txt")
+            };
+
+            PrintOperations(operations);
+            var result = executor.Execute(operations);
+            PrintResult(result);
+            VerifyFiles(operations);
+            Console.WriteLine();
+        }
+
+        private void TestShift123To234()
+        {
+            Console.WriteLine("Test 6: Shift chain 1->2, 2->3, 3->4");
+            var dir = PrepareDirectory("shift123to234", "1.txt", "2.txt", "3.txt");
+
+            var executor = new BatchRenameExecutor();
+            var operations = new List<BatchRenameExecutor.RenameOperation>
+            {
+                new(Path.Combine(dir, "1.txt"), "2.txt"),
+                new(Path.Combine(dir, "2.txt"), "3.txt"),
+                new(Path.Combine(dir, "3.txt"), "4.txt")
+            };
+
+            PrintOperations(operations);
+            var result = executor.Execute(operations);
+            PrintResult(result);
+            VerifyFiles(operations);
+            Console.WriteLine();
+        }
+
+        private static void PrintOperations(IEnumerable<BatchRenameExecutor.RenameOperation> operations)
+        {
             Console.WriteLine("Operations:");
             foreach (var op in operations)
             {
                 Console.WriteLine($"  {op.OriginalName} -> {op.NewName}");
             }
-
-            var result = executor.Execute(operations);
-
-            Console.WriteLine($"Result: Success={result.SuccessCount}, Skipped={result.SkippedCount}, Errors={result.ErrorCount}");
-            if (result.Errors.Count > 0)
-            {
-                foreach (var error in result.Errors)
-                {
-                    Console.WriteLine($"  Error: {error}");
-                }
-            }
-
-            // Verify
-            VerifyFiles(operations);
         }
 
-        private void TestCycleRename()
+        private static void PrintResult(BatchRenameExecutor.RenameResult result)
         {
-            // Recreate test files for this test
-            var fileA = Path.Combine(TestDirectory, "test_A.txt");
-            var fileB = Path.Combine(TestDirectory, "test_B.txt");
-            if (!File.Exists(fileA)) File.WriteAllText(fileA, "Content A");
-            if (!File.Exists(fileB)) File.WriteAllText(fileB, "Content B");
-
-            var executor = new BatchRenameExecutor();
-            var operations = new List<BatchRenameExecutor.RenameOperation>
-            {
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_A.txt",
-                    NewName = "test_B.txt"
-                },
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_B.txt",
-                    NewName = "test_A.txt"
-                }
-            };
-
-            Console.WriteLine("Operations (cycle):");
-            foreach (var op in operations)
-            {
-                Console.WriteLine($"  {op.OriginalName} -> {op.NewName}");
-            }
-
-            var result = executor.Execute(operations);
-
             Console.WriteLine($"Result: Success={result.SuccessCount}, Skipped={result.SkippedCount}, Errors={result.ErrorCount}");
             if (result.Errors.Count > 0)
             {
@@ -162,129 +189,9 @@ namespace BatchRenameTool
                     Console.WriteLine($"  Error: {error}");
                 }
             }
-
-            // Verify - files should be swapped (reuse fileA and fileB variables)
-            Console.WriteLine($"  File A exists: {File.Exists(fileA)}");
-            Console.WriteLine($"  File B exists: {File.Exists(fileB)}");
         }
 
-        private void TestComplexCycle()
-        {
-            // First recreate test files
-            var fileA = Path.Combine(TestDirectory, "test_A.txt");
-            var fileB = Path.Combine(TestDirectory, "test_B.txt");
-            var fileC = Path.Combine(TestDirectory, "test_C.txt");
-
-            if (!File.Exists(fileA)) File.WriteAllText(fileA, "Content A");
-            if (!File.Exists(fileB)) File.WriteAllText(fileB, "Content B");
-            if (!File.Exists(fileC)) File.WriteAllText(fileC, "Content C");
-
-            var executor = new BatchRenameExecutor();
-            var operations = new List<BatchRenameExecutor.RenameOperation>
-            {
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_A.txt",
-                    NewName = "test_B.txt"
-                },
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_B.txt",
-                    NewName = "test_C.txt"
-                },
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_C.txt",
-                    NewName = "test_A.txt"
-                }
-            };
-
-            Console.WriteLine("Operations (complex cycle):");
-            foreach (var op in operations)
-            {
-                Console.WriteLine($"  {op.OriginalName} -> {op.NewName}");
-            }
-
-            var result = executor.Execute(operations);
-
-            Console.WriteLine($"Result: Success={result.SuccessCount}, Skipped={result.SkippedCount}, Errors={result.ErrorCount}");
-            if (result.Errors.Count > 0)
-            {
-                foreach (var error in result.Errors)
-                {
-                    Console.WriteLine($"  Error: {error}");
-                }
-            }
-
-            // Verify
-            Console.WriteLine($"  File A exists: {File.Exists(fileA)}");
-            Console.WriteLine($"  File B exists: {File.Exists(fileB)}");
-            Console.WriteLine($"  File C exists: {File.Exists(fileC)}");
-        }
-
-        private void TestMixed()
-        {
-            // Recreate test files
-            var testFiles = new[] { "test_D.txt", "test_E.txt", "test_F.txt", "test_G.txt" };
-            foreach (var fileName in testFiles)
-            {
-                var filePath = Path.Combine(TestDirectory, fileName);
-                if (!File.Exists(filePath))
-                {
-                    File.WriteAllText(filePath, $"Content of {fileName}");
-                }
-            }
-
-            var executor = new BatchRenameExecutor();
-            var operations = new List<BatchRenameExecutor.RenameOperation>
-            {
-                // Direct rename
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_D.txt",
-                    NewName = "test_D_direct.txt"
-                },
-                // Cycle
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_F.txt",
-                    NewName = "test_G.txt"
-                },
-                new BatchRenameExecutor.RenameOperation
-                {
-                    Directory = TestDirectory,
-                    OriginalName = "test_G.txt",
-                    NewName = "test_F.txt"
-                }
-            };
-
-            Console.WriteLine("Operations (mixed):");
-            foreach (var op in operations)
-            {
-                Console.WriteLine($"  {op.OriginalName} -> {op.NewName}");
-            }
-
-            var result = executor.Execute(operations);
-
-            Console.WriteLine($"Result: Success={result.SuccessCount}, Skipped={result.SkippedCount}, Errors={result.ErrorCount}");
-            if (result.Errors.Count > 0)
-            {
-                foreach (var error in result.Errors)
-                {
-                    Console.WriteLine($"  Error: {error}");
-                }
-            }
-
-            // Verify
-            VerifyFiles(operations);
-        }
-
-        private void VerifyFiles(List<BatchRenameExecutor.RenameOperation> operations)
+        private static void VerifyFiles(List<BatchRenameExecutor.RenameOperation> operations)
         {
             Console.WriteLine("Verification:");
             foreach (var op in operations)
@@ -301,7 +208,8 @@ namespace BatchRenameTool
                 if (newExists)
                 {
                     var content = File.ReadAllText(newPath);
-                    Console.WriteLine($"    Content: {content.Substring(0, Math.Min(50, content.Length))}...");
+                    var preview = content.Length > 50 ? content.Substring(0, 50) + "..." : content;
+                    Console.WriteLine($"    Content: {preview}");
                 }
             }
         }

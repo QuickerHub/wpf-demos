@@ -5,16 +5,22 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using BatchRenameTool.Controls;
 using BatchRenameTool.Models;
 using BatchRenameTool.Services;
 using BatchRenameTool.Template.Ast;
+using BatchRenameTool.Template.Compiler;
 using BatchRenameTool.Template.Evaluator;
 using BatchRenameTool.Template.Parser;
 using BatchRenameTool.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Threading;
+using DynamicData;
+using DynamicData.Binding;
+using System.Reactive.Linq;
+using System.Windows.Threading;
 
 namespace BatchRenameTool.ViewModels
 {
@@ -25,11 +31,23 @@ namespace BatchRenameTool.ViewModels
     {
         private readonly TemplateParser _parser;
         private readonly TemplateEvaluator _evaluator;
+        private readonly TemplateCompiler _compiler;
         private readonly ConfigService _configService;
         private readonly PatternHistoryConfig _patternHistoryConfig;
+        // Template compilation cache - cache compiled function instead of AST node
+        private Func<IEvaluationContext, string>? _cachedCompiledFunction;
 
-        [ObservableProperty]
-        public partial ObservableCollection<FileRenameItem> Items { get; set; } = new();
+        // DynamicData SourceCache for efficient handling of large collections
+        // Use FullPath as the stable key (FullPath 不可变)
+        private readonly SourceCache<FileRenameItem, string> _itemsCache = new(item => item.FullPath);
+        
+        // ReadOnlyObservableCollection for binding to ListView
+        private readonly ReadOnlyObservableCollection<FileRenameItem> _items;
+        
+        /// <summary>
+        /// Observable collection of file items for binding to UI
+        /// </summary>
+        public ReadOnlyObservableCollection<FileRenameItem> Items => _items;
 
         [ObservableProperty]
         public partial string RenamePattern { get; set; } = "";
@@ -52,6 +70,24 @@ namespace BatchRenameTool.ViewModels
         private string _statusMessage = "共 0 个文件";
 
         /// <summary>
+        /// Whether rename operation is in progress
+        /// </summary>
+        [ObservableProperty]
+        private bool _isRenaming = false;
+
+        /// <summary>
+        /// Progress value (0-100)
+        /// </summary>
+        [ObservableProperty]
+        private double _progressValue = 0;
+
+        /// <summary>
+        /// Progress text (e.g., "正在重命名: 5/100")
+        /// </summary>
+        [ObservableProperty]
+        private string _progressText = "";
+
+        /// <summary>
         /// Pattern history configuration
         /// </summary>
         public PatternHistoryConfig PatternHistoryConfig => _patternHistoryConfig;
@@ -63,8 +99,18 @@ namespace BatchRenameTool.ViewModels
         {
             _parser = parser;
             _evaluator = new TemplateEvaluator();
+            _compiler = new TemplateCompiler();
             _configService = new ConfigService();
             _patternHistoryConfig = _configService.GetConfig<PatternHistoryConfig>();
+            
+            // Connect SourceCache to ReadOnlyObservableCollection for UI binding with sorting
+            // Sort by OriginalName using natural sort order
+            var naturalComparer = new NaturalStringComparer();
+            var itemComparer = Comparer<FileRenameItem>.Create((x, y) => naturalComparer.Compare(x.OriginalName, y.OriginalName));
+            
+            _itemsCache.Connect()
+                .SortAndBind(out _items, itemComparer)
+                .Subscribe();
             
             // Listen to history collection changes to update CanUndo
             RenameHistory.CollectionChanged += (s, e) =>
@@ -73,95 +119,95 @@ namespace BatchRenameTool.ViewModels
                 UndoRenameCommand.NotifyCanExecuteChanged();
             };
             
-            // Listen to Items collection changes to update status
-            Items.CollectionChanged += (s, e) =>
-            {
-                UpdateStatus();
-                // Subscribe to NewName changes for new items
-                if (e.NewItems != null)
+            // Listen to Items cache changes to update status (with throttle)
+            _itemsCache.Connect()
+                .Throttle(TimeSpan.FromMilliseconds(300))
+                .ObserveOn(System.Windows.Application.Current.Dispatcher)
+                .Subscribe(_ =>
                 {
-                    foreach (FileRenameItem item in e.NewItems)
-                    {
-                        item.PropertyChanged -= Item_PropertyChanged;
-                        item.PropertyChanged += Item_PropertyChanged;
-                    }
-                }
-                // Unsubscribe from removed items
-                if (e.OldItems != null)
-                {
-                    foreach (FileRenameItem item in e.OldItems)
-                    {
-                        item.PropertyChanged -= Item_PropertyChanged;
-                    }
-                }
-            };
+                    UpdateStatus();
+                });
             
-            // Subscribe to existing items
-            SubscribeToItems();
-        }
-        
-        /// <summary>
-        /// Subscribe to NewName property changes for all items
-        /// </summary>
-        private void SubscribeToItems()
-        {
-            foreach (var item in Items)
-            {
-                item.PropertyChanged -= Item_PropertyChanged;
-                item.PropertyChanged += Item_PropertyChanged;
-            }
-        }
-        
-        /// <summary>
-        /// Handle property changes from FileRenameItem
-        /// </summary>
-        private void Item_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(FileRenameItem.NewName))
-            {
-                UpdateStatus();
-            }
+            // Subscribe to item property changes
+            _itemsCache.Connect()
+                .WhenPropertyChanged(item => item.NewName)
+                .Throttle(TimeSpan.FromMilliseconds(300))
+                .ObserveOn(System.Windows.Application.Current.Dispatcher)
+                .Subscribe(_ =>
+                {
+                    UpdateStatus();
+                });
+            
+            // Throttle rename pattern changes to reduce preview churn
+            this.WhenValueChanged(vm => vm.RenamePattern)
+                .Throttle(TimeSpan.FromMilliseconds(500))
+                .ObserveOn(System.Windows.Application.Current.Dispatcher)
+                .Subscribe(_ => UpdateRenamePreview());
+
+            // DynamicData handles property changes automatically through WhenPropertyChanged
         }
         
         /// <summary>
         /// Update status message based on current items
+        /// Optimized for large collections (10000+ items) using DynamicData
         /// </summary>
         private void UpdateStatus()
         {
-            if (Items.Count == 0)
+            var count = _itemsCache.Count;
+            if (count == 0)
             {
                 StatusMessage = "共 0 个文件";
                 return;
             }
             
-            var changedCount = Items.Count(item => item.IsNameChanged);
-            var unchangedCount = Items.Count - changedCount;
+            var statusParts = new List<string>();
+            statusParts.Add($"共 {count:N0} 个文件");
             
-            // Check for duplicate names (case-insensitive)
-            var duplicateGroups = Items
-                .Where(item => !string.IsNullOrWhiteSpace(item.NewName))
+            // Count files that will be renamed (name changed)
+            int changedCount = 0;
+            int errorCount = 0;
+            int duplicateCount = 0;
+            
+            var items = _itemsCache.Items;
+            
+            // Count changed and error files
+            foreach (var item in items)
+            {
+                // Check for errors
+                if (string.IsNullOrEmpty(item.NewName) || item.NewName.StartsWith("["))
+                {
+                    errorCount++;
+                }
+                // Check if name changed (case-insensitive comparison)
+                else if (!string.Equals(item.OriginalName, item.NewName, StringComparison.OrdinalIgnoreCase))
+                {
+                    changedCount++;
+                }
+            }
+            
+            // Check for duplicate new names (case-insensitive)
+            var duplicateGroups = items
+                .Where(item => !string.IsNullOrEmpty(item.NewName) && !item.NewName.StartsWith("["))
                 .GroupBy(item => item.NewName, StringComparer.OrdinalIgnoreCase)
                 .Where(g => g.Count() > 1)
                 .ToList();
             
-            var duplicateCount = duplicateGroups.Sum(g => g.Count());
+            duplicateCount = duplicateGroups.Sum(g => g.Count());
             
-            var statusParts = new List<string>();
-            statusParts.Add($"共 {Items.Count} 个文件");
-            
+            // Add status information
             if (changedCount > 0)
             {
-                statusParts.Add($"{changedCount} 个将改变");
+                statusParts.Add($"将重命名 {changedCount:N0} 个");
             }
             
-            if (unchangedCount > 0)
+            if (errorCount > 0)
             {
-                statusParts.Add($"{unchangedCount} 个未改变");
+                statusParts.Add($"❌ {errorCount:N0} 个错误");
             }
             
             if (duplicateCount > 0)
             {
-                statusParts.Add($"⚠ {duplicateCount} 个重复名称");
+                statusParts.Add($"⚠ {duplicateCount:N0} 个重复名称");
             }
             
             StatusMessage = string.Join("，", statusParts);
@@ -176,6 +222,23 @@ namespace BatchRenameTool.ViewModels
             if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
                 return;
 
+            var files = Directory.GetFiles(folderPath);
+            AddFilesToList(files);
+        }
+
+        /// <summary>
+        /// Reset files from folder (clear existing and add files from folder)
+        /// </summary>
+        [RelayCommand]
+        private void ResetFilesFromFolder(string? folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+                return;
+
+            // Clear existing items
+            _itemsCache.Clear();
+
+            // Add files from folder
             var files = Directory.GetFiles(folderPath);
             AddFilesToList(files);
         }
@@ -307,22 +370,15 @@ namespace BatchRenameTool.ViewModels
                 int skippedCount = 0;
                 
                 // Check which files are already in the list
-                var existingPaths = new HashSet<string>(Items.Select(i => i.FullPath), StringComparer.OrdinalIgnoreCase);
+                var existingPaths = new HashSet<string>(_itemsCache.Items.Select(i => i.FullPath), StringComparer.OrdinalIgnoreCase);
                 
                 foreach (var file in uniqueFiles)
                 {
                     if (!existingPaths.Contains(file))
                     {
                         // Add file to list
-                        var fileName = Path.GetFileName(file);
-
-                        // Initially, new name is same as original (will be updated by UpdateRenamePreview)
-                        Items.Add(new FileRenameItem
-                        {
-                            OriginalName = fileName,
-                            NewName = fileName,
-                            FullPath = file
-                        });
+                        var item = CreateFileRenameItem(file);
+                        _itemsCache.AddOrUpdate(item);
                         addedCount++;
                     }
                     else
@@ -357,8 +413,16 @@ namespace BatchRenameTool.ViewModels
             }
         }
 
+        private static FileRenameItem CreateFileRenameItem(string fullPath)
+        {
+            var item = new FileRenameItem(fullPath);
+            item.MarkForRecalculation();
+            return item;
+        }
+
         /// <summary>
         /// Helper method to add files to the list
+        /// Optimized for large file lists (10000+ files)
         /// </summary>
         private void AddFilesToList(string[] files)
         {
@@ -375,9 +439,10 @@ namespace BatchRenameTool.ViewModels
             var sortedFiles = existingFiles.OrderBy(Path.GetFileName, comparer).ToArray();
 
             // Get existing paths to avoid duplicates
-            var existingPaths = new HashSet<string>(Items.Select(i => i.FullPath), StringComparer.OrdinalIgnoreCase);
+            var existingPaths = new HashSet<string>(_itemsCache.Items.Select(i => i.FullPath), StringComparer.OrdinalIgnoreCase);
 
-            int addedCount = 0;
+            // Prepare items to add in batch
+            var itemsToAdd = new List<FileRenameItem>();
             int skippedCount = 0;
 
             foreach (var file in sortedFiles)
@@ -391,24 +456,30 @@ namespace BatchRenameTool.ViewModels
 
                 var fileName = Path.GetFileName(file);
 
-                // Initially, new name is same as original (will be updated by UpdateRenamePreview)
-                Items.Add(new FileRenameItem
-                {
-                    OriginalName = fileName,
-                    NewName = fileName,
-                    FullPath = file
-                });
-                addedCount++;
+                // Create item but don't add yet (to avoid triggering CollectionChanged for each item)
+                itemsToAdd.Add(CreateFileRenameItem(file));
             }
 
-            if (addedCount > 0)
+            // Batch add items to minimize CollectionChanged events
+            if (itemsToAdd.Count > 0)
             {
+                // Use DynamicData's batch operations for efficient adding
+                // DynamicData handles large collections efficiently
+                foreach (var item in itemsToAdd)
+                {
+                    item.MarkForRecalculation();
+                }
+                
+                // Batch add all items at once (DynamicData is optimized for this)
+                _itemsCache.AddOrUpdate(itemsToAdd);
+                
+                // Update preview only once after all items are added
                 UpdateRenamePreview();
             }
 
-            if (skippedCount > 0 && addedCount == 0)
+            if (skippedCount > 0 && itemsToAdd.Count == 0)
             {
-                MessageHelper.ShowInformation($"所有文件都已存在于列表中（{skippedCount} 个文件）");
+                MessageHelper.ShowInformation($"所有文件都已存在于列表中（{skippedCount:N0} 个文件）");
             }
         }
 
@@ -418,7 +489,25 @@ namespace BatchRenameTool.ViewModels
         [RelayCommand]
         private void ClearItems()
         {
-            Items.Clear();
+            _itemsCache.Clear();
+        }
+
+        private void RebuildCacheFromPaths(IEnumerable<string> paths)
+        {
+            var existingPaths = paths
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            _itemsCache.Clear();
+
+            if (existingPaths.Length == 0)
+            {
+                UpdateStatus();
+                return;
+            }
+
+            AddFilesToList(existingPaths);
         }
 
         /// <summary>
@@ -432,7 +521,7 @@ namespace BatchRenameTool.ViewModels
                 var itemsToRemove = items.Cast<FileRenameItem>().ToList();
                 foreach (var item in itemsToRemove)
                 {
-                    Items.Remove(item);
+                    _itemsCache.Remove(item);
                 }
                 
                 if (itemsToRemove.Count > 0)
@@ -448,29 +537,35 @@ namespace BatchRenameTool.ViewModels
         }
 
         /// <summary>
-        /// Update rename preview based on pattern
+        /// Update rename preview based on pattern (with throttle)
         /// </summary>
         partial void OnRenamePatternChanged(string value)
         {
-            UpdateRenamePreview();
+            // Clear cache only if pattern actually changed
+                _cachedCompiledFunction = null;
+            // Actual preview update handled by throttled observable in constructor
         }
 
         /// <summary>
         /// Update preview of renamed files based on template pattern
-        /// Supports advanced template features: variables, formatting, method calls, slicing
-        /// Uses asynchronous computation to avoid blocking UI when loading file properties
+        /// Directly calculates all file names (no lazy evaluation) since compilation is fast
         /// </summary>
-        private async void UpdateRenamePreview()
+        private void UpdateRenamePreview()
         {
-            if (Items.Count == 0)
+            if (_itemsCache.Count == 0)
+            {
+                UpdateStatus();
                 return;
+            }
 
             if (string.IsNullOrWhiteSpace(RenamePattern))
             {
                 // If pattern is empty, keep original names unchanged
-                for (int i = 0; i < Items.Count; i++)
+                // Clear cache for empty pattern
+                _cachedCompiledFunction = null;
+                
+                foreach (var item in _itemsCache.Items)
                 {
-                    var item = Items[i];
                     item.NewName = item.OriginalName;
                 }
                 UpdateStatus();
@@ -479,33 +574,43 @@ namespace BatchRenameTool.ViewModels
 
             try
             {
-                // Parse template string into AST
-                var templateNode = _parser.Parse(RenamePattern);
-
-                // Check if template uses lazy-loaded properties (image, file, size)
-                bool usesLazyProperties = RenamePattern.Contains("{image", StringComparison.OrdinalIgnoreCase) ||
-                                         RenamePattern.Contains("{file", StringComparison.OrdinalIgnoreCase) ||
-                                         RenamePattern.Contains("{size", StringComparison.OrdinalIgnoreCase);
-
-                // Apply template to each file item
-                int totalCount = Items.Count;
-                
-                if (usesLazyProperties)
+                // Get or compile template function
+                var compiledFunction = CompilePattern();
+                if (compiledFunction == null)
                 {
-                    // For templates with lazy properties, compute asynchronously
-                    await UpdateRenamePreviewAsync(templateNode, totalCount);
+                    throw new Exception("模式串解析失败");
                 }
-                else
+
+                // Directly calculate all file names (no lazy evaluation)
+                // Since compilation is fast, we can calculate all names immediately
+                var itemsList = _itemsCache.Items.ToList();
+                var totalCount = itemsList.Count;
+                
+                for (int i = 0; i < itemsList.Count; i++)
                 {
-                    // For simple templates, compute synchronously (faster)
-                    UpdateRenamePreviewSync(templateNode, totalCount);
+                    var item = itemsList[i];
+                    
+                    // Calculate new name using helper method
+                    var newName = CalculateNewNameForItem(item, i, totalCount, compiledFunction);
+                    if (newName != null)
+                    {
+                        item.NewName = newName;
+                        item._needsRecalculation = false;
+                        item._cachedNewName = newName;
+                    }
+                    else
+                    {
+                        // On error, show error message
+                        item.NewName = $"[执行错误]";
+                        item._needsRecalculation = false;
+                    }
                 }
             }
             catch (ParseException ex)
             {
                 // On parse error, show error message in preview for all items
                 var errorMessage = $"解析错误: {ex.Message}";
-                foreach (var item in Items)
+                foreach (var item in _itemsCache.Items)
                 {
                     item.NewName = $"[{errorMessage}]";
                 }
@@ -514,7 +619,7 @@ namespace BatchRenameTool.ViewModels
             {
                 // On other errors (evaluation errors, etc.), show generic error
                 var errorMessage = $"执行错误: {ex.Message}";
-                foreach (var item in Items)
+                foreach (var item in _itemsCache.Items)
                 {
                     item.NewName = $"[{errorMessage}]";
                 }
@@ -525,93 +630,296 @@ namespace BatchRenameTool.ViewModels
         }
 
         /// <summary>
-        /// Synchronous preview update (for templates without lazy properties)
+        /// Calculate new name for a specific item (called when item becomes visible)
         /// </summary>
-        private void UpdateRenamePreviewSync(TemplateNode templateNode, int totalCount)
+        public void CalculateItemNewName(FileRenameItem item, int index)
         {
-            for (int i = 0; i < Items.Count; i++)
+            if (item == null || !item.NeedsRecalculation)
+                return;
+
+            if (string.IsNullOrWhiteSpace(RenamePattern))
             {
-                var item = Items[i];
-                var extension = Path.GetExtension(item.OriginalName);
-                var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
+                item.NewName = item.OriginalName;
+                item._needsRecalculation = false;
+                return;
+            }
 
-                // Create evaluation context for this file
-                var context = new EvaluationContext(
-                    name: nameWithoutExt,
-                    ext: extension.TrimStart('.'), // Remove leading dot
-                    fullName: item.OriginalName,
-                    fullPath: item.FullPath,
-                    index: i, // Index starts from 0
-                    totalCount: totalCount, // Total count for reverse index calculation
-                    fileRenameItem: item // Pass FileRenameItem to reuse ImageInfo
-                );
+            var compiledFunction = CompilePattern();
+            if (compiledFunction == null)
+                return;
 
-                // Evaluate template with context
-                var newName = _evaluator.Evaluate(templateNode, context);
-
-                // Auto-add extension if template doesn't include it
-                newName = AutoAddExtension(newName, extension);
-
+            var newName = CalculateNewNameForItem(item, index, _itemsCache.Count, compiledFunction);
+            if (newName != null)
+            {
                 item.NewName = newName;
+                item._needsRecalculation = false;
+                item._cachedNewName = newName;
+            }
+            else
+            {
+                // On error, keep current name or show error
+                if (string.IsNullOrEmpty(item.NewName))
+                {
+                    item.NewName = item.OriginalName;
+                }
+                item._needsRecalculation = false;
+            }
+        }
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Start a rename operation (set progress state)
+        /// </summary>
+        private bool StartRenameOperation()
+        {
+            if (IsRenaming)
+                return false;
+
+            IsRenaming = true;
+            ProgressValue = 0;
+            ProgressText = "";
+            return true;
+        }
+
+        /// <summary>
+        /// End a rename operation (reset progress state)
+        /// </summary>
+        private void EndRenameOperation()
+        {
+            IsRenaming = false;
+            ProgressValue = 0;
+            ProgressText = "";
+        }
+
+        /// <summary>
+        /// Compile the rename pattern into a function
+        /// </summary>
+        private Func<IEvaluationContext, string>? CompilePattern()
+        {
+            if (string.IsNullOrWhiteSpace(RenamePattern))
+                return null;
+
+            // Use cache if pattern hasn't changed
+            if (_cachedCompiledFunction != null)
+            {
+                return _cachedCompiledFunction;
+            }
+
+            try
+            {
+                var templateNode = _parser.Parse(RenamePattern);
+                var compiledFunction = _compiler.Compile(templateNode);
+                
+                // Cache the compiled function
+                _cachedCompiledFunction = compiledFunction;
+                
+                return compiledFunction;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to compile pattern: {ex.Message}");
+                _cachedCompiledFunction = null;
+                return null;
             }
         }
 
         /// <summary>
-        /// Asynchronous preview update (for templates with lazy properties)
+        /// Calculate new name for a file item using compiled function
         /// </summary>
-        private async Task UpdateRenamePreviewAsync(TemplateNode templateNode, int totalCount)
+        private string? CalculateNewNameForItem(FileRenameItem item, int index, int totalCount, Func<IEvaluationContext, string> compiledFunction)
         {
-            var tasks = new List<Task>();
-
-            for (int i = 0; i < Items.Count; i++)
+            try
             {
-                var item = Items[i];
                 var extension = Path.GetExtension(item.OriginalName);
                 var nameWithoutExt = Path.GetFileNameWithoutExtension(item.OriginalName);
 
                 // Create evaluation context for this file
                 var context = new EvaluationContext(
                     name: nameWithoutExt,
-                    ext: extension.TrimStart('.'), // Remove leading dot
+                    ext: extension.TrimStart('.'),
                     fullName: item.OriginalName,
                     fullPath: item.FullPath,
-                    index: i, // Index starts from 0
-                    totalCount: totalCount, // Total count for reverse index calculation
-                    fileRenameItem: item // Pass FileRenameItem to reuse ImageInfo
+                    index: index,
+                    totalCount: totalCount,
+                    fileRenameItem: item
                 );
-                
-                // Evaluate template (lazy properties will be loaded on first access)
-                var evaluateTask = Task.Run(() =>
+
+                // Execute compiled function to get new name
+                var newName = compiledFunction(context);
+
+                // Auto-add extension if template doesn't include it
+                newName = AutoAddExtension(newName, extension);
+
+                // Validate the new name
+                if (string.IsNullOrWhiteSpace(newName) || 
+                    newName.StartsWith("[") || 
+                    newName.Contains("解析错误") ||
+                    newName.Contains("执行错误"))
                 {
-                    try
+                    return null;
+                }
+
+                return newName;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to calculate new name for {item.OriginalName}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Create a progress reporter for rename operations
+        /// </summary>
+        private IProgress<(int current, int total, string fileName)> CreateProgressReporter(string actionText, double startPercent = 0, double rangePercent = 100)
+        {
+            return new Progress<(int current, int total, string fileName)>(report =>
+            {
+                // Use InvokeAsync to avoid blocking, and handle null dispatcher gracefully
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher != null)
+                {
+                    dispatcher.InvokeAsync(() =>
                     {
-                        // Evaluate template with context
-                        var newName = _evaluator.Evaluate(templateNode, context);
-
-                        // Auto-add extension if template doesn't include it
-                        newName = AutoAddExtension(newName, extension);
-
-                        // Update on UI thread
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        if (report.total > 0)
                         {
-                            item.NewName = newName;
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        var errorMessage = $"执行错误: {ex.Message}";
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            item.NewName = $"[{errorMessage}]";
-                        });
-                    }
-                });
+                            ProgressValue = startPercent + (report.current * rangePercent) / report.total;
+                            ProgressText = $"{actionText}: {report.current}/{report.total} - {report.fileName}";
+                        }
+                    });
+                }
+            });
+        }
 
-                tasks.Add(evaluateTask);
+        /// <summary>
+        /// Show result message for rename operation
+        /// </summary>
+        private void ShowRenameResult(BatchRenameExecutor.RenameResult result, string successPrefix = "成功", string operationName = "重命名")
+        {
+            // Ensure we're on UI thread before showing messages
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.InvokeAsync(() => ShowRenameResult(result, successPrefix, operationName));
+                return;
             }
 
-            // Wait for all evaluations to complete
-            await Task.WhenAll(tasks);
+            if (result.ErrorCount > 0)
+            {
+                // Build detailed error message
+                var errorMessages = new List<string>();
+                errorMessages.Add($"❌ {operationName}失败: {result.ErrorCount} 个文件\n");
+                
+                foreach (var error in result.Errors)
+                {
+                    errorMessages.Add($"  • {error}");
+                }
+
+                // Add summary at the end
+                var summaryParts = new List<string>();
+                if (result.SuccessCount > 0)
+                {
+                    summaryParts.Add($"成功: {result.SuccessCount} 个");
+                }
+                if (result.SkippedCount > 0)
+                {
+                    summaryParts.Add($"跳过: {result.SkippedCount} 个");
+                }
+                if (summaryParts.Count > 0)
+                {
+                    errorMessages.Add($"\n总计: {string.Join("，", summaryParts)}");
+                }
+
+                var fullMessage = string.Join("\n", errorMessages);
+                MessageHelper.ShowError(fullMessage);
+            }
+            else
+            {
+                // No errors, show success summary
+                var messageParts = new List<string>();
+                if (result.SuccessCount > 0)
+                {
+                    messageParts.Add($"{successPrefix}: {result.SuccessCount} 个文件");
+                }
+                if (result.SkippedCount > 0)
+                {
+                    messageParts.Add($"跳过: {result.SkippedCount} 个文件");
+                }
+
+                var message = string.Join("，", messageParts);
+                if (string.IsNullOrEmpty(message))
+                {
+                    message = $"没有执行任何{operationName}操作";
+                }
+
+                if (result.SuccessCount > 0)
+                {
+                    MessageHelper.ShowSuccess(message);
+                }
+                else
+                {
+                    MessageHelper.ShowInformation(message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check if a rename operation was successful
+        /// </summary>
+        private bool WasRenameSuccessful(string oldFullPath, string newFullPath)
+        {
+            // If paths are the same, no rename happened (should not be recorded in history)
+            if (string.Equals(oldFullPath, newFullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            
+            // If new file exists, the rename is successful
+            return File.Exists(newFullPath);
+        }
+
+        /// <summary>
+        /// Record successful renames for undo functionality and return list of successful operations
+        /// </summary>
+        private List<SingleRenameOperation> RecordRenameHistory(
+            List<BatchRenameExecutor.RenameOperation> operations,
+            BatchRenameExecutor.RenameResult result)
+        {
+            var historyEntry = new RenameHistoryEntry
+            {
+                Timestamp = DateTime.Now,
+                Operations = new List<SingleRenameOperation>()
+            };
+
+            // Record only successfully renamed items
+            foreach (var operation in operations)
+            {
+                var newFullPath = Path.Combine(operation.Directory, operation.NewName);
+                var oldFullPath = operation.OriginalPath;
+
+                if (WasRenameSuccessful(oldFullPath, newFullPath))
+                {
+                    // Record for undo
+                    var historyOp = new SingleRenameOperation(oldFullPath, newFullPath);
+                    historyEntry.Operations.Add(historyOp);
+                }
+            }
+
+            // Add to history if there were any successful renames
+            if (historyEntry.Operations.Count > 0)
+            {
+                RenameHistory.Add(historyEntry);
+                OnPropertyChanged(nameof(CanUndo));
+            }
+
+            // Record pattern to history if rename was successful
+            if (result.SuccessCount > 0 && !string.IsNullOrWhiteSpace(RenamePattern))
+            {
+                _patternHistoryConfig.AddPattern(RenamePattern);
+            }
+
+            return historyEntry.Operations;
         }
 
         /// <summary>
@@ -635,192 +943,119 @@ namespace BatchRenameTool.ViewModels
         }
 
         /// <summary>
-        /// Execute rename operation using BatchRenameExecutor
+        /// Execute rename operation using BatchRenameService
         /// </summary>
         [RelayCommand]
-        private void ExecuteRename()
+        private async Task ExecuteRenameAsync()
         {
             if (Items.Count == 0)
                 return;
 
-            var executor = new BatchRenameExecutor();
-            
-            // Create mapping between operations and items
-            var operationItemMap = new Dictionary<BatchRenameExecutor.RenameOperation, FileRenameItem>();
-            var operations = new List<BatchRenameExecutor.RenameOperation>();
+            // Prevent multiple simultaneous rename operations
+            if (IsRenaming)
+                return;
 
-            foreach (var item in Items)
+            IsRenaming = true;
+            ProgressValue = 0;
+            ProgressText = "";
+
+            try
             {
-                var directory = Path.GetDirectoryName(item.FullPath) ?? string.Empty;
-                var operation = new BatchRenameExecutor.RenameOperation
+                // Validate pattern before proceeding
+                if (string.IsNullOrWhiteSpace(RenamePattern))
                 {
-                    OriginalPath = item.FullPath,
-                    OriginalName = item.OriginalName,
-                    NewName = item.NewName,
-                    Directory = directory
-                };
-                operations.Add(operation);
-                operationItemMap[operation] = item;
-            }
-
-            // Execute rename operations
-            var result = executor.Execute(operations);
-
-            // Build result message - focus on failures if any
-            string message;
-            string fullMessage;
-            
-            if (result.ErrorCount > 0 || result.ErrorDetails.Count > 0)
-            {
-                // If there are failures, focus on them
-                var errorDetails = result.ErrorDetails;
-                if (errorDetails.Count == 0 && result.Errors.Count > 0)
-                {
-                    // Fallback to old error format if ErrorDetails is empty
-                    errorDetails = result.Errors.Select((error, index) => new BatchRenameExecutor.ErrorDetail
-                    {
-                        OriginalName = $"文件 {index + 1}",
-                        NewName = "",
-                        Reason = error
-                    }).ToList();
+                    MessageHelper.ShowWarning("重命名模式不能为空");
+                    return;
                 }
 
-                var errorMessages = new List<string>();
-                errorMessages.Add($"❌ 重命名失败: {result.ErrorCount} 个文件\n");
+                // Use _itemsCache.Items directly and create a snapshot to avoid collection changes during iteration
+                var itemsList = _itemsCache.Items.ToList();
+                var totalCount = itemsList.Count;
                 
-                foreach (var errorDetail in errorDetails)
+                if (totalCount == 0)
                 {
-                    var fileName = Path.GetFileName(errorDetail.OriginalPath);
-                    if (string.IsNullOrEmpty(fileName))
+                    MessageHelper.ShowWarning("没有文件需要重命名");
+                    return;
+                }
+
+                // Get file paths
+                var filePaths = itemsList.Select(item => item.FullPath).ToList();
+
+                // Create progress reporter for rename phase
+                var progress = CreateProgressReporter("正在重命名", startPercent: 0.0, rangePercent: 100.0);
+
+                // Create service and execute rename
+                var service = new BatchRenameService();
+                BatchRenameExecutor.RenameResult result;
+                try
+                {
+                    result = await Task.Run(() => service.RenameFiles(filePaths, RenamePattern, progress)).ConfigureAwait(true);
+                }
+                catch (BatchRenameExecutor.RenameValidationException ex)
+                {
+                    MessageHelper.ShowError($"重命名失败：{ex.Message}");
+                    return;
+                }
+
+                // Get operations from result for history recording
+                var operations = result.Operations;
+
+                // Ensure we're back on UI thread before updating UI
+                // Show result message
+                ShowRenameResult(result, successPrefix: "成功", operationName: "重命名");
+
+                // Record successful renames for undo functionality and get list of successful operations
+                var successfulOperations = RecordRenameHistory(operations, result);
+
+                // 批量更新：先收集所有要移除和添加的项目，然后一次性更新
+                if (successfulOperations.Count > 0)
+                {
+                    // 创建字典用于快速查找旧项（使用 FullPath 作为 key）
+                    var itemsByPath = _itemsCache.Items.ToDictionary(i => i.FullPath, StringComparer.OrdinalIgnoreCase);
+                    
+                    // 收集要移除的旧项和要添加的新项
+                    var itemsToRemove = new List<FileRenameItem>();
+                    var itemsToAdd = new List<FileRenameItem>();
+                    
+                    foreach (var historyOp in successfulOperations)
                     {
-                        fileName = errorDetail.OriginalName;
+                        // 查找并收集要移除的旧项
+                        if (itemsByPath.TryGetValue(historyOp.OriginalFullPath, out var oldItem))
+                        {
+                            itemsToRemove.Add(oldItem);
+                        }
+
+                        // 收集要添加的新项
+                        if (File.Exists(historyOp.NewFullPath))
+                        {
+                            var newItem = new FileRenameItem(historyOp.NewFullPath)
+                            {
+                                NewName = historyOp.NewName
+                            };
+                            itemsToAdd.Add(newItem);
+                        }
                     }
-                    errorMessages.Add($"  • {fileName}");
-                    if (!string.IsNullOrEmpty(errorDetail.NewName) && errorDetail.NewName != errorDetail.OriginalName)
+
+                    // 批量移除旧项
+                    if (itemsToRemove.Count > 0)
                     {
-                        errorMessages.Add($"    目标名称: {errorDetail.NewName}");
+                        _itemsCache.Remove(itemsToRemove);
                     }
-                    errorMessages.Add($"    失败原因: {errorDetail.Reason}");
-                    if (!string.IsNullOrEmpty(errorDetail.OriginalPath))
+
+                    // 批量添加新项
+                    if (itemsToAdd.Count > 0)
                     {
-                        errorMessages.Add($"    文件路径: {errorDetail.OriginalPath}");
+                        _itemsCache.AddOrUpdate(itemsToAdd);
                     }
-                    errorMessages.Add("");
                 }
 
-                // Add summary at the end
-                var summaryParts = new List<string>();
-                if (result.SuccessCount > 0)
-                {
-                    summaryParts.Add($"成功: {result.SuccessCount} 个");
-                }
-                if (result.SkippedCount > 0)
-                {
-                    summaryParts.Add($"跳过: {result.SkippedCount} 个");
-                }
-                if (summaryParts.Count > 0)
-                {
-                    errorMessages.Add($"\n总计: {string.Join("，", summaryParts)}");
-                }
-
-                fullMessage = string.Join("\n", errorMessages);
-                MessageHelper.ShowError(fullMessage);
+                // Refresh the preview for remaining items
+                UpdateRenamePreview();
             }
-            else
+            finally
             {
-                // No errors, show success summary
-                var messageParts = new List<string>();
-                if (result.SuccessCount > 0)
-                {
-                    messageParts.Add($"成功: {result.SuccessCount} 个文件");
-                }
-                if (result.SkippedCount > 0)
-                {
-                    messageParts.Add($"跳过: {result.SkippedCount} 个文件");
-                }
-
-                message = string.Join("，", messageParts);
-                if (string.IsNullOrEmpty(message))
-                {
-                    message = "没有执行任何重命名操作";
-                }
-
-                fullMessage = message;
-                if (result.SuccessCount > 0)
-                {
-                    MessageHelper.ShowSuccess(fullMessage);
-                }
-                else
-                {
-                    MessageHelper.ShowInformation(fullMessage);
-                }
+                EndRenameOperation();
             }
-
-            // Record successful renames for undo functionality
-            var historyEntry = new RenameHistoryEntry
-            {
-                Timestamp = DateTime.Now,
-                Operations = new List<SingleRenameOperation>()
-            };
-
-            // Update only successfully renamed items
-            // Check each operation to see if it was successful
-            foreach (var operation in operations)
-            {
-                if (!operationItemMap.TryGetValue(operation, out var item))
-                    continue;
-
-                var newFullPath = Path.Combine(operation.Directory, operation.NewName);
-                var oldFullPath = operation.OriginalPath;
-
-                // Check if rename was successful:
-                // 1. New file exists
-                // 2. Old file doesn't exist (or names are the same, meaning no rename was needed)
-                bool wasRenamed = false;
-                if (string.Equals(oldFullPath, newFullPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Same name, no rename needed
-                    wasRenamed = true;
-                }
-                else if (File.Exists(newFullPath) && !File.Exists(oldFullPath))
-                {
-                    // Successfully renamed
-                    wasRenamed = true;
-                }
-
-                if (wasRenamed)
-                {
-                    // Record for undo
-                    historyEntry.Operations.Add(new SingleRenameOperation
-                    {
-                        Directory = operation.Directory,
-                        OriginalName = operation.OriginalName,
-                        NewName = operation.NewName,
-                        OriginalFullPath = oldFullPath,
-                        NewFullPath = newFullPath
-                    });
-
-                    // Update the item with new path and name
-                    item.FullPath = newFullPath;
-                    item.OriginalName = operation.NewName;
-                }
-            }
-
-            // Add to history if there were any successful renames
-            if (historyEntry.Operations.Count > 0)
-            {
-                RenameHistory.Add(historyEntry);
-                OnPropertyChanged(nameof(CanUndo));
-            }
-
-            // Record pattern to history if rename was successful
-            if (result.SuccessCount > 0 && !string.IsNullOrWhiteSpace(RenamePattern))
-            {
-                _patternHistoryConfig.AddPattern(RenamePattern);
-            }
-
-            // Refresh the preview for remaining items
-            UpdateRenamePreview();
         }
 
         /// <summary>
@@ -832,72 +1067,107 @@ namespace BatchRenameTool.ViewModels
         /// Undo the last rename operation
         /// </summary>
         [RelayCommand(CanExecute = nameof(CanUndo))]
-        private void UndoRename()
+        private async Task UndoRenameAsync()
         {
             if (RenameHistory.Count == 0)
                 return;
 
-            // Get the last history entry
-            var lastEntry = RenameHistory[RenameHistory.Count - 1];
+            if (!StartRenameOperation())
+                return;
 
-            // Create reverse operations (rename back to original names)
-            var executor = new BatchRenameExecutor();
-            var undoOperations = lastEntry.Operations.Select(op => new BatchRenameExecutor.RenameOperation
+            try
             {
-                Directory = op.Directory,
-                OriginalName = op.NewName,
-                NewName = op.OriginalName,
-                OriginalPath = op.NewFullPath
-            }).ToList();
+                // Get the last history entry
+                var lastEntry = RenameHistory[RenameHistory.Count - 1];
 
-            // Execute undo
-            var result = executor.Execute(undoOperations);
+                // Create reverse operations (rename back to original names)
+                var executor = new BatchRenameExecutor();
+                var undoOperations = lastEntry.Operations.Select(op => 
+                    new BatchRenameExecutor.RenameOperation(op.NewFullPath, op.OriginalName)).ToList();
 
-            // Update items list - match by the current file path (which is the new path after rename)
-            foreach (var historyOp in lastEntry.Operations)
-            {
-                // Find the item that matches the new full path (the file we're reverting)
-                var item = Items.FirstOrDefault(i => 
-                    string.Equals(i.FullPath, historyOp.NewFullPath, StringComparison.OrdinalIgnoreCase));
-
-                if (item != null)
+                if (undoOperations.Count == 0)
                 {
-                    // After undo, the file should be at the original path
-                    var originalFullPath = historyOp.OriginalFullPath;
-                    if (File.Exists(originalFullPath))
+                    MessageHelper.ShowInformation("没有可撤销的操作");
+                    return;
+                }
+
+                // Create progress reporter
+                var progress = CreateProgressReporter("正在撤销");
+
+                // Execute undo asynchronously
+                BatchRenameExecutor.RenameResult result;
+                try
+                {
+                    result = await Task.Run(() => executor.Execute(undoOperations, progress)).ConfigureAwait(true);
+                }
+                catch (BatchRenameExecutor.RenameValidationException ex)
+                {
+                    MessageHelper.ShowError($"撤销失败：{ex.Message}");
+                    return;
+                }
+
+                // Remove from history
+                RenameHistory.RemoveAt(RenameHistory.Count - 1);
+                OnPropertyChanged(nameof(CanUndo));
+
+                // Show result
+                ShowRenameResult(result, successPrefix: "已撤销", operationName: "撤销");
+
+                // 批量更新：先收集所有要移除和添加的项目，然后一次性更新
+                var successfulUndoOps = lastEntry.Operations
+                    .Where(op => WasRenameSuccessful(op.NewFullPath, op.OriginalFullPath))
+                    .ToList();
+                
+                if (successfulUndoOps.Count > 0)
+                {
+                    // 创建字典用于快速查找项（使用 FullPath 作为 key）
+                    var itemsByPath = _itemsCache.Items.ToDictionary(i => i.FullPath, StringComparer.OrdinalIgnoreCase);
+                    
+                    // 收集要移除的项和要添加的项
+                    var itemsToRemove = new List<FileRenameItem>();
+                    var itemsToAdd = new List<FileRenameItem>();
+                    
+                    foreach (var historyOp in successfulUndoOps)
                     {
-                        item.FullPath = originalFullPath;
-                        item.OriginalName = historyOp.OriginalName;
+                        // 查找并收集要移除的项（新路径）
+                        if (itemsByPath.TryGetValue(historyOp.NewFullPath, out var newItem))
+                        {
+                            itemsToRemove.Add(newItem);
+                        }
+
+                        // 收集要添加的项（原始路径）
+                        if (File.Exists(historyOp.OriginalFullPath))
+                        {
+                            var restoredItem = new FileRenameItem(historyOp.OriginalFullPath)
+                            {
+                                NewName = historyOp.OriginalName
+                            };
+                            itemsToAdd.Add(restoredItem);
+                        }
+                    }
+
+                    // 批量移除项
+                    if (itemsToRemove.Count > 0)
+                    {
+                        _itemsCache.Remove(itemsToRemove);
+                    }
+
+                    // 批量添加项
+                    if (itemsToAdd.Count > 0)
+                    {
+                        _itemsCache.AddOrUpdate(itemsToAdd);
                     }
                 }
+                
+                UpdateRenamePreview();
             }
-
-            // Remove from history
-            RenameHistory.RemoveAt(RenameHistory.Count - 1);
-            OnPropertyChanged(nameof(CanUndo));
-
-            // Show result
-            var message = result.SuccessCount > 0 
-                ? $"已撤销 {result.SuccessCount} 个文件的重命名" 
-                : "撤销操作未成功";
-            
-            var fullMessage = message + (result.Errors.Count > 0 ? "\n\n错误详情:\n" + string.Join("\n", result.Errors) : "");
-            if (result.ErrorCount > 0)
+            finally
             {
-                MessageHelper.ShowWarning(fullMessage);
+                EndRenameOperation();
             }
-            else if (result.SuccessCount > 0)
-            {
-                MessageHelper.ShowSuccess(fullMessage);
-            }
-            else
-            {
-                MessageHelper.ShowInformation(fullMessage);
-            }
-
-            // Refresh preview
-            UpdateRenamePreview();
         }
+
+        #endregion
     }
 
     /// <summary>
@@ -906,15 +1176,36 @@ namespace BatchRenameTool.ViewModels
     public partial class FileRenameItem : ObservableObject
     {
         private Lazy<Template.Evaluator.ImageInfo>? _imageInfo;
+        internal bool _needsRecalculation = false;
+        internal string? _cachedNewName = null;
+
+        public FileRenameItem(string fullPath)
+        {
+            FullPath = fullPath;
+            NewName = Path.GetFileName(fullPath);
+        }
+
+        public string OriginalName => Path.GetFileName(FullPath);
 
         [ObservableProperty]
-        public partial string OriginalName { get; set; } = "";
+        private string _newName = "";
 
-        [ObservableProperty]
-        public partial string NewName { get; set; } = "";
+        public string FullPath { get; }
 
-        [ObservableProperty]
-        public partial string FullPath { get; set; } = "";
+        /// <summary>
+        /// Mark this item as needing recalculation
+        /// </summary>
+        public void MarkForRecalculation()
+        {
+            _needsRecalculation = true;
+            _cachedNewName = null; // Clear cache when marked for recalculation
+        }
+
+        /// <summary>
+        /// Check if this item needs recalculation
+        /// </summary>
+        public bool NeedsRecalculation => _needsRecalculation;
+
 
         /// <summary>
         /// Image information (lazy loaded)
@@ -942,11 +1233,6 @@ namespace BatchRenameTool.ViewModels
         {
             OnPropertyChanged(nameof(IsNameChanged));
         }
-
-        partial void OnOriginalNameChanged(string value)
-        {
-            OnPropertyChanged(nameof(IsNameChanged));
-        }
     }
 
     /// <summary>
@@ -954,11 +1240,19 @@ namespace BatchRenameTool.ViewModels
     /// </summary>
     public class SingleRenameOperation
     {
-        public string Directory { get; set; } = "";
-        public string OriginalName { get; set; } = "";
-        public string NewName { get; set; } = "";
-        public string OriginalFullPath { get; set; } = "";
-        public string NewFullPath { get; set; } = "";
+        public string OriginalFullPath { get; }
+        public string NewFullPath { get; }
+
+        public SingleRenameOperation(string originalFullPath, string newFullPath)
+        {
+            OriginalFullPath = originalFullPath;
+            NewFullPath = newFullPath;
+        }
+
+        // Computed properties from FullPath
+        public string Directory => Path.GetDirectoryName(OriginalFullPath) ?? "";
+        public string OriginalName => Path.GetFileName(OriginalFullPath);
+        public string NewName => Path.GetFileName(NewFullPath);
     }
 
     /// <summary>
