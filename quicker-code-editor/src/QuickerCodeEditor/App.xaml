@@ -10,11 +10,12 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/SkinDefault.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
+                <hc:Theme SyncWithSystem="True" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <Thickness x:Key="AppDefaultInputPadding">6,3</Thickness>
             <Thickness x:Key="DefaultControlPadding">6,3</Thickness>
-            <sys:Double x:Key="DefaultInputControlHeight" xmlns:sys="clr-namespace:System;assembly=mscorlib">30</sys:Double>
+            <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="DefaultInputControlHeight">30</sys:Double>
             <Style x:Key="WindowBaseStyle" TargetType="{x:Type Window}">
                 <Setter Property="Background" Value="{DynamicResource DefaultWindowBackgroundBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />

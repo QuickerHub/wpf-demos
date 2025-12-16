@@ -5,9 +5,14 @@
     xmlns:codeEditor="clr-namespace:QuickerCodeEditor.View.CodeEditor"
     xmlns:dd="urn:gong-wpf-dragdrop"
     xmlns:view="clr-namespace:QuickerCodeEditor.View"
-    Name="TheControl">
+    Name="TheControl"
+    Background="{DynamicResource RegionBrush}"
+    Foreground="{DynamicResource PrimaryTextBrush}">
     <UserControl.Resources>
         <codeEditor:EqualityToVisibilityConverter x:Key="EqualityToVisibilityConverter" />
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        </Style>
         <Style TargetType="ListBox">
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
@@ -46,10 +51,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#F0F0F0" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SecondaryRegionBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#E0E0E0" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThirdlyRegionBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -70,19 +75,19 @@
             dd:DragDrop.IsDropTarget="True"
             AllowDrop="True"
             ItemsSource="{Binding ViewModel.States}"
-            SelectedItem="{Binding ViewModel.SelectedState, Mode=TwoWay}"
-            ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            SelectedItem="{Binding ViewModel.SelectedState, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type view:CodeEditorState}">
                     <StackPanel>
                         <Grid>
-                        <TextBlock
-                            x:Name="NameTextBlock"
-                            FontSize="13"
-                            FontWeight="SemiBold"
-                            Foreground="#333333"
-                            Text="{Binding Name}"
-                            TextWrapping="Wrap">
+                            <TextBlock
+                                x:Name="NameTextBlock"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                Text="{Binding Name}"
+                                TextWrapping="Wrap">
                                 <TextBlock.Visibility>
                                     <MultiBinding Converter="{StaticResource EqualityToVisibilityConverter}" ConverterParameter="Inverse">
                                         <Binding Path="ViewModel.EditingState" RelativeSource="{RelativeSource AncestorType=UserControl}" />
@@ -93,11 +98,10 @@
                             <TextBox
                                 x:Name="NameTextBox"
                                 Padding="2"
-                                BorderBrush="#999999"
+                                BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="1"
                                 FontSize="13"
                                 FontWeight="SemiBold"
-                                Foreground="#333333"
                                 IsVisibleChanged="NameTextBox_IsVisibleChanged"
                                 KeyDown="NameTextBox_KeyDown"
                                 Loaded="NameTextBox_Loaded"
@@ -112,14 +116,14 @@
                             </TextBox>
                         </Grid>
                         <TextBlock
+                            MaxHeight="45"
                             Margin="0,2,0,0"
                             FontSize="11"
-                            Foreground="#666666"
-                            Text="{Binding Expression}"
-                            TextWrapping="Wrap"
-                            TextTrimming="CharacterEllipsis"
+                            Foreground="{DynamicResource SecondaryTextBrush}"
                             LineHeight="15"
-                            MaxHeight="45" />
+                            Text="{Binding Expression}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="Wrap" />
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
@@ -145,11 +149,11 @@
                         VerticalAlignment="Center"
                         FontSize="18"
                         FontWeight="Bold"
-                        Foreground="#666666"
+                        Foreground="{DynamicResource SecondaryTextBrush}"
                         Text="+" />
                     <TextBlock
                         VerticalAlignment="Center"
-                        Foreground="#333333"
+                        Foreground="{DynamicResource PrimaryTextBrush}"
                         Text="新建表达式" />
                 </StackPanel>
             </Button.Content>
@@ -169,10 +173,10 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#F5F5F5" />
+                                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource SecondaryRegionBrush}" />
                                     </Trigger>
                                     <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#E8E8E8" />
+                                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource ThirdlyRegionBrush}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>

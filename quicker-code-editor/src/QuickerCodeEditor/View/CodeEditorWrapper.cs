@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Remoting.Contexts;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,8 +23,59 @@ using System.Windows;
 using Quicker.Public.Extensions;
 using System.Collections.Concurrent;
 using QuickerCodeEditor.View.CodeEditor;
+using Z.Expressions;
 
 namespace QuickerCodeEditor.View;
+
+/// <summary>
+/// Reflection helper extensions
+/// </summary>
+public static class ReflectionExtensions
+{
+    /// <summary>
+    /// Get the first field or property of type T from the object using reflection
+    /// </summary>
+    public static T? GetField<T>(this object obj) where T : class
+    {
+        if (obj == null) return null;
+
+        var objType = obj.GetType();
+        var targetType = typeof(T);
+        var flags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+
+        // Check properties first
+#pragma warning disable IL2070, IL2075 // Reflection is intentional here - accessing properties/fields dynamically
+        var property = objType.GetProperties(flags)
+            .FirstOrDefault(p => targetType.IsAssignableFrom(p.PropertyType));
+#pragma warning restore IL2070, IL2075
+
+        if (property != null)
+        {
+            try
+            {
+                return property.GetValue(obj) as T;
+            }
+            catch { }
+        }
+
+        // Check fields if property not found
+#pragma warning disable IL2070, IL2075 // Reflection is intentional here - accessing properties/fields dynamically
+        var field = objType.GetFields(flags)
+            .FirstOrDefault(f => targetType.IsAssignableFrom(f.FieldType));
+#pragma warning restore IL2070, IL2075
+        
+        if (field != null)
+        {
+            try
+            {
+                return field.GetValue(obj) as T;
+            }
+            catch { }
+        }
+
+        return null;
+    }
+}
 
 public class CodeEditorWrapper
 {
@@ -46,14 +98,17 @@ public class CodeEditorWrapper
         _context = context;
         _state = state ?? CodeEditorState.CreateDefault();
 
+        // Initialize _sourceVarList first (readonly field must be initialized once)
         _sourceVarList = new List<ActionVariable>();
+        
+        // Create new window
         TheWindow = new Quicker.View.CodeEditorWindow(_sourceVarList, true, "")
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
             ShowInTaskbar = true
         };
 
-        // Access FindName directly in constructor, like the working version
+        // Access FindName directly in constructor
         _textEditor = (TextEditor)TheWindow.FindName("textEditor");
 
         #region ForListBox
@@ -120,10 +175,11 @@ public class CodeEditorWrapper
 
         var border = new System.Windows.Controls.Border
         {
-            Background = System.Windows.Media.Brushes.White,
-            BorderBrush = System.Windows.Media.Brushes.Gray,
+            Background = (System.Windows.Media.Brush)System.Windows.Application.Current.FindResource("RegionBrush"),
+            BorderBrush = (System.Windows.Media.Brush)System.Windows.Application.Current.FindResource("BorderBrush"),
             BorderThickness = new Thickness(1),
-            Padding = new Thickness(5)
+            Padding = new Thickness(8),
+            CornerRadius = new CornerRadius(4)
         };
 
         // Create CodeEditorStateControl
@@ -156,7 +212,7 @@ public class CodeEditorWrapper
             Name = _state.Name,
             Expression = TheWindow.IsLoaded ? TheWindow.Text : _state.Expression,
             Variables = [.. _sourceVarList],
-            InputParams = _variableList?.ToList() ?? new List<ExpressionInputParam>()
+            InputParams = _variableList.ToList()
         };
     }
 
@@ -168,37 +224,64 @@ public class CodeEditorWrapper
         return _context;
     }
 
+    public EvalContext EvalContext => TheWindow.EvalContext;
+
     /// <summary>
-    /// Set text
+    /// Get text from text editor (supports undo/redo)
+    /// </summary>
+    public string GetText()
+    {
+        return _textEditor?.Document.Text ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Set text in text editor (supports undo/redo)
     /// </summary>
     public void SetText(string text)
     {
 #if !DEBUG
         _state.Expression = text ?? CodeEditorState.DefaultExpression;
-        TheWindow.Text = _state.Expression;
+        _textEditor?.Document.Text = _state.Expression;
+#else
+        _textEditor?.Document.Text = text ?? string.Empty;
 #endif
     }
 
     /// <summary>
+    /// Create ExpressionInputParam from ActionVariable
+    /// </summary>
+    private ExpressionInputParam CreateInputParamFromVariable(ActionVariable variable, ExpressionInputParam? existingParam = null)
+    {
+        // Use existing param's SampleValue and Description if available (preserve user modifications)
+        // Otherwise use values from ActionVariable directly (SampleValue accepts object type)
+        return new ExpressionInputParam
+        {
+            VarType = variable.Type,
+            Key = variable.Key,
+            SampleValue = existingParam?.SampleValue ?? variable.DefaultValue,
+            Description = existingParam?.Description ?? (variable.Desc ?? "")
+        };
+    }
+
+    /// <summary>
     /// Set variable list (ActionVariable is the model, ExpressionInputParam is the view model)
-    /// Both are stored separately and synchronized by Key
+    /// Merge inputParams with variables during initialization
     /// </summary>
     public void SetVarList(List<ActionVariable> variables, List<ExpressionInputParam>? inputParams = null)
     {
         if (variables == null) return;
 
-        // Set variables using Clear + Add
+        // Set variables using Clear + AddRange - directly modify the list that window holds reference to
         _sourceVarList.Clear();
         _sourceVarList.AddRange(variables);
 
-        // Set input params using Clear + Reset (only if list is initialized)
-        if (_variableList != null)
+        // Merge inputParams with variables during initialization
+        _variableList.Clear();
+        var inputParamsDict = inputParams?.ToDictionary(p => p.Key, p => p) ?? new Dictionary<string, ExpressionInputParam>();
+        foreach (var variable in _sourceVarList)
         {
-            _variableList.Clear();
-            if (inputParams != null && inputParams.Count > 0)
-            {
-                _variableList.Reset(inputParams);
-            }
+            inputParamsDict.TryGetValue(variable.Key, out var inputParam);
+            _variableList.Add(CreateInputParamFromVariable(variable, inputParam));
         }
     }
 
@@ -248,18 +331,18 @@ public class CodeEditorWrapper
 
     private bool AddVariable(VarType type, string key)
     {
-        if (_sourceVarList.Where(x => x.Key == key).Count() > 0)
+        if (_sourceVarList.Any(x => x.Key == key))
         {
             AppHelper.ShowInformation("变量已存在");
             var vari = _sourceVarList.First(x => x.Key == key);
-            if (_variableList.Where(x => x.Key == key).Count() == 0)
+            if (!_variableList.Any(x => x.Key == key))
             {
                 _variableList.Add(new ExpressionInputParam()
                 {
                     VarType = vari.Type,
                     Key = key,
-                    SampleValue = "",
-                    Description = ""
+                    SampleValue = vari.DefaultValue,
+                    Description = vari.Desc ?? ""
                 });
             }
             return false;
@@ -273,19 +356,21 @@ public class CodeEditorWrapper
             AppHelper.ShowInformation("变量名不合法");
             return false;
         }
+        // Add to both lists
+        var actionVar = new ActionVariable()
+        {
+            Key = key,
+            Type = type,
+            DefaultValue = "",
+            Desc = ""
+        };
+        _sourceVarList.Add(actionVar);
         _variableList.Add(new ExpressionInputParam()
         {
             VarType = type,
             Key = key,
             SampleValue = "",
             Description = ""
-        });
-        _sourceVarList.Add(new ActionVariable()
-        {
-            Key = key,
-            Type = type,
-            DefaultValue = "",
-            Desc = ""
         });
         _theVarListBox.ScrollIntoView(_theVarListBox.Items[_theVarListBox.Items.Count - 1]);
         return true;
