@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/CoDetectNet.Desktop/CoDetectNet.Desktop.csproj" />
+  <Project Path="src/CoDetectNet.Example/CoDetectNet.Example.csproj" />
+  <Project Path="src/CoDetectNet.Server/CoDetectNet.Server.csproj" />
+  <Project Path="src/CoDetectNet/CoDetectNet.csproj" />
+</Solution>

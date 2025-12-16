@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/QuickerStatisticsInfo.Console/QuickerStatisticsInfo.Console.csproj" />
+  <Project Path="src/QuickerStatisticsInfo/QuickerStatisticsInfo.csproj" />
+</Solution>

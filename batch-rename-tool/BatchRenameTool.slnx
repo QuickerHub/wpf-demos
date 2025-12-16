@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/BatchRenameTool.Console/BatchRenameTool.Console.csproj" />
+  <Project Path="src/BatchRenameTool.Tests/BatchRenameTool.Tests.csproj" />
+  <Project Path="src/BatchRenameTool/BatchRenameTool.csproj" />
+</Solution>

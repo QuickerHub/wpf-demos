@@ -4,7 +4,7 @@ name/
 ├── src/
 │   └── {ProjectName}/  // 大驼峰命名
 │       ├── {ProjectName}.csproj 
-├── {ProjectName}.sln
+├── {ProjectName}.slnx
 └── README.md  // 项目说明
 ├── build.yaml
 ├── build.ps1
@@ -12,6 +12,13 @@ name/
 参考 rules，使用 mvvm 开发规范
 
 **项目配置文件：**
+
+解决方案文件 {ProjectName}.slnx 模版：
+```xml
+<Solution>
+  <Project Path="src/{ProjectName}/{ProjectName}.csproj" />
+</Solution>
+```
 
 主项目的 csproj 模版：
 

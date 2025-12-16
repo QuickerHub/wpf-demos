@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Alinko.Quicker/Alinko.Quicker.csproj" />
+  <Project Path="src/QuickerModifier/QuickerModifier.csproj" />
+</Solution>

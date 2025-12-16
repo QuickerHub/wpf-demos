@@ -1,0 +1,17 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/tests/">
+    <Project Path="src/QuickerExpressionAgent.Common.Tests/QuickerExpressionAgent.Common.Tests.csproj" />
+  </Folder>
+  <Project Path="src/QuickerExpressionAgent.Common/QuickerExpressionAgent.Common.csproj" />
+  <Project Path="src/QuickerExpressionAgent.Demo/QuickerExpressionAgent.Demo.csproj" />
+  <Project Path="src/QuickerExpressionAgent.Desktop/QuickerExpressionAgent.Desktop.csproj" />
+  <Project Path="src/QuickerExpressionAgent.Quicker/QuickerExpressionAgent.Quicker.csproj" />
+  <Project Path="src/QuickerExpressionAgent.Server.Embed/QuickerExpressionAgent.Server.Embed.csproj" />
+  <Project Path="src/QuickerExpressionAgent.Server/QuickerExpressionAgent.Server.csproj" />
+  <Project Path="src/WindowAttach/WindowAttach.csproj" />
+</Solution>
