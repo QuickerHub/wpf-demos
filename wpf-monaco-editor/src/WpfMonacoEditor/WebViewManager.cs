@@ -17,22 +17,24 @@ namespace WpfMonacoEditor
         private readonly WebView2 _webView;
         private readonly WebViewConfiguration _config;
         private bool _isInitialized;
+        private string? _initialRoute;
 
         /// <summary>
         /// Create WebViewManager with default configuration
         /// </summary>
-        public WebViewManager(WebView2 webView)
-            : this(webView, new WebViewConfiguration())
+        public WebViewManager(WebView2 webView, string? initialRoute = null)
+            : this(webView, new WebViewConfiguration(), initialRoute)
         {
         }
 
         /// <summary>
         /// Create WebViewManager with custom configuration
         /// </summary>
-        public WebViewManager(WebView2 webView, WebViewConfiguration config)
+        public WebViewManager(WebView2 webView, WebViewConfiguration config, string? initialRoute = null)
         {
             _webView = webView ?? throw new ArgumentNullException(nameof(webView));
             _config = config ?? throw new ArgumentNullException(nameof(config));
+            _initialRoute = initialRoute;
         }
 
         /// <summary>
@@ -97,8 +99,15 @@ namespace WpfMonacoEditor
                     // Check if dev server is running
                     if (await IsDevelopmentServerRunningAsync(devUrl))
                     {
-                        System.Diagnostics.Debug.WriteLine($"WebViewManager: Loading from dev server: {devUrl}");
-                        _webView.CoreWebView2.Navigate(devUrl);
+                        // Add initial route to URL if specified
+                        var finalUrl = devUrl;
+                        if (!string.IsNullOrEmpty(_initialRoute))
+                        {
+                            var route = _initialRoute.StartsWith("/") ? _initialRoute : "/" + _initialRoute;
+                            finalUrl = $"{devUrl}#{route}";
+                        }
+                        System.Diagnostics.Debug.WriteLine($"WebViewManager: Loading from dev server: {finalUrl}");
+                        _webView.CoreWebView2.Navigate(finalUrl);
                         return;
                     }
                     else
@@ -120,6 +129,12 @@ namespace WpfMonacoEditor
 
                     // Navigate using the virtual host name
                     var virtualUrl = _config.GetVirtualUrl();
+                    // Add initial route to URL if specified
+                    if (!string.IsNullOrEmpty(_initialRoute))
+                    {
+                        var route = _initialRoute.StartsWith("/") ? _initialRoute : "/" + _initialRoute;
+                        virtualUrl = $"{virtualUrl}#{route}";
+                    }
                     System.Diagnostics.Debug.WriteLine($"WebViewManager: Loading from local files: {virtualUrl}");
                     _webView.CoreWebView2.Navigate(virtualUrl);
                 }

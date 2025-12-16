@@ -74,3 +74,5 @@ src/WpfMonacoEditor/WebView2Data/
 # Publish
 src/WpfMonacoEditor/publish/
 
+
+.fake

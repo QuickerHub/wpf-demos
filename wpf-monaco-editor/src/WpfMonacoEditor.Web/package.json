@@ -10,10 +10,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.51.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "monaco-editor": "^0.45.0",
-    "@monaco-editor/react": "^4.6.0"
+    "react-router-dom": "^7.10.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
@@ -25,4 +26,3 @@
     "vite-plugin-monaco-editor": "^1.1.0"
   }
 }
-

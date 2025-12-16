@@ -21,6 +21,7 @@ namespace WpfMonacoEditor
 
         /// <summary>
         /// Initialize WebView and set initial content
+        /// Uses routing system to navigate to /diff page
         /// </summary>
         public async Task InitializeAsync(WebView2 webView, string originalText, string modifiedText, string language = "plaintext")
         {
@@ -31,8 +32,8 @@ namespace WpfMonacoEditor
                 _modifiedText = modifiedText;
                 _language = language;
 
-                // Create WebViewManager with default configuration
-                _webViewManager = new WebViewManager(webView);
+                // Create WebViewManager with default configuration and initial route
+                _webViewManager = new WebViewManager(webView, initialRoute: "/diff");
 
                 // Subscribe to message received event
                 _webViewManager.WebMessageReceived += (sender, message) =>
@@ -50,7 +51,8 @@ namespace WpfMonacoEditor
                     {
                         await Application.Current.Dispatcher.InvokeAsync(async () =>
                         {
-                            IsLoading = false;
+                            // Wait a bit for React Router to initialize and route to load
+                            await Task.Delay(200);
                             
                             // Send HandyControl theme to web page
                             await _webViewManager.SendThemeToWebAsync();
@@ -58,13 +60,26 @@ namespace WpfMonacoEditor
                             // Store initial content in window for frontend to pick up when Monaco Editor is ready
                             var originalJson = Newtonsoft.Json.JsonConvert.SerializeObject(_originalText);
                             var modifiedJson = Newtonsoft.Json.JsonConvert.SerializeObject(_modifiedText);
+                            var languageJson = Newtonsoft.Json.JsonConvert.SerializeObject(_language);
                             var script = $@"
-                                window.pendingDiffContent = {{
-                                    original: {originalJson},
-                                    modified: {modifiedJson}
-                                }};
+                                (function() {{
+                                    window.pendingDiffContent = {{
+                                        original: {originalJson},
+                                        modified: {modifiedJson},
+                                        language: {languageJson}
+                                    }};
+                                    
+                                    // If Monaco Editor is already ready, set content immediately
+                                    if (window.monacoDiffEditor) {{
+                                        window.monacoDiffEditor.setOriginalText({originalJson});
+                                        window.monacoDiffEditor.setModifiedText({modifiedJson});
+                                        window.monacoDiffEditor.setLanguage({languageJson});
+                                    }}
+                                }})();
                             ";
                             await _webViewManager.ExecuteScriptAsync(script);
+                            
+                            IsLoading = false;
                         });
                     };
                 }
@@ -77,6 +92,7 @@ namespace WpfMonacoEditor
 
         /// <summary>
         /// Set editor content
+        /// Ensures we're on the /diff page before setting content
         /// </summary>
         public async Task SetContentAsync(string originalText, string modifiedText, string? language = null)
         {
@@ -92,6 +108,35 @@ namespace WpfMonacoEditor
                 if (language != null)
                 {
                     _language = language;
+                }
+
+                // Ensure we're on the /diff page
+                var checkRouteScript = @"
+                    (function() {
+                        if (window.wpfRouter) {
+                            var currentPath = window.wpfRouter.getCurrentPath();
+                            if (currentPath !== '/diff') {
+                                window.wpfRouter.navigate('/diff');
+                                return false; // Need to wait for navigation
+                            }
+                        } else {
+                            var hash = window.location.hash;
+                            if (hash !== '#/diff') {
+                                window.location.hash = '#/diff';
+                                return false; // Need to wait for navigation
+                            }
+                        }
+                        return true; // Already on correct page
+                    })();
+                ";
+                
+                var isOnCorrectPage = await _webViewManager.ExecuteScriptAsync(checkRouteScript);
+                var isOnPage = isOnCorrectPage?.Trim('"') == "true";
+                
+                // If not on correct page, wait for navigation
+                if (!isOnPage)
+                {
+                    await Task.Delay(300); // Wait for route navigation
                 }
 
                 // Send content to Monaco Editor via JavaScript

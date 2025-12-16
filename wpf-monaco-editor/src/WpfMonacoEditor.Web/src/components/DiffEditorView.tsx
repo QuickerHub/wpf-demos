@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import StatusBar from './StatusBar';
@@ -20,7 +20,7 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
   const [lineNumber, setLineNumber] = useState(1);
   const [columnNumber, setColumnNumber] = useState(1);
   const [language, setLanguage] = useState('plaintext');
-  const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
+  const [wordWrap, setWordWrap] = useState<'on' | 'off'>('off');
   const [zoomLevel, setZoomLevel] = useState(100);
   const fontSizeRef = useRef<number>(DEFAULT_FONT_SIZE);
   const [currentFontSize, setCurrentFontSize] = useState(DEFAULT_FONT_SIZE);
@@ -64,24 +64,26 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
     updateFontSize(newFontSize);
   };
 
-  // Toggle word wrap
+  // Toggle word wrap (React way - update state, useEffect will sync to editors)
   const toggleWordWrap = () => {
-    if (!diffEditorRef.current) return;
-    
-    const newWordWrap = wordWrap === 'on' ? 'off' : 'on';
-    setWordWrap(newWordWrap);
-    
-    const originalEditor = diffEditorRef.current.getOriginalEditor();
-    const modifiedEditor = diffEditorRef.current.getModifiedEditor();
-    
-    originalEditor.updateOptions({ wordWrap: newWordWrap });
-    modifiedEditor.updateOptions({ wordWrap: newWordWrap });
+    setWordWrap(prev => prev === 'on' ? 'off' : 'on');
   };
+
+  // Sync wordWrap state to diff editor using useEffect (React way)
+  // For DiffEditor, we should update the diff editor options, not individual editors
+  useEffect(() => {
+    if (!diffEditorRef.current || !isEditorReady) return;
+    
+    // Update diff editor options directly
+    diffEditorRef.current.updateOptions({
+      diffWordWrap: wordWrap,
+    });
+  }, [wordWrap, isEditorReady]);
 
   const handleEditorDidMount = (
     editor: editor.IStandaloneDiffEditor | editor.IStandaloneCodeEditor,
     monaco: typeof import('monaco-editor')
-  ): void => {
+  ) => {
     // Type guard to ensure it's a DiffEditor
     if (!('getOriginalEditor' in editor) || !('getModifiedEditor' in editor)) {
       console.error('Expected DiffEditor but got CodeEditor');
@@ -103,8 +105,10 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
     const originalEditor = diffEditor.getOriginalEditor();
     const modifiedEditor = diffEditor.getModifiedEditor();
     
-    // Ensure original editor is editable
-    originalEditor.updateOptions({ readOnly: false });
+    // Keep original editor read-only for proper diff highlighting
+    originalEditor.updateOptions({ readOnly: true });
+    
+    // Initial word wrap will be set by useEffect hook
     
     const updateCursorPosition = () => {
       // Use the focused editor's position
@@ -222,15 +226,20 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
             </div>
           }
           options={{
-            readOnly: false,
-            originalEditable: true, // Enable editing for original (left) editor
+            originalEditable: false, // Keep original editor read-only for proper diff highlighting
+            renderSideBySide: true, // Enable side-by-side diff view
+            renderIndicators: true, // Show diff indicators (added/removed lines)
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
             fontSize: currentFontSize,
-            wordWrap: wordWrap,
             automaticLayout: true,
+            // Use diffWordWrap for diff editor word wrap
+            diffWordWrap: wordWrap,
+            // Ensure proper diff rendering
+            ignoreTrimWhitespace: false,
+            renderOverviewRuler: true,
           }}
-          onMount={handleEditorDidMount}
+          onMount={handleEditorDidMount as any}
           original="// Original text\nfunction hello() {\n  console.log('Hello, World!');\n}"
           modified="// Modified text\nfunction hello() {\n  console.log('Hello, World!');\n  console.log('Modified!');\n}"
         />
