@@ -1,4 +1,9 @@
+using System.Linq;
 using System.Windows;
+using Quicker.Public;
+using Quicker.Common;
+using Quicker.Domain;
+using Quicker.Public.Interfaces;
 
 namespace QuickerTools
 {
@@ -46,6 +51,48 @@ namespace QuickerTools
         public static void ShowQuickerTrayMenu()
         {
             QuickerUtils.ShowTrayMenu();
+        }
+
+        /// <summary>
+        /// Get action data from IActionContext
+        /// Returns the first non-empty data field (Data, ContextMenuData, etc.)
+        /// </summary>
+        /// <param name="context">Action context</param>
+        /// <returns>Action data string, or null if not available</returns>
+        public static string? GetActionData(IActionContext context)
+        {
+            if (context == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                // Get ActionId from root context
+                var rootContext = context.GetRootContext();
+                var actionId = rootContext?.ActionId;
+
+                if (string.IsNullOrEmpty(actionId))
+                {
+                    return null;
+                }
+
+                // Get ActionItem from DataService
+                var (action, _) = AppState.DataService.GetActionById(actionId);
+                if (action == null)
+                {
+                    return null;
+                }
+
+                // Check multiple data fields and return the first one with content
+                // Priority: Data > Data2 > Data3
+                return new[] { action.Data, action.Data2, action.Data3 }
+                    .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }
