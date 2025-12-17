@@ -137,34 +137,6 @@ using System.Windows;
 )]
 ```
 
-**设计时 DataContext 设置：**
-- Window/UserControl/Page 的 XAML 中需要添加设计时 DataContext，以便在设计器中预览数据绑定效果
-- 需要在根元素添加以下命名空间和属性：
-
-```xml
-<Window
-    x:Class="YourProject.MainWindow"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="clr-namespace:YourProject"
-    ...
-    d:DataContext="{d:DesignInstance local:MainWindow, IsDesignTimeCreatable=True}"
-    d:DesignHeight="600"
-    d:DesignWidth="1000"
-    mc:Ignorable="d">
-    ...
-</Window>
-```
-
-说明：
-- `xmlns:d` - 设计时命名空间，用于 Blend 和 Visual Studio 设计器
-- `xmlns:mc` - 标记兼容性命名空间
-- `xmlns:local` - 本地命名空间，指向项目根命名空间
-- `d:DataContext="{d:DesignInstance local:MainWindow, IsDesignTimeCreatable=True}"` - 设置设计时 DataContext，设计器会创建 MainWindow 实例以访问 ViewModel 属性
-- `d:DesignHeight` 和 `d:DesignWidth` - 设计时窗口尺寸
-- `mc:Ignorable="d"` - 告诉编译器忽略设计时属性，避免运行时错误
 
 **HandyControl 暗黑模式适配：**
 - 在设计窗口或控件时，必须使用 HandyControl 的颜色资源来设置前景和背景，以确保自动适配暗黑模式
