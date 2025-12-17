@@ -1,0 +1,96 @@
+<Window
+    x:Class="QuickerActionManage.View.ActionDataOptimizeWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:qk="https://getquicker.net"
+    xmlns:viewmodel="clr-namespace:QuickerActionManage.ViewModel"
+    Title="动作数据优化分析"
+    Width="1200"
+    Height="700"
+    MinWidth="800"
+    MinHeight="500"
+    WindowStartupLocation="CenterOwner"
+    d:DataContext="{d:DesignInstance viewmodel:ActionDataOptimizeViewModel}"
+    mc:Ignorable="d">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock
+            Grid.Row="0"
+            Margin="0,0,0,10"
+            FontSize="16"
+            FontWeight="Bold"
+            Text="动作数据优化分析" />
+
+        <!-- DataGrid -->
+        <DataGrid
+            Grid.Row="1"
+            AutoGenerateColumns="False"
+            CanUserAddRows="False"
+            CanUserDeleteRows="False"
+            IsReadOnly="True"
+            ItemsSource="{Binding ActionDataItems}"
+            SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="图标" Width="50">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <qk:IconControl
+                                Width="16"
+                                Height="16"
+                                HorizontalAlignment="Center"
+                                Icon="{Binding Icon}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Binding="{Binding Title}" Header="标题" Width="200" />
+                <DataGridTextColumn Binding="{Binding Size, StringFormat='{}{0:N0} bytes'}" Header="总大小" Width="100" />
+                <DataGridTextColumn Binding="{Binding DataSize, StringFormat='{}{0:N0} bytes'}" Header="Data大小" Width="120" />
+                <DataGridTextColumn Binding="{Binding OptimizedDataSize, StringFormat='{}{0:N0} bytes'}" Header="优化后Data大小" Width="150" />
+                <DataGridTextColumn Binding="{Binding SavedSize, StringFormat='{}{0:N0} bytes'}" Header="节省空间" Width="120" />
+                <DataGridTextColumn Binding="{Binding SavedPercentage, StringFormat='{}{0:F2}%'}" Header="节省比例" Width="100" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Summary -->
+        <Border
+            Grid.Row="2"
+            Margin="0,10,0,0"
+            Padding="10"
+            Background="{DynamicResource RegionBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="3">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Margin="0,0,20,0">
+                    <Run Text="总动作数: " />
+                    <Run FontWeight="Bold" Text="{Binding TotalActions, Mode=OneWay}" />
+                </TextBlock>
+                <TextBlock Margin="0,0,20,0">
+                    <Run Text="总Data大小: " />
+                    <Run FontWeight="Bold" Text="{Binding TotalDataSize, Mode=OneWay, StringFormat='{}{0:N0} bytes'}" />
+                </TextBlock>
+                <TextBlock Margin="0,0,20,0">
+                    <Run Text="优化后总大小: " />
+                    <Run FontWeight="Bold" Text="{Binding TotalOptimizedSize, Mode=OneWay, StringFormat='{}{0:N0} bytes'}" />
+                </TextBlock>
+                <TextBlock>
+                    <Run Text="总节省空间: " />
+                    <Run FontWeight="Bold" Foreground="Green" Text="{Binding TotalSavedSize, Mode=OneWay, StringFormat='{}{0:N0} bytes'}" />
+                </TextBlock>
+                <TextBlock Margin="20,0,0,0">
+                    <Run Text="总节省比例: " />
+                    <Run FontWeight="Bold" Foreground="Green" Text="{Binding TotalSavedPercentage, Mode=OneWay, StringFormat='{}{0:F2}%'}" />
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
+

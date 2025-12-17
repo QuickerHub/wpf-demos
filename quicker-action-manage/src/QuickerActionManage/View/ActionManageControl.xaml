@@ -456,6 +456,9 @@
                         <Button Click="Button_Click">
                             <TextBlock>用量统计</TextBlock>
                         </Button>
+                        <Button Click="DataOptimizeButton_Click">
+                            <TextBlock>数据优化分析</TextBlock>
+                        </Button>
                         <Button Grid.Column="1" Click="RecycleButton_Click">
                             <DockPanel>
                                 <qk:IconControl

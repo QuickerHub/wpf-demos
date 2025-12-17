@@ -118,6 +118,7 @@ namespace QuickerActionManage.View
                     QuickerUtil.CreateActionMenus(menu, item.Id, Window.GetWindow(this));
                     AddGroupMenuItems(menu, item);
                     ReplaceDeleteMenuItem(menu, item);
+                    AddCopyDataMenuItem(menu, item);
                 }
             }
         }
@@ -222,6 +223,37 @@ namespace QuickerActionManage.View
             }
         }
 
+        /// <summary>
+        /// Add "Copy Action Data" menu item to the menu
+        /// </summary>
+        private void AddCopyDataMenuItem(ContextMenu menu, ActionItemModel item)
+        {
+            var copyDataMenuItem = CreateMenuItem(ICON_COPY, "复制动作Data", (s, e) =>
+            {
+                var action = QuickerUtil.GetActionById(item.Id);
+                if (action != null)
+                {
+                    var data = new[] { action.Data, action.Data2, action.Data3 }
+                        .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
+                    if (data != null)
+                    {
+                        Clipboard.SetText(data);
+                    }
+                }
+            });
+            menu.Items.Add(copyDataMenuItem);
+
+            var optimizeMenuItem = CreateMenuItem(ICON_EXPERIMENT, "查看大小优化", (s, e) =>
+            {
+                var window = new ActionDataOptimizeWindow(new[] { item.Id })
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                window.ShowDialog();
+            });
+            menu.Items.Add(optimizeMenuItem);
+        }
+
         private IEnumerable<Control> GetMultiSelectMenu(IList<ActionItemModel> items)
         {
             static void CopyItems(IEnumerable<string> s)
@@ -230,6 +262,16 @@ namespace QuickerActionManage.View
             }
 
             yield return CreateMenuItem(ICON_COPY, "复制动作ID", (s, e) => CopyItems(items.Select(x => x.Id)));
+
+            yield return CreateMenuItem(ICON_EXPERIMENT, "查看大小优化", (s, e) =>
+            {
+                var actionIds = items.Select(x => x.Id).ToList();
+                var window = new ActionDataOptimizeWindow(actionIds)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                window.ShowDialog();
+            });
 
             // 添加到分组菜单
             yield return CreateAddToGroupMenuItem(items);
@@ -512,6 +554,15 @@ namespace QuickerActionManage.View
             {
                 window.Content = null;
                 ViewModel.SetUpActions();
+            };
+            window.ShowDialog();
+        }
+
+        private void DataOptimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new ActionDataOptimizeWindow
+            {
+                Owner = Window.GetWindow(this)
             };
             window.ShowDialog();
         }

@@ -204,6 +204,7 @@ namespace QuickerActionManage.View.Menus
         public const string ICON_BOLT = "fa:Light_Bolt";
         public const string ICON_EMPTY = "fa:Light_EmptySet";
         public const string ICON_PLANE = "fa:Light_PaperPlane";
+        public const string ICON_EXPERIMENT = "fa:Light_Flask";
         public const string ICON_PANEL = "https://files.getquicker.net/_icons/002098E8563D3F0D68BEC42AC4956CE56DD78B57.svg";
         public const string ICON_CLIP = "https://files.getquicker.net/_icons/D238156FA240C2989A8581FA7D7B6F9558552F44.png";
         public const string ICON_FAVORITE = "https://files.getquicker.net/_icons/1C6A767A0B31AFA873635A24F622464DD7FF04DD.svg";
