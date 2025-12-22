@@ -89,8 +89,8 @@ public class ConfigurationService : IConfigurationService
             IsReadOnly = true
         };
         
-        // Return in order: glm-4.5, glm-4.5-air, glm-4.6, deepseek-chat
-        return new List<ModelApiConfig> { glm45Config, glm45AirConfig, glm46Config, deepseekConfig }.AsReadOnly();
+        // Return in order: glm-4.5-air, glm-4.5, glm-4.6, deepseek-chat
+        return new List<ModelApiConfig> { glm45AirConfig, glm46Config, deepseekConfig }.AsReadOnly();
     }
 }
 
