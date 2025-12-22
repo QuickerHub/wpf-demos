@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Windows;
 
@@ -56,6 +58,120 @@ namespace VscodeTools
         }
 
         /// <summary>
+        /// Get clipboard content in code/file-list format
+        /// </summary>
+        /// <returns>Formatted string representation of clipboard content, or null if not found</returns>
+        public static string? GetClipboardFileListContent()
+        {
+            try
+            {
+                // Check for VSCode file-list format
+                if (Clipboard.ContainsData(VscodeFileListFormat))
+                {
+                    var data = Clipboard.GetData(VscodeFileListFormat);
+                    if (data is string[] paths && paths.Length > 0)
+                    {
+                        // Convert file:/// URIs to normal paths
+                        var convertedPaths = paths.Select(path =>
+                        {
+                            var trimmed = path?.Trim();
+                            if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return ConvertFileUriToPath(trimmed);
+                            }
+                            return trimmed ?? path;
+                        });
+                        return string.Join(Environment.NewLine, convertedPaths);
+                    }
+                    else if (data is string text && !string.IsNullOrWhiteSpace(text))
+                    {
+                        // Convert file:/// URIs to normal paths
+                        var lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                        var convertedLines = lines.Select(line =>
+                        {
+                            var trimmed = line.Trim();
+                            if (trimmed.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return ConvertFileUriToPath(trimmed);
+                            }
+                            return trimmed;
+                        });
+                        return string.Join(Environment.NewLine, convertedLines);
+                    }
+                    else if (data is MemoryStream ms)
+                    {
+                        // Read MemoryStream as text
+                        try
+                        {
+                            var originalPosition = ms.Position;
+                            ms.Position = 0;
+                            
+                            byte[] buffer = new byte[ms.Length];
+                            int bytesRead = ms.Read(buffer, 0, buffer.Length);
+                            ms.Position = originalPosition; // Restore original position
+                            
+                            if (bytesRead > 0)
+                            {
+                                // Try UTF-8 first
+                                string content = null;
+                                try
+                                {
+                                    content = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                                }
+                                catch
+                                {
+                                    // If UTF-8 fails, try default encoding
+                                    content = Encoding.Default.GetString(buffer, 0, bytesRead);
+                                }
+                                
+                                if (!string.IsNullOrWhiteSpace(content))
+                                {
+                                    // Convert file:/// URIs to normal paths
+                                    var lines = content.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                                    var convertedLines = lines.Select(line =>
+                                    {
+                                        var trimmed = line.Trim();
+                                        if (trimmed.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            return ConvertFileUriToPath(trimmed);
+                                        }
+                                        return trimmed;
+                                    });
+                                    return string.Join(Environment.NewLine, convertedLines);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // If reading fails, continue to fallback
+                        }
+                    }
+                }
+
+                // Fallback: check clipboard text for file:/// paths
+                if (Clipboard.ContainsText())
+                {
+                    var text = Clipboard.GetText();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        var lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                        var fileLines = lines.Where(line => line.Trim().StartsWith("file:///", StringComparison.OrdinalIgnoreCase));
+                        if (fileLines.Any())
+                        {
+                            return string.Join(Environment.NewLine, fileLines);
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return $"Error reading clipboard: {ex.Message}";
+            }
+        }
+
+        /// <summary>
         /// Get file path from clipboard, checking for code/file-list format
         /// </summary>
         private static string? GetFilePathFromClipboard()
@@ -68,7 +184,16 @@ namespace VscodeTools
                     var data = Clipboard.GetData(VscodeFileListFormat);
                     if (data is string[] paths && paths.Length > 0)
                     {
-                        return paths[0];
+                        var firstPath = paths[0]?.Trim();
+                        if (!string.IsNullOrEmpty(firstPath))
+                        {
+                            // Convert file:/// URI to local path if needed
+                            if (firstPath.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return ConvertFileUriToPath(firstPath);
+                            }
+                            return firstPath;
+                        }
                     }
                     else if (data is string text && !string.IsNullOrWhiteSpace(text))
                     {
@@ -76,7 +201,61 @@ namespace VscodeTools
                         var lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
                         if (lines.Length > 0)
                         {
-                            return lines[0];
+                            var firstLine = lines[0].Trim();
+                            // Convert file:/// URI to local path if needed
+                            if (firstLine.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return ConvertFileUriToPath(firstLine);
+                            }
+                            return firstLine;
+                        }
+                    }
+                    else if (data is MemoryStream ms)
+                    {
+                        // Read MemoryStream as text
+                        try
+                        {
+                            var originalPosition = ms.Position;
+                            ms.Position = 0;
+                            
+                            byte[] buffer = new byte[ms.Length];
+                            int bytesRead = ms.Read(buffer, 0, buffer.Length);
+                            ms.Position = originalPosition; // Restore original position
+                            
+                            if (bytesRead > 0)
+                            {
+                                // Try UTF-8 first
+                                string content = null;
+                                try
+                                {
+                                    content = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                                }
+                                catch
+                                {
+                                    // If UTF-8 fails, try default encoding
+                                    content = Encoding.Default.GetString(buffer, 0, bytesRead);
+                                }
+                                
+                                if (!string.IsNullOrWhiteSpace(content))
+                                {
+                                    // Parse as newline-separated paths
+                                    var lines = content.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                                    if (lines.Length > 0)
+                                    {
+                                        var firstLine = lines[0].Trim();
+                                        // Convert file:/// URI to local path if needed
+                                        if (firstLine.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            return ConvertFileUriToPath(firstLine);
+                                        }
+                                        return firstLine;
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // If reading fails, continue to fallback
                         }
                     }
                 }
