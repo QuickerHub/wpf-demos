@@ -1,0 +1,44 @@
+<Window x:Class="VscodeTools.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:VscodeTools"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        Title="VSCode Tools"
+        Width="800"
+        Height="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource DefaultWindowBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance local:MainWindow, IsDesignTimeCreatable=True}"
+        d:DesignHeight="600"
+        d:DesignWidth="1000">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Text="VSCode Tools" />
+
+        <!-- Content -->
+        <Grid Grid.Row="1" Margin="0,16,0,0">
+            <StackPanel VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <TextBlock FontSize="16"
+                           Text="Welcome to VSCode Tools"
+                           Margin="0,0,0,16" />
+                <Button Content="打开选中文件"
+                        Click="OpenSelectedFileButton_Click"
+                        Padding="16,8"
+                        MinWidth="120" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
+
