@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using Quicker.Public.Interfaces;
@@ -171,6 +173,114 @@ namespace QuickerExpressionEnhanced
         }
 
         /// <summary>
+        /// Format exception details focusing on LoaderException information
+        /// </summary>
+        private static string FormatExceptionDetails(Exception ex)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"Message: {ex.Message}");
+            sb.AppendLine($"Type: {ex.GetType().Name}");
+            
+            // Add FileName for FileNotFoundException
+            if (ex is System.IO.FileNotFoundException fnf)
+            {
+                if (!string.IsNullOrEmpty(fnf.FileName))
+                {
+                    sb.AppendLine($"FileName: {fnf.FileName}");
+                }
+                if (!string.IsNullOrEmpty(fnf.FusionLog))
+                {
+                    sb.AppendLine($"FusionLog: {fnf.FusionLog}");
+                }
+            }
+            
+            // Add FileName for FileLoadException (often contains strong name errors)
+            if (ex is System.IO.FileLoadException fle)
+            {
+                if (!string.IsNullOrEmpty(fle.FileName))
+                {
+                    sb.AppendLine($"FileName: {fle.FileName}");
+                }
+                if (!string.IsNullOrEmpty(fle.FusionLog))
+                {
+                    sb.AppendLine($"FusionLog: {fle.FusionLog}");
+                }
+            }
+            
+            // Add FileName for BadImageFormatException
+            if (ex is BadImageFormatException bif)
+            {
+                if (!string.IsNullOrEmpty(bif.FileName))
+                {
+                    sb.AppendLine($"FileName: {bif.FileName}");
+                }
+            }
+            
+            // Check LoaderException details for ReflectionTypeLoadException
+            if (ex is ReflectionTypeLoadException rtle)
+            {
+                if (rtle.LoaderExceptions != null && rtle.LoaderExceptions.Length > 0)
+                {
+                    sb.AppendLine("LoaderExceptions:");
+                    for (int i = 0; i < rtle.LoaderExceptions.Length; i++)
+                    {
+                        var loaderEx = rtle.LoaderExceptions[i];
+                        if (loaderEx != null)
+                        {
+                            sb.AppendLine($"  [{i}] {loaderEx.GetType().Name}: {loaderEx.Message}");
+                            
+                            // Add FileName for FileNotFoundException
+                            if (loaderEx is System.IO.FileNotFoundException loaderFnf && !string.IsNullOrEmpty(loaderFnf.FileName))
+                            {
+                                sb.AppendLine($"      文件名: {loaderFnf.FileName}");
+                                if (!string.IsNullOrEmpty(loaderFnf.FusionLog))
+                                {
+                                    sb.AppendLine($"      FusionLog: {loaderFnf.FusionLog}");
+                                }
+                            }
+                            
+                            // Add FileName for FileLoadException (strong name errors)
+                            if (loaderEx is System.IO.FileLoadException loaderFle && !string.IsNullOrEmpty(loaderFle.FileName))
+                            {
+                                sb.AppendLine($"      文件名: {loaderFle.FileName}");
+                                if (!string.IsNullOrEmpty(loaderFle.FusionLog))
+                                {
+                                    sb.AppendLine($"      FusionLog: {loaderFle.FusionLog}");
+                                }
+                            }
+                            
+                            // Add FileName for BadImageFormatException
+                            if (loaderEx is BadImageFormatException loaderBif && !string.IsNullOrEmpty(loaderBif.FileName))
+                            {
+                                sb.AppendLine($"      文件名: {loaderBif.FileName}");
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  [{i}] (null)");
+                        }
+                    }
+                }
+            }
+            
+            // Add inner exception details
+            if (ex.InnerException != null)
+            {
+                sb.AppendLine($"InnerException: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                if (ex.InnerException is System.IO.FileNotFoundException innerFnf && !string.IsNullOrEmpty(innerFnf.FileName))
+                {
+                    sb.AppendLine($"InnerException FileName: {innerFnf.FileName}");
+                }
+                if (ex.InnerException is System.IO.FileLoadException innerFle && !string.IsNullOrEmpty(innerFle.FileName))
+                {
+                    sb.AppendLine($"InnerException FileName: {innerFle.FileName}");
+                }
+            }
+            
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Execute expression with registered context variables and show error message on failure
         /// This method catches exceptions and shows error message instead of throwing
         /// </summary>
@@ -187,8 +297,12 @@ namespace QuickerExpressionEnhanced
             catch (Exception ex)
             {
                 // Log error when expression execution fails
-                _log.Error($"Failed to execute expression. Code: {code}", ex);
-                AppHelper.ShowWarning($"表达式执行失败: {ex.Message}\n代码: {code}");
+                var details = FormatExceptionDetails(ex);
+                _log.Error($"Failed to execute expression. Code: {code}\n{details}", ex);
+                
+                // Show detailed error message to user
+                var errorMessage = $"表达式执行失败: {ex.Message}\n\n详细信息:\n{details}\n\n代码: {code}";
+                AppHelper.ShowWarning(errorMessage);
                 throw;
             }
         }

@@ -11,6 +11,9 @@
 		<AssemblyName Condition="'$(Configuration)' == 'Release'">$(MSBuildProjectName).$(Version)</AssemblyName>
 		<AssemblyName Condition="'$(Configuration)' != 'Release'">$(MSBuildProjectName)</AssemblyName>
 		<ApplicationIcon Condition="Exists('Assets\app-icon.ico')">Assets\app-icon.ico</ApplicationIcon>
+		<!-- Disable strong naming to allow loading in unsigned host applications -->
+		<SignAssembly>false</SignAssembly>
+		<AssemblyOriginatorKeyFile />
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
