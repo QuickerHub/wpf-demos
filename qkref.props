@@ -1,0 +1,83 @@
+<Project>
+  <!--
+    Quicker Assembly Reference Configuration
+    This file provides unified Quicker assembly references for all projects.
+    Import this file in your .csproj to use Quicker assemblies.
+    
+    Usage in .csproj:
+      <Import Project="..\..\qkref.props" />
+      
+    Or if the project is in a subdirectory:
+      <Import Project="..\..\..\qkref.props" />
+  -->
+
+  <PropertyGroup>
+    <!-- 
+      Quicker DLL Path Configuration
+      Priority:
+      1. MSBuild property: -p:QuickerDllPath="path"
+      2. Environment variable: QUICKER_DLL_PATH
+      3. Auto-detect: Try Debug path first, fallback to Release path
+    -->
+    <QuickerDllPath Condition="'$(QuickerDllPath)' == ''">$(QUICKER_DLL_PATH)</QuickerDllPath>
+    
+    <!-- If not specified, try Debug path first -->
+    <_QuickerDebugPath Condition="'$(QuickerDllPath)' == ''">D:\source\repos\quicker\quickerorg\Quicker\QuickerPc\Quicker\bin\x64\Debug</_QuickerDebugPath>
+    <_QuickerReleasePath Condition="'$(QuickerDllPath)' == ''">C:\Program Files\Quicker</_QuickerReleasePath>
+    
+    <!-- Auto-select: Use Debug path if exists, otherwise use Release path -->
+    <QuickerDllPath Condition="'$(QuickerDllPath)' == '' And Exists('$(_QuickerDebugPath)\Quicker.exe')">$(_QuickerDebugPath)</QuickerDllPath>
+    <QuickerDllPath Condition="'$(QuickerDllPath)' == ''">$(_QuickerReleasePath)</QuickerDllPath>
+  </PropertyGroup>
+
+  <!-- Reference Quicker assemblies from QuickerDllPath -->
+  <ItemGroup>
+    <!-- 关键：如果使用 Debug 版本（非强名称），编译时就不会记录 PublicKeyToken -->
+    <Reference Include="Quicker">
+      <HintPath>$(QuickerDllPath)\Quicker.exe</HintPath>
+    </Reference>
+    <Reference Include="Quicker.Common">
+      <HintPath>$(QuickerDllPath)\Quicker.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Quicker.Public">
+      <HintPath>$(QuickerDllPath)\Quicker.Public.dll</HintPath>
+    </Reference>
+    <!-- Additional Quicker assemblies (usually only in Release) -->
+    <Reference Include="DotNetProjects.SVGImage" Condition="Exists('$(QuickerDllPath)\DotNetProjects.SVGImage.dll')">
+      <HintPath>$(QuickerDllPath)\DotNetProjects.SVGImage.dll</HintPath>
+    </Reference>
+    <Reference Include="DotNetProjects.Wpf.Extended.Toolkit" Condition="Exists('$(QuickerDllPath)\DotNetProjects.Wpf.Extended.Toolkit.dll')">
+      <HintPath>$(QuickerDllPath)\DotNetProjects.Wpf.Extended.Toolkit.dll</HintPath>
+    </Reference>
+    <Reference Include="FontAwesomeIconsWpf" Condition="Exists('$(QuickerDllPath)\FontAwesomeIconsWpf.dll')">
+      <HintPath>$(QuickerDllPath)\FontAwesomeIconsWpf.dll</HintPath>
+    </Reference>
+    <Reference Include="HandyControl" Condition="Exists('$(QuickerDllPath)\HandyControl.dll')">
+      <HintPath>$(QuickerDllPath)\HandyControl.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.AvalonEdit" Condition="Exists('$(QuickerDllPath)\ICSharpCode.AvalonEdit.dll')">
+      <HintPath>$(QuickerDllPath)\ICSharpCode.AvalonEdit.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib" Condition="Exists('$(QuickerDllPath)\ICSharpCode.SharpZipLib.dll')">
+      <HintPath>$(QuickerDllPath)\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="MdXaml" Condition="Exists('$(QuickerDllPath)\MdXaml.dll')">
+      <HintPath>$(QuickerDllPath)\MdXaml.dll</HintPath>
+    </Reference>
+    <Reference Include="Z.Expressions.Eval" Condition="Exists('$(QuickerDllPath)\Z.Expressions.Eval.dll')">
+      <HintPath>$(QuickerDllPath)\Z.Expressions.Eval.dll</HintPath>
+    </Reference>
+    <Reference Include="ToastNotifications" Condition="Exists('$(QuickerDllPath)\ToastNotifications.dll')">
+      <HintPath>$(QuickerDllPath)\ToastNotifications.dll</HintPath>
+    </Reference>
+    <Reference Include="ToastNotifications.Messages" Condition="Exists('$(QuickerDllPath)\ToastNotifications.Messages.dll')">
+      <HintPath>$(QuickerDllPath)\ToastNotifications.Messages.dll</HintPath>
+    </Reference>
+    <Reference Include="HL" Condition="Exists('$(QuickerDllPath)\HL.dll')">
+      <HintPath>$(QuickerDllPath)\HL.dll</HintPath>
+    </Reference>
+    <Reference Include="WindowsInput" Condition="Exists('$(QuickerDllPath)\WindowsInput.dll')">
+      <HintPath>$(QuickerDllPath)\WindowsInput.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

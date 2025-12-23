@@ -40,18 +40,9 @@
 
 	<ItemGroup>
 		<Reference Include="Microsoft.CSharp" />
-		<Reference Include="Quicker">
-			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Common">
-			<HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Public">
-			<HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
-		</Reference>
-		<Reference Include="Z.Expressions.Eval">
-			<HintPath>C:\Program Files\Quicker\Z.Expressions.Eval.dll</HintPath>
-		</Reference>
 	</ItemGroup>
+
+	<!-- Quicker framework references - Import from root qkref.props -->
+	<Import Project="..\..\..\qkref.props" />
 
 </Project>

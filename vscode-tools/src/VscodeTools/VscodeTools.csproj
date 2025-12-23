@@ -34,7 +34,6 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Costura.Fody" Version="5.7.0" />
 	</ItemGroup>
 
 	<!-- Standard framework references -->
@@ -44,37 +43,6 @@
 		<Reference Include="System.Windows.Forms" />
 	</ItemGroup>
 
-	<!-- Quicker framework references -->
-	<ItemGroup>
-		<Reference Include="Quicker">
-			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Common">
-			<HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Public">
-			<HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
-		</Reference>
-		<Reference Include="DotNetProjects.SVGImage">
-			<HintPath>C:\Program Files\Quicker\DotNetProjects.SVGImage.dll</HintPath>
-		</Reference>
-		<Reference Include="DotNetProjects.Wpf.Extended.Toolkit">
-			<HintPath>C:\Program Files\Quicker\DotNetProjects.Wpf.Extended.Toolkit.dll</HintPath>
-		</Reference>
-		<Reference Include="FontAwesomeIconsWpf">
-			<HintPath>C:\Program Files\Quicker\FontAwesomeIconsWpf.dll</HintPath>
-		</Reference>
-		<Reference Include="HandyControl">
-			<HintPath>C:\Program Files\Quicker\HandyControl.dll</HintPath>
-		</Reference>
-		<Reference Include="ICSharpCode.AvalonEdit">
-			<HintPath>C:\Program Files\Quicker\ICSharpCode.AvalonEdit.dll</HintPath>
-		</Reference>
-		<Reference Include="ICSharpCode.SharpZipLib">
-			<HintPath>C:\Program Files\Quicker\ICSharpCode.SharpZipLib.dll</HintPath>
-		</Reference>
-		<Reference Include="MdXaml">
-			<HintPath>C:\Program Files\Quicker\MdXaml.dll</HintPath>
-		</Reference>
-	</ItemGroup>
+	<!-- Quicker framework references - Import from root qkref.props -->
+	<Import Project="..\..\..\qkref.props" />
 </Project>

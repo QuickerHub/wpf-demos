@@ -44,53 +44,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Reference Include="DotNetProjects.SVGImage">
-			<HintPath>C:\Program Files\Quicker\DotNetProjects.SVGImage.dll</HintPath>
-		</Reference>
-		<Reference Include="DotNetProjects.Wpf.Extended.Toolkit">
-			<HintPath>C:\Program Files\Quicker\DotNetProjects.Wpf.Extended.Toolkit.dll</HintPath>
-		</Reference>
-		<Reference Include="FontAwesomeIconsWpf">
-			<HintPath>C:\Program Files\Quicker\FontAwesomeIconsWpf.dll</HintPath>
-		</Reference>
-		<Reference Include="HandyControl">
-			<HintPath>C:\Program Files\Quicker\HandyControl.dll</HintPath>
-		</Reference>
-		<Reference Include="ICSharpCode.AvalonEdit">
-			<HintPath>C:\Program Files\Quicker\ICSharpCode.AvalonEdit.dll</HintPath>
-		</Reference>
-		<Reference Include="ICSharpCode.SharpZipLib">
-			<HintPath>C:\Program Files\Quicker\ICSharpCode.SharpZipLib.dll</HintPath>
-		</Reference>
-		<Reference Include="MdXaml">
-			<HintPath>C:\Program Files\Quicker\MdXaml.dll</HintPath>
-		</Reference>
 		<Reference Include="Microsoft.CSharp" />
 		<Reference Include="Microsoft.VisualBasic" />
-		<Reference Include="Quicker">
-			<HintPath>C:\Program Files\Quicker\Quicker.exe</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Common">
-			<HintPath>C:\Program Files\Quicker\Quicker.Common.dll</HintPath>
-		</Reference>
-		<Reference Include="Quicker.Public">
-			<HintPath>C:\Program Files\Quicker\Quicker.Public.dll</HintPath>
-		</Reference>
 		<Reference Include="System.ComponentModel.DataAnnotations" />
 		<Reference Include="System.Net.Http" />
-		<Reference Include="ToastNotifications">
-			<HintPath>C:\Program Files\Quicker\ToastNotifications.dll</HintPath>
-		</Reference>
-		<Reference Include="ToastNotifications.Messages">
-			<HintPath>C:\Program Files\Quicker\ToastNotifications.Messages.dll</HintPath>
-		</Reference>
-		<Reference Include="WindowsInput">
-			<HintPath>C:\Program Files\Quicker\WindowsInput.dll</HintPath>
-		</Reference>
-		<Reference Include="Z.Expressions.Eval">
-			<HintPath>C:\Program Files\Quicker\Z.Expressions.Eval.dll</HintPath>
-		</Reference>
 	</ItemGroup>
+
+	<!-- Quicker framework references - Import from root qkref.props -->
+	<Import Project="..\..\..\..\qkref.props" />
 
 	<ItemGroup>
 		<ProjectReference Include="..\QuickerExpressionAgent.Common\QuickerExpressionAgent.Common.csproj" />
