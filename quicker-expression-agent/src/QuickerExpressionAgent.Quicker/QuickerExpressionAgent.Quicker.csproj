@@ -51,7 +51,7 @@
 	</ItemGroup>
 
 	<!-- Quicker framework references - Import from root qkref.props -->
-	<Import Project="..\..\..\..\qkref.props" />
+	<Import Project="..\..\..\qkref.props" />
 
 	<ItemGroup>
 		<ProjectReference Include="..\QuickerExpressionAgent.Common\QuickerExpressionAgent.Common.csproj" />

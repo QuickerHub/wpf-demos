@@ -4,38 +4,39 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-    x:Name="Root">
-    <UserControl.Resources>
-        <!-- Custom style to remove AvalonEdit's built-in ScrollViewer -->
-        <!-- This allows parent ScrollViewer to handle mouse wheel events -->
-        <Style TargetType="{x:Type avalonedit:TextEditor}" x:Key="NoScrollTextEditor">
+    x:Name="Root"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <!--<UserControl.Resources>
+    -->
+    <!--  Custom style to remove AvalonEdit's built-in ScrollViewer  -->
+    <!--  This allows parent ScrollViewer to handle mouse wheel events  -->
+    <!--
+        <Style x:Key="NoScrollTextEditor" TargetType="{x:Type avalonedit:TextEditor}">
             <Setter Property="Foreground" Value="{ui:ThemeResource TextFillColorPrimaryBrush}" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="FlowDirection" Value="LeftToRight"/>
+            <Setter Property="FlowDirection" Value="LeftToRight" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type avalonedit:TextEditor}">
-                        <ContentPresenter 
-                            Focusable="False"
-                            Content="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TextArea}" />
+                        <ContentPresenter Content="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TextArea}" Focusable="False" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-    </UserControl.Resources>
+    </UserControl.Resources>-->
     <Border
+        Background="{ui:ThemeResource ControlFillColorDefaultBrush}"
         BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
-        BorderThickness="1"
-        Background="{ui:ThemeResource ControlFillColorDefaultBrush}">
+        BorderThickness="1">
         <avalonedit:TextEditor
             x:Name="TextEditor"
-            Style="{StaticResource NoScrollTextEditor}"
+            Padding="2"
             Background="Transparent"
             BorderThickness="0"
             FontFamily="Consolas"
             FontSize="12"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ShowLineNumbers="False"
-            WordWrap="False"
-            Padding="2" />
+            WordWrap="True" />
     </Border>
 </UserControl>
