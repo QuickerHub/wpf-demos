@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Editor } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
+import * as monaco from 'monaco-editor';
 import StatusBar from '../components/StatusBar';
 import LoadingOverlay from '../components/LoadingOverlay';
 import '../App.css';
@@ -11,8 +11,9 @@ const DEFAULT_FONT_SIZE = 14;
  * CodeEditor Page - Single editor view
  */
 export default function CodeEditorPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  const modelRef = useRef<editor.ITextModel | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [theme, setTheme] = useState<'vs' | 'vs-dark'>('vs-dark');
   const wpfThemeRef = useRef<string | null>(null);
@@ -21,10 +22,119 @@ export default function CodeEditorPage() {
   const [lineNumber, setLineNumber] = useState(1);
   const [columnNumber, setColumnNumber] = useState(1);
   const [language, setLanguage] = useState('plaintext');
-  const [wordWrap, setWordWrap] = useState<'on' | 'off'>('off');
+  const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
   const [zoomLevel, setZoomLevel] = useState(100);
   const fontSizeRef = useRef<number>(DEFAULT_FONT_SIZE);
   const [currentFontSize, setCurrentFontSize] = useState(DEFAULT_FONT_SIZE);
+
+  // Initialize Monaco Editor
+  useEffect(() => {
+    if (!containerRef.current || editorRef.current) {
+      return;
+    }
+
+    // Create model
+    const model = monaco.editor.createModel(
+      "// Code editor\nfunction hello() {\n  console.log('Hello, World!');\n}",
+      language
+    );
+    modelRef.current = model;
+
+    // Create editor
+    const editor = monaco.editor.create(containerRef.current, {
+      model: model,
+      minimap: { enabled: true },
+      scrollBeyondLastLine: false,
+      fontSize: DEFAULT_FONT_SIZE,
+      automaticLayout: true,
+      wordWrap: wordWrap,
+      mouseWheelZoom: true,
+      theme: theme,
+    });
+
+    editorRef.current = editor;
+    setIsEditorReady(true);
+
+    // Get initial language
+    setLanguage(model.getLanguageId() || 'plaintext');
+
+    // Update cursor position
+    const updateCursorPosition = () => {
+      const position = editor.getPosition();
+      if (position) {
+        setLineNumber(position.lineNumber);
+        setColumnNumber(position.column);
+      }
+    };
+
+    editor.onDidChangeCursorPosition(() => updateCursorPosition());
+    
+    monaco.editor.onDidChangeMarkers(() => {
+      if (model) {
+        setLanguage(model.getLanguageId() || 'plaintext');
+      }
+    });
+
+    fontSizeRef.current = DEFAULT_FONT_SIZE;
+    setCurrentFontSize(DEFAULT_FONT_SIZE);
+    
+    editor.onDidChangeConfiguration(() => {
+      const fontSize = editor.getOption(monaco.editor.EditorOption.fontSize);
+      fontSizeRef.current = fontSize;
+      const calculatedZoom = Math.round((fontSize / DEFAULT_FONT_SIZE) * 100);
+      setZoomLevel(calculatedZoom);
+      setCurrentFontSize(fontSize);
+    });
+
+    updateCursorPosition();
+
+    // Expose API to window for WPF integration
+    (window as any).monacoEditor = {
+      setValue: (text: string) => {
+        if (model) {
+          model.setValue(text);
+        }
+      },
+      getValue: () => {
+        return model?.getValue() || '';
+      },
+      setLanguage: (lang: string) => {
+        if (model) {
+          monaco.editor.setModelLanguage(model, lang);
+          setLanguage(lang);
+        }
+      },
+    };
+
+    // Check for pending content
+    if ((window as any).pendingEditorContent) {
+      const pendingContent = (window as any).pendingEditorContent;
+      if (model) {
+        model.setValue(pendingContent.text || '');
+        
+        if (pendingContent.language) {
+          monaco.editor.setModelLanguage(model, pendingContent.language);
+          setLanguage(pendingContent.language);
+        }
+      }
+      delete (window as any).pendingEditorContent;
+    }
+
+    // Cleanup
+    return () => {
+      if (editorRef.current) {
+        editorRef.current.dispose();
+        editorRef.current = null;
+      }
+      if (modelRef.current) {
+        modelRef.current.dispose();
+        modelRef.current = null;
+      }
+      if ((window as any).monacoEditor) {
+        delete (window as any).monacoEditor;
+      }
+    };
+  }, []); // Only run once on mount
 
   // Update font size
   const updateFontSize = (newFontSize: number) => {
@@ -38,6 +148,8 @@ export default function CodeEditorPage() {
     
     editorRef.current.updateOptions({ fontSize: fontSizeRef.current });
     
+    // Calculate zoom level percentage based on current fontSize relative to DEFAULT_FONT_SIZE (14)
+    // This is used for display only - actual zoom setting always uses DEFAULT_FONT_SIZE
     const zoomPercentage = Math.round((fontSizeRef.current / DEFAULT_FONT_SIZE) * 100);
     setZoomLevel(zoomPercentage);
     setCurrentFontSize(fontSizeRef.current);
@@ -48,6 +160,9 @@ export default function CodeEditorPage() {
       return;
     }
     
+    // CRITICAL: Always calculate new fontSize based on DEFAULT_FONT_SIZE (14), NOT current fontSize
+    // Example: zoom=150% -> newFontSize = 14 * 150 / 100 = 21 (not currentFontSize * 150 / 100)
+    // This ensures consistent zoom behavior regardless of current zoom level
     const newFontSize = (DEFAULT_FONT_SIZE * zoom) / 100;
     updateFontSize(newFontSize);
   };
@@ -56,6 +171,7 @@ export default function CodeEditorPage() {
     setWordWrap(prev => prev === 'on' ? 'off' : 'on');
   };
 
+  // Update wordWrap
   useEffect(() => {
     if (!editorRef.current || !isEditorReady) return;
     
@@ -65,18 +181,16 @@ export default function CodeEditorPage() {
   // Theme management
   const updateMonacoTheme = (newTheme: 'vs' | 'vs-dark') => {
     setTheme(newTheme);
-    if (monacoRef.current) {
-      monacoRef.current.editor.setTheme(newTheme);
-      
-      if (newTheme === 'vs') {
-        document.body.style.backgroundColor = '#ffffff';
-        document.body.classList.add('light-theme');
-        document.body.classList.remove('dark-theme');
-      } else {
-        document.body.style.backgroundColor = '#1e1e1e';
-        document.body.classList.add('dark-theme');
-        document.body.classList.remove('light-theme');
-      }
+    monaco.editor.setTheme(newTheme);
+    
+    if (newTheme === 'vs') {
+      document.body.style.backgroundColor = '#ffffff';
+      document.body.classList.add('light-theme');
+      document.body.classList.remove('dark-theme');
+    } else {
+      document.body.style.backgroundColor = '#1e1e1e';
+      document.body.classList.add('dark-theme');
+      document.body.classList.remove('light-theme');
     }
   };
 
@@ -127,121 +241,12 @@ export default function CodeEditorPage() {
     }
   }, []);
 
-  const handleEditorDidMount = (
-    editor: editor.IStandaloneCodeEditor,
-    monaco: typeof import('monaco-editor')
-  ) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
-    setIsEditorReady(true);
-
-    const model = editor.getModel();
-    if (model) {
-      setLanguage(model.getLanguageId() || 'plaintext');
-    }
-
-    const updateCursorPosition = () => {
-      const position = editor.getPosition();
-      if (position) {
-        setLineNumber(position.lineNumber);
-        setColumnNumber(position.column);
-      }
-    };
-
-    editor.onDidChangeCursorPosition(() => updateCursorPosition());
-    
-    monaco.editor.onDidChangeMarkers(() => {
-      if (model) {
-        setLanguage(model.getLanguageId() || 'plaintext');
-      }
-    });
-
-    fontSizeRef.current = DEFAULT_FONT_SIZE;
-    updateFontSize(DEFAULT_FONT_SIZE);
-    
-    editor.onDidChangeConfiguration(() => {
-      const fontSize = editor.getOption(monaco.editor.EditorOption.fontSize);
-      fontSizeRef.current = fontSize;
-      const calculatedZoom = Math.round((fontSize / DEFAULT_FONT_SIZE) * 100);
-      setZoomLevel(calculatedZoom);
-    });
-
-    updateCursorPosition();
-
-    // Expose API to window for WPF integration
-    (window as any).monacoEditor = {
-      setValue: (text: string) => {
-        const model = editor.getModel();
-        if (model) {
-          model.setValue(text);
-        }
-      },
-      getValue: () => {
-        const model = editor.getModel();
-        return model?.getValue() || '';
-      },
-      setLanguage: (lang: string) => {
-        const model = editor.getModel();
-        if (model) {
-          monaco.editor.setModelLanguage(model, lang);
-          setLanguage(lang);
-        }
-      },
-    };
-
-    // Check for pending content
-    if ((window as any).pendingEditorContent) {
-      const pendingContent = (window as any).pendingEditorContent;
-      const model = editor.getModel();
-      if (model) {
-        model.setValue(pendingContent.text || '');
-        
-        if (pendingContent.language) {
-          monaco.editor.setModelLanguage(model, pendingContent.language);
-          setLanguage(pendingContent.language);
-        }
-      }
-      delete (window as any).pendingEditorContent;
-    }
-
-    // Set theme
-    if (wpfThemeRef.current) {
-      const isDark = wpfThemeRef.current === 'dark';
-      const monacoTheme = isDark ? 'vs-dark' : 'vs';
-      monaco.editor.setTheme(monacoTheme);
-      setTheme(isDark ? 'vs-dark' : 'vs');
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const monacoTheme = prefersDark ? 'vs-dark' : 'vs';
-      monaco.editor.setTheme(monacoTheme);
-      setTheme(prefersDark ? 'vs-dark' : 'vs');
-    }
-  };
-
   return (
     <>
       {!isEditorReady && <LoadingOverlay theme={theme} />}
       <div className="monaco-container">
-        <div className="editor-wrapper">
-          <Editor
-            height="calc(100vh - 24px)"
-            language="plaintext"
-            theme={theme}
-            loading={
-              <div className={`monaco-loading ${theme === 'vs-dark' ? 'dark' : 'light'}`}>
-                <div className="loading-spinner"></div>
-              </div>
-            }
-            options={{
-              minimap: { enabled: true },
-              scrollBeyondLastLine: false,
-              fontSize: currentFontSize,
-              automaticLayout: true,
-              wordWrap: wordWrap,
-            }}
-            onMount={handleEditorDidMount as any}
-            defaultValue="// Code editor\nfunction hello() {\n  console.log('Hello, World!');\n}"
-          />
+        <div className="editor-wrapper" style={{ height: 'calc(100vh - 24px)', width: '100%' }}>
+          <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
         </div>
         <StatusBar
           theme={theme}
@@ -253,12 +258,9 @@ export default function CodeEditorPage() {
           onToggleWordWrap={toggleWordWrap}
           onSetZoom={setZoom}
           onSetLanguage={(lang) => {
-            if (editorRef.current && monacoRef.current) {
-              const model = editorRef.current.getModel();
-              if (model) {
-                monacoRef.current.editor.setModelLanguage(model, lang);
-                setLanguage(lang);
-              }
+            if (editorRef.current && modelRef.current) {
+              monaco.editor.setModelLanguage(modelRef.current, lang);
+              setLanguage(lang);
             }
           }}
         />
@@ -266,4 +268,3 @@ export default function CodeEditorPage() {
     </>
   );
 }
-

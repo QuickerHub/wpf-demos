@@ -24,12 +24,12 @@ export default function ZoomMenu({ theme, zoomLevel, show, onClose, onSelectZoom
     if (show) {
       // Use a small delay to avoid closing immediately when opening
       const timeoutId = setTimeout(() => {
-        document.addEventListener('click', handleClickOutside, true);
+        document.addEventListener('mousedown', handleClickOutside, true);
       }, 100);
       
       return () => {
         clearTimeout(timeoutId);
-        document.removeEventListener('click', handleClickOutside, true);
+        document.removeEventListener('mousedown', handleClickOutside, true);
       };
     }
   }, [show, onClose]);
@@ -51,11 +51,6 @@ export default function ZoomMenu({ theme, zoomLevel, show, onClose, onSelectZoom
         <div
           key={zoom}
           className={`zoom-menu-item ${zoom === zoomLevel ? 'active' : ''}`}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onSelectZoom(zoom);
-          }}
           onClick={(e) => {
             e.stopPropagation();
             onSelectZoom(zoom);

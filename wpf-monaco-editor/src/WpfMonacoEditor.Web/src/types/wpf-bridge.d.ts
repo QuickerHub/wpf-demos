@@ -26,6 +26,7 @@ interface Window {
   receiveFromWpf?: (messageObj: { type: string; data: string }) => void;
   onWpfMessage?: (messageObj: { type: string; data: string }) => void;
   monacoDiffEditor?: {
+    editor: import('monaco-editor').editor.IStandaloneDiffEditor;
     setOriginalText: (text: string) => void;
     setModifiedText: (text: string) => void;
     getOriginalText: () => string;
@@ -40,7 +41,8 @@ interface Window {
     language?: string;
   };
   MonacoEnvironment?: {
-    getWorkerUrl: (moduleId: string, label: string) => string;
+    getWorkerUrl?: (moduleId: string, label: string) => string;
+    getWorker?: (moduleId: string, label: string) => Worker;
   };
   wpfTheme?: string;
   setWpfTheme?: (theme: string) => void;
