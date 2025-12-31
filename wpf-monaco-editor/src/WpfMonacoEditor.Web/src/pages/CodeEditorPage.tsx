@@ -25,7 +25,6 @@ export default function CodeEditorPage() {
   const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
   const [zoomLevel, setZoomLevel] = useState(100);
   const fontSizeRef = useRef<number>(DEFAULT_FONT_SIZE);
-  const [currentFontSize, setCurrentFontSize] = useState(DEFAULT_FONT_SIZE);
 
   // Initialize Monaco Editor
   useEffect(() => {
@@ -76,14 +75,12 @@ export default function CodeEditorPage() {
     });
 
     fontSizeRef.current = DEFAULT_FONT_SIZE;
-    setCurrentFontSize(DEFAULT_FONT_SIZE);
     
     editor.onDidChangeConfiguration(() => {
       const fontSize = editor.getOption(monaco.editor.EditorOption.fontSize);
       fontSizeRef.current = fontSize;
       const calculatedZoom = Math.round((fontSize / DEFAULT_FONT_SIZE) * 100);
       setZoomLevel(calculatedZoom);
-      setCurrentFontSize(fontSize);
     });
 
     updateCursorPosition();
@@ -152,7 +149,6 @@ export default function CodeEditorPage() {
     // This is used for display only - actual zoom setting always uses DEFAULT_FONT_SIZE
     const zoomPercentage = Math.round((fontSizeRef.current / DEFAULT_FONT_SIZE) * 100);
     setZoomLevel(zoomPercentage);
-    setCurrentFontSize(fontSizeRef.current);
   };
 
   const setZoom = (zoom: number) => {
@@ -161,7 +157,7 @@ export default function CodeEditorPage() {
     }
     
     // CRITICAL: Always calculate new fontSize based on DEFAULT_FONT_SIZE (14), NOT current fontSize
-    // Example: zoom=150% -> newFontSize = 14 * 150 / 100 = 21 (not currentFontSize * 150 / 100)
+    // Example: zoom=150% -> newFontSize = 14 * 150 / 100 = 21 (not fontSizeRef.current * 150 / 100)
     // This ensures consistent zoom behavior regardless of current zoom level
     const newFontSize = (DEFAULT_FONT_SIZE * zoom) / 100;
     updateFontSize(newFontSize);

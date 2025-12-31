@@ -13,7 +13,6 @@ export function useEditorStatus() {
   ) {
     // Get models and editors
     let originalModel: editor.ITextModel | null = null;
-    let modifiedModel: editor.ITextModel | null = null;
     let originalEditor: editor.IStandaloneCodeEditor;
     let modifiedEditor: editor.IStandaloneCodeEditor | null = null;
 
@@ -23,7 +22,7 @@ export function useEditorStatus() {
       originalEditor = diffEditor.getOriginalEditor();
       modifiedEditor = diffEditor.getModifiedEditor();
       originalModel = originalEditor.getModel();
-      modifiedModel = modifiedEditor.getModel();
+      // modifiedModel is not used, only modifiedEditor is needed for cursor position
     } else {
       // CodeEditor
       originalEditor = editorInstance as editor.IStandaloneCodeEditor;
