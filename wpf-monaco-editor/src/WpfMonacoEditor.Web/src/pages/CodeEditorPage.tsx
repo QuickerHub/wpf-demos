@@ -21,6 +21,7 @@ export default function CodeEditorPage() {
   // Status bar state
   const [lineNumber, setLineNumber] = useState(1);
   const [columnNumber, setColumnNumber] = useState(1);
+  const [selectedCharCount, setSelectedCharCount] = useState(0);
   const [language, setLanguage] = useState('plaintext');
   const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -57,22 +58,38 @@ export default function CodeEditorPage() {
     // Get initial language
     setLanguage(model.getLanguageId() || 'plaintext');
 
-    // Update cursor position
+    // Update cursor position and selection
     const updateCursorPosition = () => {
       const position = editor.getPosition();
       if (position) {
         setLineNumber(position.lineNumber);
         setColumnNumber(position.column);
       }
+      
+      // Update selected character count
+      const selections = editor.getSelections();
+      if (selections && selections.length > 0) {
+        const model = editor.getModel();
+        if (model) {
+          let totalChars = 0;
+          for (const selection of selections) {
+            const selectedText = model.getValueInRange(selection);
+            totalChars += selectedText.length;
+          }
+          setSelectedCharCount(totalChars);
+        }
+      } else {
+        setSelectedCharCount(0);
+      }
     };
 
     editor.onDidChangeCursorPosition(() => updateCursorPosition());
+    editor.onDidChangeCursorSelection(() => updateCursorPosition());
     
-    monaco.editor.onDidChangeMarkers(() => {
-      if (model) {
-        setLanguage(model.getLanguageId() || 'plaintext');
-      }
-    });
+    // Note: We don't listen to language changes via onDidChangeMarkers because:
+    // 1. onDidChangeMarkers is a global event that fires for ALL editors, causing unnecessary updates
+    // 2. Language changes are user-initiated actions (via menu selection)
+    // 3. We already update language state in onSetLanguage callback
 
     fontSizeRef.current = DEFAULT_FONT_SIZE;
     
@@ -248,6 +265,7 @@ export default function CodeEditorPage() {
           theme={theme}
           lineNumber={lineNumber}
           columnNumber={columnNumber}
+          selectedCharCount={selectedCharCount}
           language={language}
           wordWrap={wordWrap}
           zoomLevel={zoomLevel}

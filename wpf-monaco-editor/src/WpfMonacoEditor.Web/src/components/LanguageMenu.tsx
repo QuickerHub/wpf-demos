@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 
 interface LanguageMenuProps {
   theme: 'vs' | 'vs-dark';
@@ -34,6 +34,106 @@ const LANGUAGES = [
 
 export default function LanguageMenu({ theme, currentLanguage, show, onClose, onSelectLanguage }: LanguageMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [searchText, setSearchText] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Filter languages based on search text (like native select behavior)
+  // Supports searching by name or id (e.g., "cs" matches "C#")
+  const filteredLanguages = useMemo(() => {
+    if (!searchText) return LANGUAGES;
+    const lowerSearch = searchText.toLowerCase();
+    return LANGUAGES.filter(lang => {
+      const nameLower = lang.name.toLowerCase();
+      const idLower = lang.id.toLowerCase();
+      return (
+        nameLower.startsWith(lowerSearch) ||
+        nameLower.includes(lowerSearch) ||
+        idLower.startsWith(lowerSearch) ||
+        idLower.includes(lowerSearch)
+      );
+    });
+  }, [searchText]);
+
+  // Reset search when menu opens/closes
+  useEffect(() => {
+    if (show) {
+      setSearchText('');
+      setHighlightedIndex(0);
+    }
+  }, [show]);
+
+  // Handle keyboard input for filtering (like native select)
+  useEffect(() => {
+    if (!show) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Handle Escape to close
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      // Handle Enter to select highlighted item
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (filteredLanguages[highlightedIndex]) {
+          onSelectLanguage(filteredLanguages[highlightedIndex].id);
+        }
+        return;
+      }
+
+      // Handle Arrow keys for navigation
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setHighlightedIndex(prev => (prev + 1) % filteredLanguages.length);
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setHighlightedIndex(prev => (prev - 1 + filteredLanguages.length) % filteredLanguages.length);
+        return;
+      }
+
+      // Handle character input for filtering (like native select)
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        
+        // Clear previous timeout
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+
+        // Append character to search text
+        const newSearchText = searchText + event.key;
+        setSearchText(newSearchText);
+
+        // Reset search after 1 second of no input (like native select)
+        searchTimeoutRef.current = setTimeout(() => {
+          setSearchText('');
+          setHighlightedIndex(0);
+        }, 1000);
+
+        // Reset highlighted index when filtering
+        setHighlightedIndex(0);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [show, searchText, filteredLanguages, highlightedIndex, onClose, onSelectLanguage]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -55,6 +155,16 @@ export default function LanguageMenu({ theme, currentLanguage, show, onClose, on
     }
   }, [show, onClose]);
 
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (menuRef.current && filteredLanguages.length > 0) {
+      const items = menuRef.current.querySelectorAll('.language-menu-item');
+      if (items[highlightedIndex]) {
+        items[highlightedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [highlightedIndex, filteredLanguages.length]);
+
   if (!show) return null;
 
   return (
@@ -68,23 +178,30 @@ export default function LanguageMenu({ theme, currentLanguage, show, onClose, on
         e.stopPropagation();
       }}
     >
-      {LANGUAGES.map((lang) => (
-        <div
-          key={lang.id}
-          className={`language-menu-item ${lang.id === currentLanguage ? 'active' : ''}`}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onSelectLanguage(lang.id);
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectLanguage(lang.id);
-          }}
-        >
-          {lang.name}
+      {filteredLanguages.length === 0 ? (
+        <div className="language-menu-item" style={{ opacity: 0.5 }}>
+          No matches
         </div>
-      ))}
+      ) : (
+        filteredLanguages.map((lang, index) => (
+          <div
+            key={lang.id}
+            className={`language-menu-item ${lang.id === currentLanguage ? 'active' : ''} ${index === highlightedIndex ? 'highlighted' : ''}`}
+            onMouseEnter={() => setHighlightedIndex(index)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onSelectLanguage(lang.id);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectLanguage(lang.id);
+            }}
+          >
+            {lang.name}
+          </div>
+        ))
+      )}
     </div>
   );
 }

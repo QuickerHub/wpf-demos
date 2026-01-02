@@ -261,12 +261,20 @@ body {
     pointer-events: auto;
 }
 
+.language-menu-item.highlighted {
+    background-color: rgba(0, 122, 204, 0.3);
+}
+
 .language-menu.dark .language-menu-item {
     color: #cccccc;
 }
 
 .language-menu.dark .language-menu-item:hover {
     background-color: #2a2d2e;
+}
+
+.language-menu.dark .language-menu-item.highlighted {
+    background-color: rgba(0, 122, 204, 0.4);
 }
 
 .language-menu.dark .language-menu-item.active {
@@ -279,6 +287,10 @@ body {
 
 .language-menu.light .language-menu-item:hover {
     background-color: #e8e8e8;
+}
+
+.language-menu.light .language-menu-item.highlighted {
+    background-color: rgba(0, 122, 204, 0.2);
 }
 
 .language-menu.light .language-menu-item.active {

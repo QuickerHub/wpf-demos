@@ -15,7 +15,6 @@ export default defineConfig({
         server.httpServer?.once('listening', () => {
           const address = server.httpServer?.address();
           if (address && typeof address === 'object') {
-            // Normalize address: convert IPv6 localhost (::, ::1) and IPv4 0.0.0.0 to localhost
             const host = address.address === '::' || address.address === '::1' || address.address === '0.0.0.0'
               ? 'localhost'
               : address.address;
@@ -35,45 +34,23 @@ export default defineConfig({
   ],
   server: {
     port: parseInt(process.env.VITE_PORT || '5174', 10),
-    host: process.env.VITE_HOST || 'localhost',
-    strictPort: false,
-    cors: true
+    host: process.env.VITE_HOST || 'localhost'
   },
   build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    assetsDir: 'assets',
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      input: './index.html',
       output: {
-        // Optimize chunk splitting for better caching and parallel loading
         manualChunks: (id) => {
-          // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('monaco-editor')) {
-              return 'monaco-vendor';
-            }
-            // Other vendor libraries
+            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor';
+            if (id.includes('react-router')) return 'router-vendor';
+            if (id.includes('monaco-editor')) return 'monaco-vendor';
             return 'vendor';
           }
-        },
-        // Optimize file names for better caching
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        }
       }
-    },
-    // Use esbuild for faster minification (default in Vite 5)
-    minify: 'esbuild',
-    // Increase chunk size warning limit (Monaco Editor is large)
-    chunkSizeWarningLimit: 2000,
-    // Disable source maps for smaller bundle size
-    sourcemap: false,
-    // Enable CSS code splitting
-    cssCodeSplit: true
+    }
   },
   base: './'
 });

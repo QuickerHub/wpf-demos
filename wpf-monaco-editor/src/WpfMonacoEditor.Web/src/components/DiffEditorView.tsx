@@ -25,7 +25,22 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
 
   // Use custom hooks for zoom and status
   const { zoomLevel, setZoom, setupZoomSync } = useEditorZoom();
-  const { lineNumber, columnNumber, language, wordWrap, setLanguage, toggleWordWrap, setupStatusListeners } = useEditorStatus();
+  const { lineNumber, columnNumber, selectedCharCount, language, wordWrap, setLanguage, toggleWordWrap, setupStatusListeners } = useEditorStatus();
+
+  // Helper function to set language for both models in DiffEditor
+  // Note: DiffEditor doesn't support setting language via updateOptions,
+  // we must set language for each model separately
+  const setDiffEditorLanguage = (lang: string) => {
+    if (!diffEditorRef.current) return;
+    
+    const originalModel = diffEditorRef.current.getOriginalEditor().getModel();
+    const modifiedModel = diffEditorRef.current.getModifiedEditor().getModel();
+    
+    if (originalModel) monaco.editor.setModelLanguage(originalModel, lang);
+    if (modifiedModel) monaco.editor.setModelLanguage(modifiedModel, lang);
+    
+    setLanguage(lang);
+  };
 
   // Initialize Monaco Editor
   useEffect(() => {
@@ -114,7 +129,7 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
 
     // Setup zoom and status listeners
     setupZoomSync(diffEditorRef.current, monaco);
-    setupStatusListeners(diffEditorRef.current, monaco);
+    setupStatusListeners(diffEditorRef.current);
 
     // Expose API to window for WPF integration
     window.monacoDiffEditor = {
@@ -142,13 +157,7 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
         return modifiedModelRef.current;
       },
       setLanguage: (lang: string) => {
-        if (originalModelRef.current) {
-          monaco.editor.setModelLanguage(originalModelRef.current, lang);
-        }
-        if (modifiedModelRef.current) {
-          monaco.editor.setModelLanguage(modifiedModelRef.current, lang);
-        }
-        setLanguage(lang);
+        setDiffEditorLanguage(lang);
       },
     };
 
@@ -162,13 +171,7 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
         modifiedModelRef.current.setValue(pendingContent.modified || '');
       }
       if (pendingContent.language) {
-        if (originalModelRef.current) {
-          monaco.editor.setModelLanguage(originalModelRef.current, pendingContent.language);
-        }
-        if (modifiedModelRef.current) {
-          monaco.editor.setModelLanguage(modifiedModelRef.current, pendingContent.language);
-        }
-        setLanguage(pendingContent.language);
+        setDiffEditorLanguage(pendingContent.language);
       }
       delete window.pendingDiffContent;
     }
@@ -192,15 +195,8 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
     }
   }, [modifiedText]);
 
-  // Update language when state changes
-  useEffect(() => {
-    if (originalModelRef.current && originalModelRef.current.getLanguageId() !== language) {
-      monaco.editor.setModelLanguage(originalModelRef.current, language);
-    }
-    if (modifiedModelRef.current && modifiedModelRef.current.getLanguageId() !== language) {
-      monaco.editor.setModelLanguage(modifiedModelRef.current, language);
-    }
-  }, [language]);
+  // Note: Language is set via setDiffEditorLanguage function, not via useEffect
+  // This prevents unnecessary updates and ensures language is only changed when user explicitly selects it
 
   // Update diffWordWrap when wordWrap changes
   useEffect(() => {
@@ -226,14 +222,13 @@ export default function DiffEditorView({ theme, onEditorReady }: DiffEditorViewP
         theme={theme}
         lineNumber={lineNumber}
         columnNumber={columnNumber}
+        selectedCharCount={selectedCharCount}
         language={language}
         wordWrap={wordWrap}
         zoomLevel={zoomLevel}
         onToggleWordWrap={toggleWordWrap}
         onSetZoom={setZoom}
-        onSetLanguage={(lang) => {
-          setLanguage(lang);
-        }}
+        onSetLanguage={setDiffEditorLanguage}
       />
     </>
   );

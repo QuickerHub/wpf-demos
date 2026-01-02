@@ -6,6 +6,7 @@ interface StatusBarProps {
   theme: 'vs' | 'vs-dark';
   lineNumber: number;
   columnNumber: number;
+  selectedCharCount: number;
   language: string;
   wordWrap: 'on' | 'off';
   zoomLevel: number;
@@ -18,6 +19,7 @@ export default function StatusBar({
   theme,
   lineNumber,
   columnNumber,
+  selectedCharCount,
   language,
   wordWrap,
   zoomLevel,
@@ -81,7 +83,10 @@ export default function StatusBar({
   return (
     <div className={`status-bar ${theme === 'vs-dark' ? 'dark' : 'light'}`}>
       <div className="status-bar-content">
-        <span className="status-item">行: {lineNumber}, 列: {columnNumber}</span>
+        <span className="status-item">
+          行: {lineNumber}, 列: {columnNumber}
+          {selectedCharCount > 0 && ` (已选择${selectedCharCount})`}
+        </span>
         <span className="status-separator">|</span>
         <div className="language-container" ref={languageMenuRef}>
           <span 

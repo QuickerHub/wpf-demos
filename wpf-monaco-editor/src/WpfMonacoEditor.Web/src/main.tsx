@@ -3,30 +3,14 @@ import ReactDOM from 'react-dom/client';
 import * as monaco from 'monaco-editor';
 import App from './App';
 
-// Import Monaco Editor workers using Vite's worker import
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-
 // Configure Monaco Editor Web Workers
-// This is required when using local monaco-editor package
+// Only use editor worker for syntax highlighting, exclude language service workers to reduce bundle size
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+
 self.MonacoEnvironment = {
-  getWorker: function (_moduleId: string, label: string): Worker {
-    if (label === 'json') {
-      return new JsonWorker();
-    }
-    if (label === 'css' || label === 'scss' || label === 'less') {
-      return new CssWorker();
-    }
-    if (label === 'html' || label === 'handlebars' || label === 'razor') {
-      return new HtmlWorker();
-    }
-    if (label === 'typescript' || label === 'javascript') {
-      return new TsWorker();
-    }
-    // Default editor worker
+  getWorker: function () {
+    // Only use editor worker for basic syntax highlighting
+    // No language services (autocomplete, error checking, etc.) to save ~8+ MB
     return new EditorWorker();
   }
 };
