@@ -57,9 +57,11 @@ namespace WindowEdgeHide
         /// <param name="activationStrategy">Window activation strategy string (AutoActivate, Topmost, None). Default: "AutoActivate"</param>
         /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
+        /// <param name="showInTaskbar">If false, hide window from taskbar (default: true)</param>
+        /// <param name="showDelay">Delay in milliseconds before showing window when mouse enters (default: 0, show immediately)</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, string activationStrategy = "AutoActivate", string quicker_param = "", string updateEdgeDirection = "None")
+            string visibleArea = "5", string animationType = "None", bool showOnScreenEdge = false, bool autoUnregister = true, string activationStrategy = "AutoActivate", string quicker_param = "", string updateEdgeDirection = "None", bool showInTaskbar = true, int showDelay = 0)
         {
             // Ensure entire method executes on UI thread
             EnableEdgeHideResult? result = null;
@@ -176,7 +178,9 @@ namespace WindowEdgeHide
                         AnimationType = animType,
                         ShowOnScreenEdge = showOnScreenEdge,
                         ActivationStrategy = activationStrategyEnum,
-                        UpdateEdgeDirection = updateDirection
+                        UpdateEdgeDirection = updateDirection,
+                        ShowInTaskbar = showInTaskbar,
+                        ShowDelay = showDelay
                     };
                     result = EnableEdgeHide(config);
                 });
@@ -206,13 +210,15 @@ namespace WindowEdgeHide
         /// <param name="activationStrategy">Window activation strategy string (AutoActivate, Topmost, None). Default: "AutoActivate"</param>
         /// <param name="quicker_param">Quicker parameter to override edgeDirection: "left", "top", "right", "bottom", "auto", or empty string (default: empty string)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update string (Left, Top, Right, Bottom, Nearest, None). Default: "None"</param>
+        /// <param name="showInTaskbar">If false, hide window from taskbar (default: true)</param>
+        /// <param name="showDelay">Delay in milliseconds before showing window when mouse enters (default: 0, show immediately)</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(int windowHandle, string edgeDirection = "Nearest", 
-            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, string activationStrategy = "AutoActivate", string quicker_param = "", string updateEdgeDirection = "None")
+            string visibleArea = "5", bool useAnimation = false, bool showOnScreenEdge = false, bool autoUnregister = true, string activationStrategy = "AutoActivate", string quicker_param = "", string updateEdgeDirection = "None", bool showInTaskbar = true, int showDelay = 0)
         {
             // Convert useAnimation boolean to animationType string
             string animationType = useAnimation ? "EaseInOut" : "None";
-            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, activationStrategy, quicker_param, updateEdgeDirection);
+            return EnableEdgeHide(windowHandle, edgeDirection, visibleArea, animationType, showOnScreenEdge, autoUnregister, activationStrategy, quicker_param, updateEdgeDirection, showInTaskbar, showDelay);
         }
 
         /// <summary>
@@ -302,10 +308,26 @@ namespace WindowEdgeHide
             // Convert legacy config format if needed
             ConvertLegacyConfig(config);
 
+            // Handle taskbar visibility
+            if (!config.ShowInTaskbar)
+            {
+                // Record original taskbar visibility state
+                config.OriginalTaskbarVisible = WindowHelper.IsWindowVisibleInTaskbar(config.WindowHandle);
+                
+                // Hide window from taskbar
+                WindowHelper.SetWindowTaskbarVisibility(config.WindowHandle, false);
+            }
+
             // Create new service (constructor initializes everything)
-            var service = new WindowEdgeHideService(config.WindowHandle, config.EdgeDirection, config.VisibleArea, mover, config.ShowOnScreenEdge, config.ActivationStrategy, config.UpdateEdgeDirection);
+            var service = new WindowEdgeHideService(config.WindowHandle, config.EdgeDirection, config.VisibleArea, mover, config.ShowOnScreenEdge, config.ActivationStrategy, config.UpdateEdgeDirection, config.ShowDelay);
             service.WindowDestroyed += (hwnd) =>
             {
+                // Restore taskbar visibility if needed
+                if (_configs.TryGetValue(hwnd, out var destroyedConfig) && !destroyedConfig.ShowInTaskbar)
+                {
+                    WindowHelper.SetWindowTaskbarVisibility(hwnd, destroyedConfig.OriginalTaskbarVisible);
+                }
+                
                 _services.Remove(hwnd);
                 _configs.Remove(hwnd);
                 SaveConfigs();
@@ -330,9 +352,10 @@ namespace WindowEdgeHide
                     AnimationType.EaseInOut => "已启用缓入缓出动画",
                     _ => "未启用动画"
                 };
+                string taskbarText = !config.ShowInTaskbar ? "，已隐藏任务栏" : "";
                 string message = wasEnabled 
-                    ? $"贴边隐藏已重新启用 - 方向: {directionText}, {animationText}"
-                    : $"贴边隐藏已启用 - 方向: {directionText}, {animationText}";
+                    ? $"贴边隐藏已重新启用 - 方向: {directionText}, {animationText}{taskbarText}"
+                    : $"贴边隐藏已启用 - 方向: {directionText}, {animationText}{taskbarText}";
                 
                 return new EnableEdgeHideResult
                 {
@@ -362,9 +385,10 @@ namespace WindowEdgeHide
         /// <param name="autoTopmost">If true, automatically set window to topmost (default: true)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update. If None, automatically selects nearest edge (default: None)</param>
         /// <param name="useFocusAwareActivation">If true, focused windows use auto-activate after show, unfocused windows use Topmost=true without activation (default: false)</param>
+        /// <param name="showDelay">Delay in milliseconds before showing window when mouse enters (default: 0, show immediately)</param>
         /// <returns>Result object with success status and message</returns>
         public static EnableEdgeHideResult EnableEdgeHide(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest,
-            IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None, bool useFocusAwareActivation = false)
+            IntThickness visibleArea = default, AnimationType animationType = AnimationType.None, bool showOnScreenEdge = false, bool autoTopmost = true, EdgeDirection updateEdgeDirection = EdgeDirection.None, bool useFocusAwareActivation = false, int showDelay = 0)
         {
             // Get top-level window handle to prevent operations on child windows
             // Operations on child windows are likely to fail
@@ -389,7 +413,8 @@ namespace WindowEdgeHide
                 AnimationType = animationType,
                 ShowOnScreenEdge = showOnScreenEdge,
                 ActivationStrategy = activationStrategy,
-                UpdateEdgeDirection = updateEdgeDirection
+                UpdateEdgeDirection = updateEdgeDirection,
+                ShowDelay = showDelay
             };
             return EnableEdgeHide(config);
         }
@@ -528,6 +553,12 @@ namespace WindowEdgeHide
         {
             if (_services.TryGetValue(windowHandle, out var service))
             {
+                // Restore taskbar visibility if needed
+                if (_configs.TryGetValue(windowHandle, out var config) && !config.ShowInTaskbar)
+                {
+                    WindowHelper.SetWindowTaskbarVisibility(windowHandle, config.OriginalTaskbarVisible);
+                }
+                
                 service.Dispose();
                 _services.Remove(windowHandle);
                 _configs.Remove(windowHandle);

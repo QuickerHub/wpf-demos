@@ -28,7 +28,7 @@
                 <ComboBox
                     x:Name="EdgeComboBox"
                     Width="120"
-                    SelectedIndex="5">
+                    SelectedIndex="1">
                     <ComboBoxItem Content="Left" />
                     <ComboBoxItem Content="Top" />
                     <ComboBoxItem Content="Right" />
@@ -53,7 +53,7 @@
                 </ComboBox>
             </StackPanel>
 
-            <StackPanel Margin="0,0,0,20" Orientation="Horizontal">
+            <StackPanel Margin="0,0,0,15" Orientation="Horizontal">
                 <TextBlock
                     Margin="0,0,10,0"
                     VerticalAlignment="Center"
@@ -68,6 +68,23 @@
                     VerticalAlignment="Center"
                     Foreground="Gray"
                     Text="(e.g., 5, 5,6, or 1,2,3,4)" />
+            </StackPanel>
+
+            <StackPanel Margin="0,0,0,20" Orientation="Horizontal">
+                <TextBlock
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center"
+                    Text="Show Delay (ms):" />
+                <TextBox
+                    x:Name="ShowDelayTextBox"
+                    Width="120"
+                    VerticalAlignment="Center"
+                    Text="0" />
+                <TextBlock
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center"
+                    Foreground="Gray"
+                    Text="(Delay before showing window)" />
             </StackPanel>
 
             <Button

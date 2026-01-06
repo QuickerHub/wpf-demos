@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using Windows.Win32;
@@ -30,6 +32,8 @@ namespace WindowEdgeHide.Services
         private IWindowMover _mover; // Single mover for both hiding and showing (prevents animation conflicts)
         private readonly WindowMouseHook _mouseHook; // Mouse hook for monitoring mouse enter/leave
         private readonly ManagedWindow _managedWindow; // Managed window for state monitoring
+        private readonly int _showDelay; // Delay in milliseconds before showing window when mouse enters
+        private CancellationTokenSource? _showDelayCts; // Cancellation token source for delayed show
 
         /// <summary>
         /// Event raised when window is destroyed
@@ -46,9 +50,10 @@ namespace WindowEdgeHide.Services
         /// <param name="showOnScreenEdge">If true, show window when mouse is at screen edge (default: false)</param>
         /// <param name="activationStrategy">Window activation strategy when showing from edge hide (default: AutoActivate)</param>
         /// <param name="updateEdgeDirection">Edge direction for window restore/update. If None, automatically selects nearest edge (default: None)</param>
+        /// <param name="showDelay">Delay in milliseconds before showing window when mouse enters (default: 0, show immediately)</param>
         public WindowEdgeHideService(IntPtr windowHandle, EdgeDirection edgeDirection = EdgeDirection.Nearest, 
             IntThickness visibleArea = default, 
-            IWindowMover? mover = null, bool showOnScreenEdge = false, ActivationStrategy activationStrategy = ActivationStrategy.AutoActivate, EdgeDirection updateEdgeDirection = EdgeDirection.None)
+            IWindowMover? mover = null, bool showOnScreenEdge = false, ActivationStrategy activationStrategy = ActivationStrategy.AutoActivate, EdgeDirection updateEdgeDirection = EdgeDirection.None, int showDelay = 0)
         {
             var hwnd = new HWND(windowHandle);
             if (!IsWindow(hwnd))
@@ -57,6 +62,7 @@ namespace WindowEdgeHide.Services
             _windowHandle = hwnd;
             _activationStrategy = activationStrategy;
             _updateEdgeDirection = updateEdgeDirection;
+            _showDelay = showDelay;
             // Use default thickness if not specified
             if (visibleArea.Equals(default(IntThickness)))
             {
@@ -184,6 +190,14 @@ namespace WindowEdgeHide.Services
                 && _originalTopmost.HasValue && _windowHandle.Value != IntPtr.Zero)
             {
                 WindowHelper.SetWindowTopmost(_windowHandle.Value, _originalTopmost.Value);
+            }
+
+            // Cancel and dispose delay cancellation token if exists
+            if (_showDelayCts != null)
+            {
+                _showDelayCts.Cancel();
+                _showDelayCts.Dispose();
+                _showDelayCts = null;
             }
 
             // Stop and dispose hooks (they will clean up their own event subscriptions)
@@ -350,6 +364,14 @@ namespace WindowEdgeHide.Services
             if (!_isEnabled || _windowHandle.Value != windowHandle)
                 return;
 
+            // Cancel any pending show delay task
+            if (_showDelayCts != null)
+            {
+                _showDelayCts.Cancel();
+                _showDelayCts.Dispose();
+                _showDelayCts = null;
+            }
+
             // Check if window still exists
             if (!IsWindow(_windowHandle))
             {
@@ -379,11 +401,55 @@ namespace WindowEdgeHide.Services
             if (!_isEnabled || _windowHandle.Value != windowHandle)
                 return;
 
+            // Cancel any existing delay task
+            if (_showDelayCts != null)
+            {
+                _showDelayCts.Cancel();
+                _showDelayCts.Dispose();
+                _showDelayCts = null;
+            }
+
             // Mouse entered the window, restore if hidden
             // Skip if window is minimized
             if (_isHidden && !_managedWindow.IsMinimized())
             {
-                RestorePosition();
+                if (_showDelay > 0)
+                {
+                    // Use Task.Delay with CancellationToken for precise delay
+                    _showDelayCts = new CancellationTokenSource();
+                    var token = _showDelayCts.Token;
+                    var cts = _showDelayCts; // Capture reference for cleanup
+                    
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(_showDelay, token);
+                            
+                            // If delay completed, show window (token cancellation would have thrown exception)
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                RestorePosition();
+                                
+                                // Clean up CTS after showing (only if it's still the same instance)
+                                if (_showDelayCts == cts)
+                                {
+                                    _showDelayCts?.Dispose();
+                                    _showDelayCts = null;
+                                }
+                            });
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Task was cancelled, ignore
+                        }
+                    }, token);
+                }
+                else
+                {
+                    // No delay, show immediately
+                    RestorePosition();
+                }
             }
         }
 

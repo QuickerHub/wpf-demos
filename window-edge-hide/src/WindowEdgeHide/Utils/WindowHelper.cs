@@ -544,6 +544,49 @@ namespace WindowEdgeHide.Utils
         }
 
         /// <summary>
+        /// Check if window is visible in taskbar
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <returns>True if window is visible in taskbar, false otherwise</returns>
+        internal static bool IsWindowVisibleInTaskbar(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return false;
+
+            // Get current extended style
+            var exStyle = GetWindowLongPtrWrapper(hWnd, (int)WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            var windowExStyle = (WINDOW_EX_STYLE)exStyle;
+
+            // WS_EX_TOOLWINDOW hides window from taskbar
+            // If this flag is set, window is NOT visible in taskbar
+            return !windowExStyle.HasFlag(WINDOW_EX_STYLE.WS_EX_TOOLWINDOW);
+        }
+
+        /// <summary>
+        /// Set window taskbar visibility
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <param name="visible">True to show in taskbar, false to hide from taskbar</param>
+        /// <returns>True if successful</returns>
+        internal static bool SetWindowTaskbarVisibility(IntPtr hWnd, bool visible)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            var hwnd = new HWND(hWnd);
+            if (!IsWindow(hwnd))
+                return false;
+
+            // Use WS_EX_TOOLWINDOW to hide window from taskbar
+            // Setting it to true hides from taskbar, false shows in taskbar
+            return SetWindowExStyle(hWnd, WINDOW_EX_STYLE.WS_EX_TOOLWINDOW, !visible);
+        }
+
+        /// <summary>
         /// Get window title text
         /// </summary>
         /// <param name="hWnd">Window handle</param>

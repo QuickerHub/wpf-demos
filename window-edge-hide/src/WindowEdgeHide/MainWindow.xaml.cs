@@ -82,8 +82,11 @@ namespace WindowEdgeHide
                     }
                 }
 
+                // Get show delay
+                int.TryParse(ShowDelayTextBox?.Text, out int showDelay);
+
                 // Enable edge hide
-                var result = Runner.EnableEdgeHide(hwnd, edgeDirection, visibleArea, animationType);
+                var result = Runner.EnableEdgeHide(hwnd, edgeDirection, visibleArea, animationType, showDelay: showDelay);
                 
                 if (result.Success)
                 {

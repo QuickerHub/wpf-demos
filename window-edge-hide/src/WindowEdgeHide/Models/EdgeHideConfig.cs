@@ -62,6 +62,24 @@ namespace WindowEdgeHide.Models
         /// </summary>
         [Obsolete("Use ActivationStrategy instead. This property is kept for backward compatibility.")]
         public bool UseFocusAwareActivation { get; set; } = false;
+
+        /// <summary>
+        /// Whether to show window in taskbar
+        /// If false, window will be hidden from taskbar
+        /// </summary>
+        public bool ShowInTaskbar { get; set; } = true;
+
+        /// <summary>
+        /// Original taskbar visibility state before changing
+        /// Used to restore the original state when unregistering
+        /// </summary>
+        public bool OriginalTaskbarVisible { get; set; } = true;
+
+        /// <summary>
+        /// Delay in milliseconds before showing window when mouse enters
+        /// Default: 0 (show immediately)
+        /// </summary>
+        public int ShowDelay { get; set; } = 0;
     }
 }
 
