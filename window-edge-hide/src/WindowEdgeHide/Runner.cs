@@ -85,6 +85,18 @@ namespace WindowEdgeHide
                             };
                             return;
                         }
+                        
+                        // Handle "stopall" command - unregister all windows
+                        if (cmd == "stopall")
+                        {
+                            int count = UnregisterAll();
+                            result = new EnableEdgeHideResult
+                            {
+                                Success = true,
+                                Message = $"已取消 {count} 个窗口的贴边隐藏"
+                            };
+                            return;
+                        }
                     }
                     
                     IntPtr hwnd = new IntPtr(windowHandle);
@@ -604,12 +616,19 @@ namespace WindowEdgeHide
         public static int UnregisterAll()
         {
             int count = 0;
-            foreach (var service in _services.Values)
+            
+            // Get all window handles before clearing
+            var windowHandles = new List<IntPtr>(_services.Keys);
+            
+            // Unregister each window (this handles taskbar visibility, dispose, and removal)
+            foreach (var windowHandle in windowHandles)
             {
-                service.Dispose();
-                count++;
+                if (UnregisterEdgeHide(windowHandle))
+                {
+                    count++;
+                }
             }
-            _services.Clear();
+            
             return count;
         }
 
