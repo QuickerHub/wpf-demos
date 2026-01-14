@@ -26,7 +26,7 @@
     <_QuickerReleasePath Condition="'$(QuickerDllPath)' == ''">C:\Program Files\Quicker</_QuickerReleasePath>
     
     <!-- Auto-select: Use Debug path if exists, otherwise use Release path -->
-    <QuickerDllPath Condition="'$(QuickerDllPath)' == '' And Exists('$(_QuickerDebugPath)\Quicker.exe')">$(_QuickerDebugPath)</QuickerDllPath>
+    <!-- <QuickerDllPath Condition="'$(QuickerDllPath)' == '' And Exists('$(_QuickerDebugPath)\Quicker.exe')">$(_QuickerDebugPath)</QuickerDllPath> -->
     <QuickerDllPath Condition="'$(QuickerDllPath)' == ''">$(_QuickerReleasePath)</QuickerDllPath>
   </PropertyGroup>
 
