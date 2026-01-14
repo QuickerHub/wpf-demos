@@ -1,0 +1,54 @@
+<Window
+    x:Class="QuickerScreenshot.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:QuickerScreenshot"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{Binding ViewModel.Title}"
+    Width="800"
+    Height="600"
+    d:DataContext="{d:DesignInstance local:MainWindow,
+                                     IsDesignTimeCreatable=True}"
+    d:DesignHeight="600"
+    d:DesignWidth="800"
+    Background="{DynamicResource DefaultWindowBackgroundBrush}"
+    Foreground="{DynamicResource PrimaryTextBrush}"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Border
+            Grid.Row="0"
+            Margin="0,0,0,16"
+            Padding="16"
+            Background="{DynamicResource SecondaryRegionBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,0,0,1">
+            <TextBlock
+                FontSize="20"
+                FontWeight="Bold"
+                Text="{Binding ViewModel.Title}" />
+        </Border>
+
+        <!--  Main Content  -->
+        <Grid Grid.Row="1">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Button
+                    Margin="0,0,0,16"
+                    Command="{Binding ViewModel.TakeScreenshotCommand}"
+                    Content="Take Screenshot" />
+
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Text="Screenshot functionality will be implemented here."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
