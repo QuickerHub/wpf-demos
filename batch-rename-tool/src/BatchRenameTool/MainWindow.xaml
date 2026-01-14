@@ -7,8 +7,8 @@
     xmlns:fa="clr-namespace:FontAwesome5.WPF;assembly=FontAwesomeIconsWpf"
     xmlns:local="clr-namespace:BatchRenameTool"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="clr-namespace:BatchRenameTool.ViewModels"
     xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    xmlns:vm="clr-namespace:BatchRenameTool.ViewModels"
     Title="批量重命名工具"
     Width="1000"
     Height="600"
@@ -114,12 +114,12 @@
                     VerticalAlignment="Center"
                     Text="重命名模式：" />
                 <Grid Grid.Column="1" Margin="0,0,8,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
                     <Button
                         x:Name="AddPrefixButton"
                         Grid.Column="0"
@@ -143,15 +143,13 @@
                         ButtonPadding="10,5"
                         Header="历史"
                         ToolTip="查看模式串历史记录">
-                        <controls:PatternHistoryListControl
-                            Width="350"
-                            MaxHeight="400" />
+                        <controls:PatternHistoryListControl Width="350" MaxHeight="400" />
                     </controls:PopupButton>
                     <controls:TemplateInputBox
                         x:Name="RenamePatternTextBox"
                         Grid.Column="3"
-                        Text="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
                         CompletionService="{Binding ViewModel.CompletionService}"
+                        Text="{Binding ViewModel.RenamePattern, UpdateSourceTrigger=PropertyChanged}"
                         ToolTip="重命名模式，使用 {name} 表示原文件名（不含扩展名），{ext} 表示扩展名，{fullname} 表示完整文件名。留空则添加 New_ 前缀。输入 { 可查看可用变量。" />
                 </Grid>
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -172,68 +170,88 @@
 
         <!--  Preview List  -->
         <GroupBox Grid.Row="2" Header="文件列表">
-            <ListView
-                x:Name="FileListView"
+            <DataGrid
+                x:Name="FileDataGrid"
+                AutoGenerateColumns="False"
                 BorderThickness="0"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                CanUserReorderColumns="False"
+                CanUserResizeColumns="True"
+                CanUserResizeRows="False"
+                EnableColumnVirtualization="False"
+                EnableRowVirtualization="True"
+                Focusable="True"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
                 ItemsSource="{Binding ViewModel.Items}"
                 SelectionMode="Extended"
-                VirtualizingPanel.IsVirtualizing="True"
-                VirtualizingPanel.VirtualizationMode="Recycling">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Width="Auto" Header="重命名前">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Margin="5,2">
-                                        <controls:FileIconControl
-                                            Margin="0,0,8,0"
-                                            FilePath="{Binding FullPath}"
-                                            IconSize="16"
-                                            VerticalAlignment="Center" />
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            Text="{Binding OriginalName}"
-                                            TextWrapping="NoWrap"
-                                            TextTrimming="CharacterEllipsis"
-                                            ToolTip="{Binding OriginalName}"
-                                            ToolTipService.InitialShowDelay="500" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Width="Auto" Header="重命名后">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Margin="5,2">
-                                        <controls:FileIconControl
-                                            Margin="0,0,8,0"
-                                            FilePath="{Binding FullPath}"
-                                            IconSize="16"
-                                            VerticalAlignment="Center" />
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            Text="{Binding NewName}"
-                                            TextWrapping="NoWrap"
-                                            TextTrimming="CharacterEllipsis"
-                                            ToolTip="{Binding NewName}"
-                                            ToolTipService.InitialShowDelay="500">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsNameChanged}" Value="True">
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                    </GridView>
-                </ListView.View>
-            </ListView>
+                SelectionUnit="FullRow">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="*" Header="重命名前">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="5,2" Orientation="Horizontal">
+                                    <controls:FileIconControl
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        FilePath="{Binding FullPath}"
+                                        IconSize="16" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Text="{Binding OriginalName}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap"
+                                        ToolTip="{Binding OriginalName}"
+                                        ToolTipService.InitialShowDelay="500" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="*" Header="自定义名称">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <controls:EditableCell
+                                    x:Name="CustomNameEditableCell"
+                                    Text="{Binding CustomName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="双击编辑，支持 Ctrl+V 粘贴多行文本，回车跳转到下一行"
+                                    ToolTipService.InitialShowDelay="500"
+                                    MoveToNextCell="EditableCell_MoveToNextCell" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="*" Header="重命名后">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="5,2" Orientation="Horizontal">
+                                    <controls:FileIconControl
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center"
+                                        FilePath="{Binding FullPath}"
+                                        IconSize="16" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Text="{Binding NewName}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap"
+                                        ToolTip="{Binding NewName}"
+                                        ToolTipService.InitialShowDelay="500">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsNameChanged}" Value="True">
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
         </GroupBox>
 
         <!--  Status Bar  -->
@@ -247,22 +265,32 @@
                 VerticalAlignment="Center"
                 Foreground="{DynamicResource SecondaryTextBrush}"
                 Text="{Binding ViewModel.StatusMessage}" />
-            
-            <!--  Progress Bar (Bottom Right)  -->
-            <StackPanel
-                Grid.Column="1"
-                MinWidth="300"
-                Orientation="Vertical"
-                Visibility="{Binding ViewModel.IsRenaming, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBlock
-                    Margin="0,0,0,4"
-                    FontSize="12"
-                    Foreground="{DynamicResource SecondaryTextBrush}"
-                    Text="{Binding ViewModel.ProgressText}" />
-                <ProgressBar
-                    Height="20"
-                    Maximum="100"
-                    Value="{Binding ViewModel.ProgressValue}" />
+
+            <!--  Right Side: Progress Bar and Help Button  -->
+            <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right">
+                <!--  Progress Bar  -->
+                <StackPanel
+                    MinWidth="300"
+                    Orientation="Vertical"
+                    Visibility="{Binding ViewModel.IsRenaming, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock
+                        Margin="0,0,0,4"
+                        FontSize="12"
+                        Foreground="{DynamicResource SecondaryTextBrush}"
+                        Text="{Binding ViewModel.ProgressText}" />
+                    <ProgressBar
+                        Height="20"
+                        Maximum="100"
+                        Value="{Binding ViewModel.ProgressValue}" />
+                </StackPanel>
+                
+                <!--  Quick Edit Help Button  -->
+                <controls:PopupHelpButton
+                    Margin="0,8,0,0"
+                    Title="快速编辑帮助"
+                    ButtonContent="📝 快速编辑"
+                    ResourcePath="QuickEditHelp.md"
+                    ToolTip="查看快速编辑快捷键说明" />
             </StackPanel>
         </Grid>
     </Grid>

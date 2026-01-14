@@ -55,8 +55,9 @@ namespace BatchRenameTool.Services
 
             public RenameOperation(string originalFullPath, string newName)
             {
-                OriginalPath = originalFullPath;
-                NewName = newName;
+                // Ensure non-null values to prevent null reference exceptions
+                OriginalPath = originalFullPath ?? throw new ArgumentNullException(nameof(originalFullPath));
+                NewName = newName ?? throw new ArgumentNullException(nameof(newName));
             }
 
             // Computed properties from OriginalPath

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using BatchRenameTool.Controls;
 using BatchRenameTool.Services;
 using BatchRenameTool.Template.Parser;
@@ -8,6 +9,7 @@ using BatchRenameTool.Template.Evaluator;
 using BatchRenameTool.ViewModels;
 using BatchRenameTool.Windows;
 using System;
+using System.Linq;
 
 namespace BatchRenameTool
 {
@@ -43,14 +45,18 @@ namespace BatchRenameTool
             // Set equal column widths after window is loaded
             UpdateColumnWidths();
 
-            // Update column widths when ListView size changes
-            FileListView.SizeChanged += (s, args) => UpdateColumnWidths();
+            // Update column widths when DataGrid size changes
+            FileDataGrid.SizeChanged += (s, args) => UpdateColumnWidths();
 
             // Update remove button state when selection changes
-            FileListView.SelectionChanged += (s, args) =>
+            FileDataGrid.SelectionChanged += (s, args) =>
             {
-                RemoveSelectedButton.IsEnabled = FileListView.SelectedItems.Count > 0;
+                RemoveSelectedButton.IsEnabled = FileDataGrid.SelectedItems.Count > 0;
             };
+
+            // Setup keyboard shortcuts for paste and delete
+            FileDataGrid.KeyDown += FileDataGrid_KeyDown;
+            FileDataGrid.PreviewKeyDown += FileDataGrid_PreviewKeyDown;
 
             // Setup lazy evaluation: calculate NewName only when items become visible
             SetupLazyEvaluation();
@@ -81,15 +87,16 @@ namespace BatchRenameTool
 
         private void UpdateColumnWidths()
         {
-            if (FileListView?.View is System.Windows.Controls.GridView gridView && gridView.Columns.Count >= 2)
+            if (FileDataGrid?.Columns != null && FileDataGrid.Columns.Count >= 3)
             {
-                var availableWidth = FileListView.ActualWidth - SystemParameters.VerticalScrollBarWidth - 20; // Reserve some space for padding
+                var availableWidth = FileDataGrid.ActualWidth - SystemParameters.VerticalScrollBarWidth - 20; // Reserve some space for padding
                 if (availableWidth > 0)
                 {
-                    // Divide space equally between the two columns
-                    var columnWidth = availableWidth / 2.0;
-                    gridView.Columns[0].Width = columnWidth; // 重命名前
-                    gridView.Columns[1].Width = columnWidth; // 重命名后
+                    // Divide space equally between the three columns
+                    var columnWidth = availableWidth / 3.0;
+                    FileDataGrid.Columns[0].Width = columnWidth; // 重命名前
+                    FileDataGrid.Columns[1].Width = columnWidth; // 自定义名称
+                    FileDataGrid.Columns[2].Width = columnWidth; // 重命名后
                 }
             }
         }
@@ -99,20 +106,11 @@ namespace BatchRenameTool
         /// </summary>
         private void SetupLazyEvaluation()
         {
-            // Listen to container generation events
-            FileListView.ItemContainerGenerator.StatusChanged += (s, e) =>
-            {
-                if (FileListView.ItemContainerGenerator.Status == System.Windows.Controls.Primitives.GeneratorStatus.ContainersGenerated)
-                {
-                    CalculateVisibleItems();
-                }
-            };
-
             // Listen to scroll events to calculate newly visible items
-            FileListView.Loaded += (s, e) =>
+            FileDataGrid.Loaded += (s, e) =>
             {
-                // Find ScrollViewer in ListView template
-                var scrollViewer = FindVisualChild<System.Windows.Controls.ScrollViewer>(FileListView);
+                // Find ScrollViewer in DataGrid template
+                var scrollViewer = FindVisualChild<System.Windows.Controls.ScrollViewer>(FileDataGrid);
                 if (scrollViewer != null)
                 {
                     scrollViewer.ScrollChanged += (sender, args) =>
@@ -123,7 +121,7 @@ namespace BatchRenameTool
             };
 
             // Also listen to layout updates
-            FileListView.LayoutUpdated += (s, e) =>
+            FileDataGrid.LayoutUpdated += (s, e) =>
             {
                 CalculateVisibleItems();
             };
@@ -155,26 +153,25 @@ namespace BatchRenameTool
         /// </summary>
         private void CalculateVisibleItems()
         {
-            if (_viewModel == null || FileListView.ItemsSource == null)
+            if (_viewModel == null || FileDataGrid.ItemsSource == null)
                 return;
 
             var items = _viewModel.Items;
             if (items == null || items.Count == 0)
                 return;
 
-            // Get visible items using ItemContainerGenerator
-            var generator = FileListView.ItemContainerGenerator;
+            // Get visible items using DataGrid's row containers
             var processedIndices = new HashSet<int>();
 
             for (int i = 0; i < items.Count; i++)
             {
-                var container = generator.ContainerFromIndex(i);
-                if (container != null && container is System.Windows.FrameworkElement element)
+                var row = FileDataGrid.ItemContainerGenerator.ContainerFromIndex(i) as System.Windows.Controls.DataGridRow;
+                if (row != null && row.IsVisible)
                 {
-                    // Check if item is actually visible in viewport
-                    var isVisible = element.IsVisible && 
-                                   element.ActualHeight > 0 && 
-                                   element.ActualWidth > 0;
+                    // Check if row is actually visible in viewport
+                    var isVisible = row.IsVisible && 
+                                   row.ActualHeight > 0 && 
+                                   row.ActualWidth > 0;
                     
                     if (isVisible && items[i] is ViewModels.FileRenameItem item && item.NeedsRecalculation)
                     {
@@ -209,9 +206,9 @@ namespace BatchRenameTool
         /// </summary>
         private void RemoveSelectedItemsButton_Click(object sender, RoutedEventArgs e)
         {
-            if (FileListView.SelectedItems.Count > 0)
+            if (FileDataGrid.SelectedItems.Count > 0)
             {
-                _viewModel.RemoveItemsCommand.Execute(FileListView.SelectedItems);
+                _viewModel.RemoveItemsCommand.Execute(FileDataGrid.SelectedItems);
             }
         }
 
@@ -476,6 +473,251 @@ namespace BatchRenameTool
                 // Close the popup
                 HistoryPopupButton?.ClosePopup();
             }
+        }
+
+        /// <summary>
+        /// Handle key down events for paste and delete operations
+        /// </summary>
+        private void FileDataGrid_KeyDown(object sender, KeyEventArgs e)
+        {
+            // Handle Ctrl+V for paste
+            if (e.Key == Key.V && 
+                (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                HandlePasteOperation();
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Preview key down to handle keyboard shortcuts before DataGrid processes them
+        /// </summary>
+        private void FileDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // Handle Ctrl+V for paste
+            if (e.Key == Key.V && 
+                (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                // Focus DataGrid if not already focused
+                if (!FileDataGrid.IsFocused)
+                {
+                    FileDataGrid.Focus();
+                }
+                HandlePasteOperation();
+                e.Handled = true;
+            }
+            // Handle Delete key for clearing custom names
+            // Process in PreviewKeyDown to intercept before DataGrid handles it
+            else if (e.Key == Key.Delete)
+            {
+                // Check if focus is on a TextBox (editing mode)
+                var focusedElement = Keyboard.FocusedElement;
+                if (focusedElement is System.Windows.Controls.TextBox)
+                {
+                    // Let the textbox handle delete normally when editing
+                    return;
+                }
+                
+                HandleDeleteOperation();
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Handle paste operation: paste multi-line text to selected items (Excel-style)
+        /// </summary>
+        private void HandlePasteOperation()
+        {
+            try
+            {
+                // Check if clipboard contains text
+                if (!System.Windows.Clipboard.ContainsText())
+                    return;
+
+                // Get clipboard text
+                var clipboardText = System.Windows.Clipboard.GetText();
+                if (string.IsNullOrWhiteSpace(clipboardText))
+                    return;
+
+                // Get selected items
+                var selectedItems = FileDataGrid.SelectedItems;
+                if (selectedItems == null || selectedItems.Count == 0)
+                    return;
+
+                // Split text by line breaks (support \r\n, \n, \r)
+                var lines = clipboardText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+                // Filter out empty lines
+                var nonEmptyLines = lines.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+                
+                // Convert selected items to list of FileRenameItem
+                var itemsList = selectedItems.Cast<ViewModels.FileRenameItem>().ToList();
+                
+                // If only one item is selected but multiple lines in clipboard, ask user
+                if (itemsList.Count == 1 && nonEmptyLines.Length > 1)
+                {
+                    var result = MessageBox.Show(
+                        $"剪贴板中有 {nonEmptyLines.Length} 行文本，但只选中了 1 行。\n\n" +
+                        "选择操作：\n" +
+                        "• 是：只粘贴第一行到当前选中项\n" +
+                        "• 否：自动扩展选中项，粘贴所有行（从当前项开始）",
+                        "粘贴确认",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        // Only paste first line
+                        itemsList[0].CustomName = nonEmptyLines[0].Trim();
+                        return;
+                    }
+                    else if (result == MessageBoxResult.No)
+                    {
+                        // Expand selection to include more items for multi-line paste
+                        var currentIndex = FileDataGrid.Items.IndexOf(itemsList[0]);
+                        if (currentIndex >= 0)
+                        {
+                            // Clear current selection
+                            FileDataGrid.SelectedItems.Clear();
+                            
+                            // Select items starting from current index
+                            int endIndex = Math.Min(currentIndex + nonEmptyLines.Length - 1, FileDataGrid.Items.Count - 1);
+                            for (int i = currentIndex; i <= endIndex; i++)
+                            {
+                                var item = FileDataGrid.Items[i];
+                                FileDataGrid.SelectedItems.Add(item);
+                            }
+                            
+                            // Update itemsList with new selection
+                            itemsList = FileDataGrid.SelectedItems.Cast<ViewModels.FileRenameItem>().ToList();
+                        }
+                        else
+                        {
+                            // If can't find index, just paste first line
+                            itemsList[0].CustomName = nonEmptyLines[0].Trim();
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // User cancelled
+                        return;
+                    }
+                }
+                
+                // Paste lines to selected items (Excel-style: first line to first item, etc.)
+                int minCount = Math.Min(nonEmptyLines.Length, itemsList.Count);
+                for (int i = 0; i < minCount; i++)
+                {
+                    // Trim the line and assign to CustomName
+                    itemsList[i].CustomName = nonEmptyLines[i].Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Silently fail or show error message
+                System.Diagnostics.Debug.WriteLine($"Paste operation failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle delete operation: clear custom names of selected items
+        /// </summary>
+        private void HandleDeleteOperation()
+        {
+            try
+            {
+                // Get selected items
+                var selectedItems = FileDataGrid.SelectedItems;
+                if (selectedItems == null || selectedItems.Count == 0)
+                    return;
+
+                // Clear CustomName for all selected items
+                foreach (ViewModels.FileRenameItem item in selectedItems)
+                {
+                    item.CustomName = "";
+                }
+            }
+            catch (Exception ex)
+            {
+                // Silently fail or show error message
+                System.Diagnostics.Debug.WriteLine($"Delete operation failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle move to next cell when Enter is pressed in EditableCell
+        /// </summary>
+        private void EditableCell_MoveToNextCell(object? sender, EventArgs e)
+        {
+            if (sender is not Controls.EditableCell currentCell)
+                return;
+
+            // Find the DataGridRow containing this cell
+            var row = FindVisualParent<System.Windows.Controls.DataGridRow>(currentCell);
+            if (row == null)
+                return;
+
+            // Get the current row index
+            var currentIndex = FileDataGrid.Items.IndexOf(row.Item);
+            if (currentIndex < 0 || currentIndex >= FileDataGrid.Items.Count - 1)
+                return; // Already at the last row
+
+            // Find the next row
+            var nextRow = FileDataGrid.ItemContainerGenerator.ContainerFromIndex(currentIndex + 1) as System.Windows.Controls.DataGridRow;
+            if (nextRow == null)
+            {
+                // If next row is not generated yet, scroll to it first
+                FileDataGrid.ScrollIntoView(FileDataGrid.Items[currentIndex + 1]);
+                // Wait for row to be generated
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
+                {
+                    nextRow = FileDataGrid.ItemContainerGenerator.ContainerFromIndex(currentIndex + 1) as System.Windows.Controls.DataGridRow;
+                    if (nextRow != null)
+                    {
+                        MoveToNextCellInRow(nextRow);
+                    }
+                }));
+                return;
+            }
+
+            MoveToNextCellInRow(nextRow);
+        }
+
+        /// <summary>
+        /// Move to EditableCell in the specified row
+        /// </summary>
+        private void MoveToNextCellInRow(System.Windows.Controls.DataGridRow row)
+        {
+            // Find the EditableCell in the row (same column - "自定义名称" column is index 1)
+            var nextCell = FindVisualChild<Controls.EditableCell>(row);
+            if (nextCell != null)
+            {
+                // Scroll the next row into view
+                row.BringIntoView();
+                
+                // Start editing the next cell
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+                {
+                    nextCell.IsEditing = true;
+                }));
+            }
+        }
+
+        /// <summary>
+        /// Find visual parent of a specific type
+        /// </summary>
+        private static T? FindVisualParent<T>(System.Windows.DependencyObject child) where T : System.Windows.DependencyObject
+        {
+            var parent = System.Windows.Media.VisualTreeHelper.GetParent(child);
+            while (parent != null)
+            {
+                if (parent is T result)
+                {
+                    return result;
+                }
+                parent = System.Windows.Media.VisualTreeHelper.GetParent(parent);
+            }
+            return null;
         }
     }
 }

@@ -36,6 +36,7 @@
 
 	<ItemGroup>
 		<Resource Include="Help.md" />
+		<Resource Include="QuickEditHelp.md" />
 	</ItemGroup>
 
 	<!-- Quicker framework references - Import from root qkref.props -->

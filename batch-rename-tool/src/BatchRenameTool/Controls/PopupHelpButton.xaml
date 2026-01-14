@@ -165,7 +165,7 @@
             x:Name="HelpButton"
             Padding="10,5"
             Click="HelpButton_Click"
-            Content="❓ 帮助"
+            Content="{Binding ButtonContent, RelativeSource={RelativeSource AncestorType=UserControl}}"
             ToolTip="查看使用帮助" />
         <Popup
             x:Name="HelpPopup"

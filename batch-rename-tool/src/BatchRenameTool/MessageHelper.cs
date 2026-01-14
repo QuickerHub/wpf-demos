@@ -1,4 +1,5 @@
 using Quicker.Utilities;
+using System.Reflection;
 using System.Windows;
 
 namespace BatchRenameTool
@@ -8,18 +9,26 @@ namespace BatchRenameTool
     /// </summary>
     public static class MessageHelper
     {
+        private static readonly bool IsInQuicker;
+
+        static MessageHelper()
+        {
+            // Check if running in Quicker by checking the entry assembly name
+            IsInQuicker = Assembly.GetEntryAssembly()?.GetName().Name == "Quicker";
+        }
+
         /// <summary>
         /// Show information message
         /// </summary>
         public static void ShowInformation(string message)
         {
-            try
+            if (IsInQuicker)
             {
                 AppHelper.ShowInformation(message);
             }
-            catch
+            else
             {
-                // Fallback to MessageBox if Quicker is not available
+                // Fallback to MessageBox if not running in Quicker
                 MessageBox.Show(message, "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
@@ -29,13 +38,13 @@ namespace BatchRenameTool
         /// </summary>
         public static void ShowWarning(string message)
         {
-            try
+            if (IsInQuicker)
             {
                 AppHelper.ShowWarning(message);
             }
-            catch
+            else
             {
-                // Fallback to MessageBox if Quicker is not available
+                // Fallback to MessageBox if not running in Quicker
                 MessageBox.Show(message, "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -45,13 +54,13 @@ namespace BatchRenameTool
         /// </summary>
         public static void ShowSuccess(string message)
         {
-            try
+            if (IsInQuicker)
             {
                 AppHelper.ShowSuccess(message);
             }
-            catch
+            else
             {
-                // Fallback to MessageBox if Quicker is not available
+                // Fallback to MessageBox if not running in Quicker
                 MessageBox.Show(message, "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
@@ -61,13 +70,13 @@ namespace BatchRenameTool
         /// </summary>
         public static void ShowError(string message)
         {
-            try
+            if (IsInQuicker)
             {
                 AppHelper.ShowError(message);
             }
-            catch
+            else
             {
-                // Fallback to MessageBox if Quicker is not available
+                // Fallback to MessageBox if not running in Quicker
                 MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

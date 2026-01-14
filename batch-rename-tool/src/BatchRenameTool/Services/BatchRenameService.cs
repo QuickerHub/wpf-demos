@@ -131,6 +131,12 @@ namespace BatchRenameTool.Services
             var validPairs = new List<(string filePath, string newName)>();
             for (int i = 0; i < fileList.Count; i++)
             {
+                // Check for null values to prevent null reference exceptions
+                if (string.IsNullOrEmpty(fileList[i]) || string.IsNullOrEmpty(nameList[i]))
+                {
+                    continue; // Skip invalid entries
+                }
+                
                 if (File.Exists(fileList[i]))
                 {
                     validPairs.Add((fileList[i], nameList[i]));

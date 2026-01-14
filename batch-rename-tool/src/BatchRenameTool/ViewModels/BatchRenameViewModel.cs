@@ -138,6 +138,33 @@ namespace BatchRenameTool.ViewModels
                     UpdateStatus();
                 });
             
+            // Subscribe to CustomName changes to update NewName accordingly
+            // Note: OnCustomNameChanged in FileRenameItem also updates NewName for immediate UI refresh
+            // This listener handles the case when CustomName is cleared (needs recalculation)
+            _itemsCache.Connect()
+                .WhenPropertyChanged(item => item.CustomName)
+                .ObserveOn(System.Windows.Application.Current.Dispatcher)
+                .Subscribe(change =>
+                {
+                    if (change.Sender != null)
+                    {
+                        var item = change.Sender;
+                        // Only handle recalculation when CustomName is cleared
+                        // OnCustomNameChanged already handles the case when CustomName has a value
+                        if (!item.HasCustomName)
+                        {
+                            // Recalculate from pattern
+                            // IMPORTANT: Use _items (sorted collection) to get correct index
+                            var index = _items.IndexOf(item);
+                            if (index >= 0)
+                            {
+                                item.MarkForRecalculation();
+                                CalculateItemNewName(item, index);
+                            }
+                        }
+                    }
+                });
+            
             // Throttle rename pattern changes to reduce preview churn
             this.WhenValueChanged(vm => vm.RenamePattern)
                 .Throttle(TimeSpan.FromMilliseconds(500))
@@ -147,6 +174,18 @@ namespace BatchRenameTool.ViewModels
             // DynamicData handles property changes automatically through WhenPropertyChanged
         }
         
+        /// <summary>
+        /// Get items that need to be renamed (name changed and no errors)
+        /// </summary>
+        private List<FileRenameItem> GetItemsToRename()
+        {
+            return _itemsCache.Items
+                .Where(item => !string.IsNullOrEmpty(item.NewName) && 
+                               !item.NewName.StartsWith("[") &&
+                               !string.Equals(item.OriginalName, item.NewName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         /// <summary>
         /// Update status message based on current items
         /// Optimized for large collections (10000+ items) using DynamicData
@@ -163,25 +202,20 @@ namespace BatchRenameTool.ViewModels
             var statusParts = new List<string>();
             statusParts.Add($"共 {count:N0} 个文件");
             
-            // Count files that will be renamed (name changed)
-            int changedCount = 0;
-            int errorCount = 0;
-            int duplicateCount = 0;
+            // Get items that need renaming (reuse the same logic as ExecuteRenameAsync)
+            var itemsToRename = GetItemsToRename();
+            int changedCount = itemsToRename.Count;
             
+            // Count error files
+            int errorCount = 0;
             var items = _itemsCache.Items;
             
-            // Count changed and error files
             foreach (var item in items)
             {
                 // Check for errors
                 if (string.IsNullOrEmpty(item.NewName) || item.NewName.StartsWith("["))
                 {
                     errorCount++;
-                }
-                // Check if name changed (case-insensitive comparison)
-                else if (!string.Equals(item.OriginalName, item.NewName, StringComparison.OrdinalIgnoreCase))
-                {
-                    changedCount++;
                 }
             }
             
@@ -192,7 +226,7 @@ namespace BatchRenameTool.ViewModels
                 .Where(g => g.Count() > 1)
                 .ToList();
             
-            duplicateCount = duplicateGroups.Sum(g => g.Count());
+            int duplicateCount = duplicateGroups.Sum(g => g.Count());
             
             // Add status information
             if (changedCount > 0)
@@ -560,13 +594,23 @@ namespace BatchRenameTool.ViewModels
 
             if (string.IsNullOrWhiteSpace(RenamePattern))
             {
-                // If pattern is empty, keep original names unchanged
+                // If pattern is empty, use custom name if set, otherwise keep original names unchanged
                 // Clear cache for empty pattern
                 _cachedCompiledFunction = null;
                 
                 foreach (var item in _itemsCache.Items)
                 {
-                    item.NewName = item.OriginalName;
+                    if (item.HasCustomName)
+                    {
+                        // Auto-add extension if custom name doesn't include it
+                        var extension = Path.GetExtension(item.OriginalName);
+                        var customNameWithExt = AutoAddExtensionForCustomName(item.CustomName, extension);
+                        item.NewName = customNameWithExt;
+                    }
+                    else
+                    {
+                        item.NewName = item.OriginalName;
+                    }
                 }
                 UpdateStatus();
                 return;
@@ -583,26 +627,39 @@ namespace BatchRenameTool.ViewModels
 
                 // Directly calculate all file names (no lazy evaluation)
                 // Since compilation is fast, we can calculate all names immediately
-                var itemsList = _itemsCache.Items.ToList();
+                // IMPORTANT: Use _items (sorted collection) instead of _itemsCache.Items to ensure correct index calculation
+                var itemsList = _items.ToList();
                 var totalCount = itemsList.Count;
                 
                 for (int i = 0; i < itemsList.Count; i++)
                 {
                     var item = itemsList[i];
                     
-                    // Calculate new name using helper method
-                    var newName = CalculateNewNameForItem(item, i, totalCount, compiledFunction);
-                    if (newName != null)
+                    // If custom name is set, use it; otherwise calculate from pattern
+                    if (item.HasCustomName)
                     {
-                        item.NewName = newName;
+                        // Auto-add extension if custom name doesn't include it
+                        var extension = Path.GetExtension(item.OriginalName);
+                        var customNameWithExt = AutoAddExtensionForCustomName(item.CustomName, extension);
+                        item.NewName = customNameWithExt;
                         item._needsRecalculation = false;
-                        item._cachedNewName = newName;
                     }
                     else
                     {
-                        // On error, show error message
-                        item.NewName = $"[执行错误]";
-                        item._needsRecalculation = false;
+                        // Calculate new name using helper method
+                        var newName = CalculateNewNameForItem(item, i, totalCount, compiledFunction);
+                        if (newName != null)
+                        {
+                            item.NewName = newName;
+                            item._needsRecalculation = false;
+                            item._cachedNewName = newName;
+                        }
+                        else
+                        {
+                            // On error, show error message
+                            item.NewName = $"[执行错误]";
+                            item._needsRecalculation = false;
+                        }
                     }
                 }
             }
@@ -637,6 +694,17 @@ namespace BatchRenameTool.ViewModels
             if (item == null || !item.NeedsRecalculation)
                 return;
 
+            // If custom name is set, use it; otherwise calculate from pattern
+            if (item.HasCustomName)
+            {
+                // Auto-add extension if custom name doesn't include it
+                var extension = Path.GetExtension(item.OriginalName);
+                var customNameWithExt = AutoAddExtensionForCustomName(item.CustomName, extension);
+                item.NewName = customNameWithExt;
+                item._needsRecalculation = false;
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(RenamePattern))
             {
                 item.NewName = item.OriginalName;
@@ -648,7 +716,8 @@ namespace BatchRenameTool.ViewModels
             if (compiledFunction == null)
                 return;
 
-            var newName = CalculateNewNameForItem(item, index, _itemsCache.Count, compiledFunction);
+            // Use _items.Count (sorted collection) to ensure correct totalCount
+            var newName = CalculateNewNameForItem(item, index, _items.Count, compiledFunction);
             if (newName != null)
             {
                 item.NewName = newName;
@@ -943,6 +1012,42 @@ namespace BatchRenameTool.ViewModels
         }
 
         /// <summary>
+        /// Auto-add extension to custom name if it doesn't include a valid one
+        /// </summary>
+        private string AutoAddExtensionForCustomName(string customName, string extension)
+        {
+            if (string.IsNullOrEmpty(extension))
+                return customName;
+
+            // Check if custom name has an extension
+            var customExt = Path.GetExtension(customName);
+            
+            // If no extension found, auto-add it
+            if (string.IsNullOrEmpty(customExt))
+            {
+                return customName + extension;
+            }
+
+            // Check if the extension looks valid (not just numbers or very short)
+            // Valid extensions typically:
+            // - Have at least 2 characters (excluding the dot)
+            // - Contain at least one letter (not just numbers)
+            var extWithoutDot = customExt.TrimStart('.');
+            bool isValidExtension = extWithoutDot.Length >= 2 && 
+                                    extWithoutDot.Any(char.IsLetter) &&
+                                    !extWithoutDot.All(char.IsDigit);
+
+            // If extension doesn't look valid, add the original extension
+            if (!isValidExtension)
+            {
+                return customName + extension;
+            }
+
+            // Extension looks valid, keep it as is
+            return customName;
+        }
+
+        /// <summary>
         /// Execute rename operation using BatchRenameService
         /// </summary>
         [RelayCommand]
@@ -961,13 +1066,6 @@ namespace BatchRenameTool.ViewModels
 
             try
             {
-                // Validate pattern before proceeding
-                if (string.IsNullOrWhiteSpace(RenamePattern))
-                {
-                    MessageHelper.ShowWarning("重命名模式不能为空");
-                    return;
-                }
-
                 // Use _itemsCache.Items directly and create a snapshot to avoid collection changes during iteration
                 var itemsList = _itemsCache.Items.ToList();
                 var totalCount = itemsList.Count;
@@ -978,18 +1076,28 @@ namespace BatchRenameTool.ViewModels
                     return;
                 }
 
-                // Get file paths
-                var filePaths = itemsList.Select(item => item.FullPath).ToList();
+                // Get items that need renaming (reuse the same logic as status bar)
+                var itemsToRename = GetItemsToRename();
+
+                if (itemsToRename.Count == 0)
+                {
+                    MessageHelper.ShowInformation("没有需要重命名的文件");
+                    return;
+                }
+
+                // Get file paths and new names (use NewName which includes custom names)
+                var filePaths = itemsToRename.Select(item => item.FullPath).ToList();
+                var newNames = itemsToRename.Select(item => item.NewName).ToList();
 
                 // Create progress reporter for rename phase
                 var progress = CreateProgressReporter("正在重命名", startPercent: 0.0, rangePercent: 100.0);
 
-                // Create service and execute rename
+                // Create service and execute rename using NewName (which respects custom names)
                 var service = new BatchRenameService();
                 BatchRenameExecutor.RenameResult result;
                 try
                 {
-                    result = await Task.Run(() => service.RenameFiles(filePaths, RenamePattern, progress)).ConfigureAwait(true);
+                    result = await Task.Run(() => service.RenameFiles(filePaths, newNames, progress)).ConfigureAwait(true);
                 }
                 catch (BatchRenameExecutor.RenameValidationException ex)
                 {
@@ -1190,7 +1298,15 @@ namespace BatchRenameTool.ViewModels
         [ObservableProperty]
         private string _newName = "";
 
+        [ObservableProperty]
+        private string _customName = "";
+
         public string FullPath { get; }
+
+        /// <summary>
+        /// Check if this item has a custom name
+        /// </summary>
+        public bool HasCustomName => !string.IsNullOrWhiteSpace(CustomName);
 
         /// <summary>
         /// Mark this item as needing recalculation
@@ -1232,6 +1348,65 @@ namespace BatchRenameTool.ViewModels
         partial void OnNewNameChanged(string value)
         {
             OnPropertyChanged(nameof(IsNameChanged));
+        }
+
+        partial void OnCustomNameChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasCustomName));
+            
+            // Update NewName immediately when CustomName changes
+            // This ensures UI updates synchronously without waiting for ViewModel listener
+            if (HasCustomName)
+            {
+                var newValue = CustomName;
+                // Auto-add extension if custom name doesn't include it
+                var extension = Path.GetExtension(OriginalName);
+                newValue = AutoAddExtensionForCustomName(newValue, extension);
+                
+                // Always set NewName, even if it appears to be the same
+                // This ensures PropertyChanged is triggered for UI binding
+                NewName = newValue;
+                // Force PropertyChanged notification to ensure UI updates
+                // This handles edge cases where the setter might not trigger the event
+                OnPropertyChanged(nameof(NewName));
+            }
+            // If CustomName is cleared, ViewModel's listener will handle recalculation
+        }
+
+        /// <summary>
+        /// Auto-add extension to custom name if it doesn't include a valid one
+        /// </summary>
+        private string AutoAddExtensionForCustomName(string customName, string extension)
+        {
+            if (string.IsNullOrEmpty(extension))
+                return customName;
+
+            // Check if custom name has an extension
+            var customExt = Path.GetExtension(customName);
+            
+            // If no extension found, auto-add it
+            if (string.IsNullOrEmpty(customExt))
+            {
+                return customName + extension;
+            }
+
+            // Check if the extension looks valid (not just numbers or very short)
+            // Valid extensions typically:
+            // - Have at least 2 characters (excluding the dot)
+            // - Contain at least one letter (not just numbers)
+            var extWithoutDot = customExt.TrimStart('.');
+            bool isValidExtension = extWithoutDot.Length >= 2 && 
+                                    extWithoutDot.Any(char.IsLetter) &&
+                                    !extWithoutDot.All(char.IsDigit);
+
+            // If extension doesn't look valid, add the original extension
+            if (!isValidExtension)
+            {
+                return customName + extension;
+            }
+
+            // Extension looks valid, keep it as is
+            return customName;
         }
     }
 
