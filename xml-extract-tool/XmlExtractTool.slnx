@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/XmlExtractTool/XmlExtractTool.csproj" />
+  <Project Path="src/XmlExtractTool.Console/XmlExtractTool.Console.csproj" />
+</Solution>

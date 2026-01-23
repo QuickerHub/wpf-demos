@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net472</TargetFramework>
+		<Nullable>enable</Nullable>
+		<LangVersion>preview</LangVersion>
+		<PlatformTarget>x64</PlatformTarget>
+		<RootNamespace>XmlExtractTool</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Reference source files from main project -->
+		<Compile Include="..\XmlExtractTool\Models\*.cs" />
+		<Compile Include="..\XmlExtractTool\Services\*.cs" />
+		<Compile Include="..\XmlExtractTool\Utils\*.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="System.Xml" />
+		<Reference Include="System.Xml.Linq" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="gb2312" standalone="yes"?>
+<USkillEffect name="">
+  <Tree>
+    <Nodes>
+      <Node name="Bip01 Spine2213150" nodeType="BoneNode" parent="Bip01 Spine2213150" property="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="0,0,0" rotate="0,0,0,1" scale="1,1,1" transparence="1" />
+          <KeyFrame time="1" translate="0,0,0" rotate="0,0,0,1" scale="1,1,1" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="bone" bonename="Bip01 Spine2" />
+        </Elements>
+      </Node>
+      <Node name="4025039101213854" nodeType="ESklModelNode" parent="Bip01 Spine2213150" property="0" activatetime="-1">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="7.696179E-08,-1.056161E-08,-2.815643E-08" rotate="0.7071068,5.645364E-08,-1.058592E-08,0.7071067" scale="1,1,1" transparence="1" />
+          <KeyFrame time="1" translate="7.696179E-08,-1.056161E-08,-2.815643E-08" rotate="0.7071068,5.645364E-08,-1.058592E-08,0.7071067" scale="1,1,1" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="imodel" url="../resources/media/shaders/role/link_new/link_2026/40250391/4025039101/4025039101.chr" transmode="null" ActionName="Default" />
+        </Elements>
+      </Node>
+      <Node name="Bip01213932" nodeType="BoneNode" parent="4025039101213854" property="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="0,0,0" rotate="0,0,0,1" scale="1,1,1" transparence="1" />
+          <KeyFrame time="1" translate="0,0,0" rotate="0,0,0,1" scale="1,1,1" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="bone" bonename="Bip01" />
+        </Elements>
+      </Node>
+      <Node name="1a空挂点214126" nodeType="ParticleNode" parent="Bip01213932" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_1akongguadian.uff" />
+        </Elements>
+      </Node>
+      <Node name="xingxing213820" nodeType="ParticleNode" parent="1a空挂点214126" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_xingxing.uff" />
+        </Elements>
+      </Node>
+      <Node name="dian214096" nodeType="ParticleNode" parent="1a空挂点214126" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_dian.uff" />
+        </Elements>
+      </Node>
+      <Node name="yanwu214024" nodeType="ParticleNode" parent="1a空挂点214126" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_yanwu.uff" />
+        </Elements>
+        <effectSortSetting effectSortID="1" />
+      </Node>
+      <Node name="yuan214118" nodeType="ParticleNode" parent="1a空挂点214126" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_yuan.uff" />
+        </Elements>
+      </Node>
+      <Node name="dian(1)213812" nodeType="ParticleNode" parent="1a空挂点214126" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_dian(1).uff" />
+        </Elements>
+      </Node>
+      <Node name="yanwu(1)213828" nodeType="ParticleNode" parent="1a空挂点214126" property="0" activatetime="0">
+        <Animation mode="loop" startVisible="0" endVisible="1" LoopBeginTime="0">
+          <KeyFrame time="0" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+          <KeyFrame time="1" translate="2.174928E-07,8.816314E-08,-1.901458E-08" rotate="9.28316E-09,-2.028006E-09,3.702595E-09,1" scale="1,1,0.9999999" transparence="1" />
+        </Animation>
+        <Elements>
+          <Entity type="particle" url="../resources/media/shaders/role/link_new/link_2026/41250391/4125039101/4125039101_yanwu(1).uff" />
+        </Elements>
+        <effectSortSetting effectSortID="1" />
+      </Node>
+    </Nodes>
+  </Tree>
+  <Timeline Version="22" LoopMode="1">
+    <Track name="Animation Track" start="0" duration="10" end="10" type="AnimationTrack">
+      <Bind bindObj="4025039101213854" />
+      <Clip start="0" end="10" duration="10" EaseIn="0" EaseOut="0" ClipIn="0" SpeedModify="1" PreExtrapolate="1" PostExtrapolate="1" animationPath="../resources/media/shaders/role/link_new/link_2026/40250391/4025039101/4025039101_anm_f_Anm.FBX" animationName="anm_f" />
+    </Track>
+  </Timeline>
+</USkillEffect>
