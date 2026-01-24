@@ -6,13 +6,14 @@
     xmlns:local="clr-namespace:XmlExtractTool"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:XmlExtractTool.ViewModels"
+    xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
     Title="XML 四元数检测工具"
-    Width="800"
-    Height="600"
+    Width="1200"
+    Height="700"
     d:DataContext="{d:DesignInstance local:MainWindow,
                                      IsDesignTimeCreatable=True}"
-    d:DesignHeight="600"
-    d:DesignWidth="800"
+    d:DesignHeight="700"
+    d:DesignWidth="1200"
     Background="{DynamicResource DefaultWindowBackgroundBrush}"
     Foreground="{DynamicResource PrimaryTextBrush}"
     ResizeMode="CanResize"
@@ -22,9 +23,8 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
     </Window.Resources>
-    <Grid Margin="16" Background="{DynamicResource RegionBrush}">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -39,33 +39,15 @@
             FontWeight="Bold"
             Text="XML 四元数检测工具" />
 
-        <!-- File Selection Area -->
-        <GroupBox
-            Grid.Row="1"
-            Margin="0,0,0,16"
-            Header="文件选择">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox
-                    Grid.Column="0"
-                    Margin="0,0,8,0"
-                    IsReadOnly="True"
-                    Text="{Binding ViewModel.FilePath, Mode=OneWay}" />
-                <Button
-                    Grid.Column="1"
-                    Command="{Binding ViewModel.SelectFileCommand}"
-                    Content="选择文件" />
-            </Grid>
-        </GroupBox>
-
         <!-- Action Buttons -->
         <StackPanel
-            Grid.Row="2"
+            Grid.Row="1"
             Margin="0,0,0,16"
             Orientation="Horizontal">
+            <Button
+                Margin="0,0,8,0"
+                Command="{Binding ViewModel.SelectFileCommand}"
+                Content="选择文件" />
             <Button
                 Margin="0,0,8,0"
                 Command="{Binding ViewModel.CheckQuaternionsCommand}"
@@ -80,56 +62,90 @@
                 Content="保存结果" />
         </StackPanel>
 
-        <!-- Results Area -->
-        <GroupBox
-            Grid.Row="3"
-            Margin="0,0,0,16"
-            Header="检测结果">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <TextBlock
-                    Grid.Row="0"
-                    Margin="0,0,0,8"
-                    Text="{Binding ViewModel.StatusMessage, Mode=OneWay}" />
-                <ListBox
-                    Grid.Row="1"
-                    ItemsSource="{Binding ViewModel.InvalidNodeNames}"
-                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                    ScrollViewer.VerticalScrollBarVisibility="Auto">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Grid>
-        </GroupBox>
-
-        <!-- Status Bar -->
-        <Grid Grid.Row="4">
+        <!-- Main Content: Left (AvalonEdit) and Right (Results) -->
+        <Grid Grid.Row="2" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock
+
+            <!-- Left: XML Text Editor (AvalonEdit) -->
+            <GroupBox
                 Grid.Column="0"
+                Header="XML 内容">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        Margin="0,0,0,8"
+                        FontSize="12"
+                        Foreground="{DynamicResource SecondaryTextBrush}"
+                        Text="{Binding ViewModel.FilePath, Mode=OneWay, StringFormat='文件: {0}'}" />
+                    <Border
+                        Grid.Row="1"
+                        Background="{DynamicResource RegionBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1">
+                        <avalonedit:TextEditor
+                            x:Name="XmlTextEditor"
+                            Background="{DynamicResource RegionBrush}"
+                            BorderThickness="0"
+                            FontFamily="Consolas"
+                            FontSize="12"
+                            Foreground="{DynamicResource PrimaryTextBrush}"
+                            ShowLineNumbers="True"
+                            SyntaxHighlighting="XML"
+                            WordWrap="False" />
+                    </Border>
+                </Grid>
+            </GroupBox>
+
+            <!-- Right: Results List -->
+            <GroupBox
+                Grid.Column="2"
+                Header="检测结果">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel
+                        Grid.Row="0"
+                        Margin="0,0,0,8"
+                        Orientation="Horizontal">
+                        <TextBlock
+                            Margin="0,0,8,0"
+                            Text="总节点数: " />
+                        <TextBlock Text="{Binding ViewModel.TotalNodes, Mode=OneWay}" />
+                        <TextBlock
+                            Margin="16,0,8,0"
+                            Text="不符合条件: " />
+                        <TextBlock Text="{Binding ViewModel.InvalidNodesCount, Mode=OneWay}" />
+                    </StackPanel>
+                    <ListBox
+                        Grid.Row="1"
+                        ItemsSource="{Binding ViewModel.InvalidNodeNames}"
+                        ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </GroupBox>
+        </Grid>
+
+        <!-- Status Bar -->
+        <Grid Grid.Row="3">
+            <TextBlock
                 VerticalAlignment="Center"
                 Text="{Binding ViewModel.StatusMessage, Mode=OneWay}" />
-            <StackPanel
-                Grid.Column="1"
-                Orientation="Horizontal">
-                <TextBlock
-                    Margin="8,0,0,0"
-                    Text="总节点数: " />
-                <TextBlock Text="{Binding ViewModel.TotalNodes, Mode=OneWay}" />
-                <TextBlock
-                    Margin="16,0,0,0"
-                    Text="不符合条件: " />
-                <TextBlock Text="{Binding ViewModel.InvalidNodesCount, Mode=OneWay}" />
-            </StackPanel>
         </Grid>
     </Grid>
 </Window>

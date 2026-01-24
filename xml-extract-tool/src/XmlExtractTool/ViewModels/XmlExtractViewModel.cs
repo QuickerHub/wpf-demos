@@ -32,6 +32,12 @@ namespace XmlExtractTool.ViewModels
         private string _filePath = string.Empty;
 
         /// <summary>
+        /// XML text content (for AvalonEdit display)
+        /// </summary>
+        [ObservableProperty]
+        private string _xmlText = string.Empty;
+
+        /// <summary>
         /// List of Node names that don't satisfy 90-degree rotation condition
         /// </summary>
         [ObservableProperty]
@@ -41,7 +47,7 @@ namespace XmlExtractTool.ViewModels
         /// Status message
         /// </summary>
         [ObservableProperty]
-        private string _statusMessage = "请选择 XML 文件";
+        private string _statusMessage = "请选择 XML 文件或输入 XML 文本";
 
         /// <summary>
         /// Whether checking is in progress
@@ -75,11 +81,48 @@ namespace XmlExtractTool.ViewModels
 
             if (dialog.ShowDialog() == true)
             {
-                FilePath = dialog.FileName;
-                StatusMessage = $"已选择文件: {Path.GetFileName(FilePath)}";
+                LoadInput(dialog.FileName);
+            }
+        }
+
+        /// <summary>
+        /// Load input (file path or XML text) and automatically detect type
+        /// </summary>
+        public void LoadInput(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return;
+
+            // Check if input is a file path
+            if (File.Exists(input))
+            {
+                FilePath = input;
+                try
+                {
+                    XmlText = File.ReadAllText(input);
+                    StatusMessage = $"已加载文件: {Path.GetFileName(FilePath)}";
+                    
+                    // Automatically start checking
+                    if (CanCheck())
+                    {
+                        _ = CheckQuaternionsAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"加载文件失败: {ex.Message}";
+                    MessageBox.Show($"加载文件失败:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                // Treat as XML text content
+                FilePath = string.Empty;
+                XmlText = input;
+                StatusMessage = "已加载 XML 文本内容";
                 
-                // Automatically start checking after file selection
-                if (CanCheck())
+                // Automatically start checking
+                if (CanCheckFromText())
                 {
                     _ = CheckQuaternionsAsync();
                 }
@@ -92,12 +135,6 @@ namespace XmlExtractTool.ViewModels
         [RelayCommand(CanExecute = nameof(CanCheck))]
         private async Task CheckQuaternionsAsync()
         {
-            if (string.IsNullOrWhiteSpace(FilePath) || !File.Exists(FilePath))
-            {
-                MessageBox.Show("请先选择有效的 XML 文件", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
             IsChecking = true;
             StatusMessage = "正在检测...";
             InvalidNodeNames.Clear();
@@ -108,8 +145,28 @@ namespace XmlExtractTool.ViewModels
             {
                 await Task.Run(() =>
                 {
-                    var invalidNames = _checker.CheckQuaternions(FilePath);
-                    var allNodes = _checker.ParseNodes(FilePath);
+                    List<string> invalidNames;
+                    List<Models.NodeInfo> allNodes;
+
+                    // Check if using file path or text
+                    if (!string.IsNullOrWhiteSpace(FilePath) && File.Exists(FilePath))
+                    {
+                        invalidNames = _checker.CheckQuaternions(FilePath);
+                        allNodes = _checker.ParseNodes(FilePath);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(XmlText))
+                    {
+                        invalidNames = _checker.CheckQuaternionsFromText(XmlText);
+                        allNodes = _checker.ParseNodesFromText(XmlText);
+                    }
+                    else
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            StatusMessage = "请先选择文件或输入 XML 文本";
+                        });
+                        return;
+                    }
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -149,7 +206,23 @@ namespace XmlExtractTool.ViewModels
         /// </summary>
         private bool CanCheck()
         {
-            return !IsChecking && !string.IsNullOrWhiteSpace(FilePath) && File.Exists(FilePath);
+            return !IsChecking && (CanCheckFromFile() || CanCheckFromText());
+        }
+
+        /// <summary>
+        /// Check if can check from file
+        /// </summary>
+        private bool CanCheckFromFile()
+        {
+            return !string.IsNullOrWhiteSpace(FilePath) && File.Exists(FilePath);
+        }
+
+        /// <summary>
+        /// Check if can check from text
+        /// </summary>
+        private bool CanCheckFromText()
+        {
+            return !string.IsNullOrWhiteSpace(XmlText);
         }
 
         /// <summary>
