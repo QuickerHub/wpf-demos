@@ -46,6 +46,10 @@
             Orientation="Horizontal">
             <Button
                 Margin="0,0,8,0"
+                Command="{Binding ViewModel.SelectFolderCommand}"
+                Content="选择文件夹" />
+            <Button
+                Margin="0,0,8,0"
                 Command="{Binding ViewModel.SelectFileCommand}"
                 Content="选择文件" />
             <Button
@@ -58,8 +62,12 @@
                 Command="{Binding ViewModel.CopyResultsCommand}"
                 Content="复制结果" />
             <Button
+                Margin="0,0,8,0"
                 Command="{Binding ViewModel.SaveResultsCommand}"
                 Content="保存结果" />
+            <Button
+                Command="{Binding ViewModel.OpenSettingsCommand}"
+                Content="设置" />
         </StackPanel>
 
         <!-- Main Content: Left (AvalonEdit) and Right (Results) -->
@@ -128,12 +136,14 @@
                     </StackPanel>
                     <ListBox
                         Grid.Row="1"
-                        ItemsSource="{Binding ViewModel.InvalidNodeNames}"
+                        ItemsSource="{Binding ViewModel.InvalidResults}"
                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
                         ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" />
+                                <TextBlock
+                                    Text="{Binding}"
+                                    TextWrapping="Wrap" />
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

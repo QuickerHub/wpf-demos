@@ -37,6 +37,7 @@
 	<ItemGroup>
 		<Reference Include="Microsoft.CSharp" />
 		<Reference Include="System.Net.Http" />
+		<Reference Include="System.Windows.Forms" />
 	</ItemGroup>
 
 	<!-- Quicker framework references - Import from root qkref.props -->

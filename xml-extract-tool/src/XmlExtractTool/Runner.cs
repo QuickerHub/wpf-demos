@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows;
+using XmlExtractTool.Models;
 using XmlExtractTool.Services;
 
 namespace XmlExtractTool
@@ -13,6 +15,13 @@ namespace XmlExtractTool
     {
         private static MainWindow? _mainWindow;
         private static readonly XmlQuaternionChecker _checker = new();
+        private static readonly CheckerSettings _settings = new();
+        private static readonly XmlNodeChecker _nodeChecker = new XmlNodeChecker(_settings);
+
+        static Runner()
+        {
+            _settings.Load();
+        }
 
         /// <summary>
         /// Show main window (UI thread only, singleton)
@@ -21,7 +30,6 @@ namespace XmlExtractTool
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                // If window exists and is not closed, activate it
                 if (_mainWindow != null && _mainWindow.IsLoaded)
                 {
                     _mainWindow.WindowState = WindowState.Normal;
@@ -30,15 +38,8 @@ namespace XmlExtractTool
                     return;
                 }
 
-                // Create new window instance
                 _mainWindow = new MainWindow();
-
-                // Remove reference when window is closed
-                _mainWindow.Closed += (s, e) =>
-                {
-                    _mainWindow = null;
-                };
-
+                _mainWindow.Closed += (s, e) => { _mainWindow = null; };
                 _mainWindow.WindowState = WindowState.Normal;
                 _mainWindow.Show();
                 _mainWindow.Activate();
@@ -46,59 +47,50 @@ namespace XmlExtractTool
         }
 
         /// <summary>
-        /// Check quaternions from file path or XML text, return list of node names that don't have 90-degree rotation
-        /// Automatically detects whether input is a file path or XML text content
+        /// Check from file path, folder path, or XML text. Returns list of result strings (format: FileName\nNodeName\nParent per item).
         /// </summary>
-        /// <param name="input">File path or XML text content</param>
-        /// <param name="showUI">If true, show MainWindow and display results in UI; if false, return results directly</param>
-        /// <returns>List of node names that don't satisfy 90-degree rotation condition (empty if showUI is true)</returns>
+        /// <param name="input">File path, folder path, or XML text content</param>
+        /// <param name="showUI">If true, show MainWindow and display results; if false, return results directly</param>
+        /// <returns>List of result strings (empty if showUI is true)</returns>
         public static List<string> CheckQuaternions(string input, bool showUI = false)
         {
             if (string.IsNullOrWhiteSpace(input)) return [];
 
             if (showUI)
             {
-                // Show UI mode: display MainWindow and show results
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    // If window exists and is not closed, activate it
-                    if (_mainWindow != null && _mainWindow.IsLoaded)
+                    if (_mainWindow == null || !_mainWindow.IsLoaded)
                     {
-                        _mainWindow.WindowState = WindowState.Normal;
-                        _mainWindow.Show();
-                        _mainWindow.Activate();
-                        _mainWindow.LoadInput(input);
-                        return;
+                        _mainWindow = new MainWindow();
+                        _mainWindow.Closed += (s, e) => { _mainWindow = null; };
                     }
-
-                    // Create new window instance
-                    _mainWindow = new MainWindow();
-
-                    // Remove reference when window is closed
-                    _mainWindow.Closed += (s, e) =>
-                    {
-                        _mainWindow = null;
-                    };
-
                     _mainWindow.WindowState = WindowState.Normal;
                     _mainWindow.Show();
                     _mainWindow.Activate();
-                    _mainWindow.LoadInput(input);
+                    if (Directory.Exists(input))
+                        _mainWindow.ViewModel.LoadFolderAndCheck(input);
+                    else
+                        _mainWindow.LoadInput(input);
                 });
                 return [];
             }
-            else
+
+            try
             {
-                // Non-UI mode: return results directly
-                try
+                if (Directory.Exists(input))
                 {
-                    return _checker.CheckQuaternionsAuto(input);
+                    var items = _nodeChecker.CheckFolder(input);
+                    return items.Select(i => i.ToString()).ToList();
                 }
-                catch
-                {
-                    // Return empty list on error
-                    return [];
-                }
+                var fileItems = _nodeChecker.CheckFile(input);
+                if (fileItems.Count > 0)
+                    return fileItems.Select(i => i.ToString()).ToList();
+                return _checker.CheckQuaternionsAuto(input);
+            }
+            catch
+            {
+                return [];
             }
         }
     }

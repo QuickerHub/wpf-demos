@@ -81,6 +81,44 @@ namespace XmlExtractTool.Models
             return Math.Abs(angle - 90.0) < angleEpsilon;
         }
 
+        // Target w for 90° rotation: cos(45°) = √2/2
+        private const double TargetW90 = 0.70710678;
+
+        /// <summary>
+        /// Check if quaternion represents rotation of ~90° around X axis (Y,Z zero).
+        /// </summary>
+        public readonly bool IsXAxis90Degree(double tolerance = 1e-5)
+        {
+            if (Math.Abs(Math.Abs(W) - TargetW90) > tolerance)
+                return false;
+            if (Math.Abs(Y) > tolerance || Math.Abs(Z) > tolerance)
+                return false;
+            double absX = Math.Abs(X);
+            return Math.Abs(absX - TargetW90) <= tolerance;
+        }
+
+        /// <summary>
+        /// Check if quaternion represents rotation of ~90° around Y axis (X,Z zero).
+        /// </summary>
+        public readonly bool IsYAxis90Degree(double tolerance = 1e-5)
+        {
+            if (Math.Abs(Math.Abs(W) - TargetW90) > tolerance)
+                return false;
+            if (Math.Abs(X) > tolerance || Math.Abs(Z) > tolerance)
+                return false;
+            double absY = Math.Abs(Y);
+            return Math.Abs(absY - TargetW90) <= tolerance;
+        }
+
+        /// <summary>
+        /// Check if quaternion represents no rotation (identity: 0,0,0,1).
+        /// </summary>
+        public readonly bool IsZeroRotation(double tolerance = 1e-5)
+        {
+            return Math.Abs(X) <= tolerance && Math.Abs(Y) <= tolerance &&
+                   Math.Abs(Z) <= tolerance && Math.Abs(W - 1.0) <= tolerance;
+        }
+
         public override readonly string ToString() => $"{X},{Y},{Z},{W}";
     }
 }

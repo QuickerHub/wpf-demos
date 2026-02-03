@@ -143,54 +143,47 @@ namespace XmlExtractTool.Services
         }
 
         /// <summary>
-        /// Parse a single Node element and extract quaternion from KeyFrame
+        /// Parse a single Node element and extract name, nodeType, parent, quaternion and translate from KeyFrame
         /// </summary>
         private NodeInfo? ParseNode(XElement node)
         {
-            // Get Node name attribute
             var nameAttribute = node.Attribute("name");
             if (nameAttribute == null || string.IsNullOrWhiteSpace(nameAttribute.Value))
                 return null;
 
             var nodeInfo = new NodeInfo
             {
-                Name = nameAttribute.Value
+                Name = nameAttribute.Value,
+                NodeType = node.Attribute("nodeType")?.Value ?? string.Empty,
+                Parent = node.Attribute("parent")?.Value ?? string.Empty
             };
 
-            // Find Animation element
             var animation = node.Element("Animation");
             if (animation == null)
-                return nodeInfo; // No animation, consider as not 90-degree rotation
+                return nodeInfo;
 
-            // Find all KeyFrame elements
             var keyFrames = animation.Elements("KeyFrame").ToList();
             if (keyFrames.Count == 0)
-                return nodeInfo; // No keyframes, consider as not 90-degree rotation
+                return nodeInfo;
 
-            // Check each KeyFrame's rotate attribute
-            // If any KeyFrame has a rotate attribute, use the first one
             foreach (var keyFrame in keyFrames)
             {
                 var rotateAttribute = keyFrame.Attribute("rotate");
                 if (rotateAttribute != null && !string.IsNullOrWhiteSpace(rotateAttribute.Value))
                 {
                     nodeInfo.RotateString = rotateAttribute.Value;
-
-                    // Parse quaternion
                     if (Quaternion.TryParse(rotateAttribute.Value, out Quaternion quaternion))
                     {
                         nodeInfo.Quaternion = quaternion;
                         nodeInfo.Is90DegreeRotation = quaternion.Is90DegreeRotation();
                     }
                     else
-                    {
-                        // Failed to parse quaternion, consider as not 90-degree rotation
                         nodeInfo.Is90DegreeRotation = false;
-                    }
-
-                    // Use the first valid rotate attribute found
-                    break;
                 }
+                var translateAttribute = keyFrame.Attribute("translate");
+                if (translateAttribute != null && Translate3.TryParse(translateAttribute.Value, out Translate3 t))
+                    nodeInfo.Translate = t;
+                break;
             }
 
             return nodeInfo;

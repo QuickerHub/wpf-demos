@@ -1,28 +1,29 @@
 namespace XmlExtractTool.Models
 {
     /// <summary>
-    /// Node information model containing name and quaternion rotation
+    /// Node information model containing name, nodeType, parent, quaternion and translate.
     /// </summary>
     public class NodeInfo
     {
-        /// <summary>
-        /// Node name attribute
-        /// </summary>
         public string Name { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Quaternion rotation value from KeyFrame rotate attribute
-        /// </summary>
+        public string NodeType { get; set; } = string.Empty;
+        public string Parent { get; set; } = string.Empty;
         public Quaternion? Quaternion { get; set; }
-
-        /// <summary>
-        /// Whether this node satisfies the 90-degree rotation condition
-        /// </summary>
+        public Translate3? Translate { get; set; }
         public bool Is90DegreeRotation { get; set; }
-
-        /// <summary>
-        /// Raw rotate attribute string value
-        /// </summary>
         public string? RotateString { get; set; }
+    }
+
+    /// <summary>
+    /// Single check result line: 文件名, Node Name, Parent (for display).
+    /// </summary>
+    public class CheckResultItem
+    {
+        public string FileName { get; set; } = string.Empty;
+        public string NodeName { get; set; } = string.Empty;
+        public string Parent { get; set; } = string.Empty;
+
+        public override string ToString() =>
+            string.IsNullOrEmpty(FileName) ? NodeName : $"{FileName}\n{NodeName}\n{Parent}";
     }
 }
