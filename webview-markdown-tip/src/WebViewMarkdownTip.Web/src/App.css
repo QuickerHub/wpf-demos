@@ -1,0 +1,78 @@
+/*
+ * Scrollbar styling follows IntelliTools.Frontend/src/ui/app.css
+ * (thin track + rounded thumb, light/dark tokens).
+ */
+:root {
+  color-scheme: light dark;
+  --scrollbar-track: #e7ebf4;
+  --scrollbar-thumb: #9aa7c1;
+  --scrollbar-thumb-hover: #7d8ba7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --scrollbar-track: #242424;
+    --scrollbar-thumb: #5f5f5f;
+    --scrollbar-thumb-hover: #7a7a7a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+  border: 2px solid var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.md-tip-root {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  background: var(--bgColor-default, #ffffff);
+  color: var(--fgColor-default, #1f2328);
+}
+
+@media (prefers-color-scheme: dark) {
+  .md-tip-root {
+    background: var(--bgColor-default, #0d1117);
+    color: var(--fgColor-default, #e6edf3);
+  }
+}
+
+.md-tip-main {
+  flex: 1;
+  min-height: 0;
+  padding: 14px 16px 20px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
