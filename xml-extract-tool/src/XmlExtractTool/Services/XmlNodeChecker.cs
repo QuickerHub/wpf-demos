@@ -254,10 +254,14 @@ namespace XmlExtractTool.Services
                     !p.Contains("Head", StringComparison.Ordinal);
                 if (underRootBip01)
                 {
-                    // Allow: zero rotate + zero translate, or ~90° rotation (any axis) with translate ignored (display offset)
+                    // Allow: zero rotate + zero translate
                     if (rotZero && transZero)
                         return false;
-                    if (hasRotate && q!.Value.Is90DegreeRotation(1.0))
+                    // X-axis 90°: require zero translate (non-zero translate = error, e.g. 11960632 展示_错误)
+                    if (hasRotate && q!.Value.IsXAxis90Degree(RotateTolerance))
+                        return !transZero;
+                    // ~90° but not X-axis (e.g. display offset): allow and ignore translate (8120062 展示_正确; ±2.5° for float precision)
+                    if (hasRotate && q!.Value.Is90DegreeRotation(2.5))
                         return false;
                     return true;
                 }

@@ -24,16 +24,16 @@ namespace XmlExtractTool.Models
                 return false;
 
             var parts = quaternionString.Split(',');
-            if (parts == null || parts.Length != 4)
+            if (parts is null || parts.Length != 4)
                 return false;
 
-            if (parts[0] == null || !double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double x))
+            if (parts[0] is null || !double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double x))
                 return false;
-            if (parts[1] == null || !double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double y))
+            if (parts[1] is null || !double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double y))
                 return false;
-            if (parts[2] == null || !double.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double z))
+            if (parts[2] is null || !double.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double z))
                 return false;
-            if (parts[3] == null || !double.TryParse(parts[3].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double w))
+            if (parts[3] is null || !double.TryParse(parts[3].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double w))
                 return false;
 
             quaternion = new Quaternion(x, y, z, w);

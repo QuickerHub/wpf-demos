@@ -17,12 +17,12 @@ namespace XmlExtractTool.Models
             t = default;
             if (string.IsNullOrWhiteSpace(s)) return false;
             var parts = s.Split(',');
-            if (parts == null || parts.Length < 3) return false;
-            if (parts[0] == null || !double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double x))
+            if (parts is null || parts.Length < 3) return false;
+            if (parts[0] is null || !double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double x))
                 return false;
-            if (parts[1] == null || !double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double y))
+            if (parts[1] is null || !double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double y))
                 return false;
-            if (parts[2] == null || !double.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double z))
+            if (parts[2] is null || !double.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double z))
                 return false;
             t = new Translate3(x, y, z);
             return true;
