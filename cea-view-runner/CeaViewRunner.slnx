@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/CeaViewRunner/CeaViewRunner.csproj" />
+  <Project Path="src/CeaViewRunner.Demo/CeaViewRunner.Demo.csproj" />
+</Solution>

@@ -1,11 +1,19 @@
 ---
-alwaysApply: true
+name: wpf-coding-standards
+description: >-
+  WPF 应用编码约定：DependencyPropertyGenerator、CommunityToolkit.Mvvm（ObservableProperty、RelayCommand）、
+  INotifyPropertyChanged 源生成、DataContext/ViewModel 绑定、设计时 d:DataContext、Page 布局与 ScrollViewer、
+  HandyControl 主题资源。在实现或评审 WPF/XAML、自定义控件、UserControl、ViewModel、附加属性、
+  DependencyProperty 时阅读并遵循。
+disable-model-invocation: false
 ---
+
 # WPF 开发规范
 
 ## 属性定义规范
 
 ### DependencyProperty 使用规范
+
 - 使用 `[DependencyProperty<Type>("PropertyName")]` 特性添加在类上
 - 类必须声明为 `public partial class` 并继承自 `DependencyObject`
 - 支持附加属性使用 `[AttachedDependencyProperty<Type, Target>("PropertyName")]`
@@ -33,6 +41,7 @@ public static partial class EnterCommandBehavior
 ```
 
 ### ObservableProperty 使用规范
+
 - 类必须声明为 `public partial class` 并继承 `ObservableObject`
 - **推荐方式**：使用 `[ObservableProperty]` 特性标记 `public partial` 属性（默认方式，简洁明了）
 - **替代方式**：使用 `[ObservableProperty]` 特性标记私有字段（适用于需要额外控制或复杂场景）
@@ -44,14 +53,14 @@ public partial class MyViewModel : ObservableObject
     // 推荐：使用 [ObservableProperty] 标记 public partial 属性（默认方式）
     [ObservableProperty]
     public partial string Title { get; set; } = "默认标题";
-    
+
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
-    
+
     // 替代方式：使用 [ObservableProperty] 特性标记私有字段
     [ObservableProperty]
     private string _description;
-    
+
     // 属性变化回调（自动生成的方法）
     partial void OnTitleChanged(string value)
     {
@@ -61,6 +70,7 @@ public partial class MyViewModel : ObservableObject
 ```
 
 ### INotifyPropertyChanged 使用规范
+
 - 用于无法继承 `ObservableObject` 的场景
 - 使用 `[INotifyPropertyChanged]` 特性
 
@@ -76,6 +86,7 @@ public partial class MyViewModel : SomeBaseClass
 ## 命令定义规范
 
 ### RelayCommand 使用规范
+
 - 使用 `[RelayCommand]` 特性
 
 ```csharp
@@ -83,13 +94,13 @@ public partial class MyViewModel : ObservableObject
 {
     [RelayCommand]
     private void Save() { }
-    
+
     [RelayCommand]
     private async Task LoadAsync() { }
-    
+
     [RelayCommand(CanExecute = nameof(CanSave))]
     private void SaveWithCondition() { }
-    
+
     private bool CanSave() => !string.IsNullOrEmpty(Title);
 }
 ```
@@ -97,6 +108,7 @@ public partial class MyViewModel : ObservableObject
 ## 最佳实践
 
 ### 属性设计原则
+
 - **不要在 get/set 中编写复杂逻辑**：属性的 get/set 应该保持简洁，只负责数据的读取和写入
 - **复杂逻辑放在构造函数或方法中**：初始化逻辑放在构造函数，属性变化后的处理逻辑放在 `partial void On{PropertyName}Changed` 方法中
 - **使用属性变化回调处理副作用**：当属性变化需要触发其他操作时，使用自动生成的 `On{PropertyName}Changed` 方法
@@ -106,14 +118,14 @@ public partial class MyViewModel : ObservableObject
 {
     [ObservableProperty]
     public partial string Name { get; set; }
-    
+
     // ✅ 正确：在属性变化回调中处理逻辑
     partial void OnNameChanged(string value)
     {
         // 处理属性变化后的逻辑
         UpdateDisplayName();
     }
-    
+
     // ❌ 错误：不要在 get/set 中写逻辑
     // [ObservableProperty]
     // public partial string Name
@@ -129,6 +141,7 @@ public partial class MyViewModel : ObservableObject
 ```
 
 ### DataContext 和 ViewModel 使用规范
+
 - **UserControl/Window 的 DataContext 应设置为 this**：将控件的 DataContext 设置为控件本身，而不是直接设置为 ViewModel
 - **通过 ViewModel 属性访问 ViewModel**：在 XAML 中使用 `{Binding ViewModel.PropertyName}` 的形式绑定到 ViewModel 的属性
 - **暴露 ViewModel 属性**：控件类应提供一个 `ViewModel` 属性来访问 ViewModel 实例
@@ -137,9 +150,9 @@ public partial class MyViewModel : ObservableObject
 public partial class MyControl : UserControl
 {
     private readonly MyViewModel _viewModel;
-    
+
     public MyViewModel ViewModel => _viewModel;
-    
+
     public MyControl()
     {
         InitializeComponent();
@@ -149,8 +162,8 @@ public partial class MyControl : UserControl
 }
 ```
 
-
 **设计时 DataContext 设置：**
+
 - Window/UserControl/Page 的 XAML 中需要添加设计时 DataContext，以便在设计器中预览数据绑定效果
 - 需要在根元素添加以下命名空间和属性：
 
@@ -172,6 +185,7 @@ public partial class MyControl : UserControl
 ```
 
 说明：
+
 - `xmlns:d` - 设计时命名空间，用于 Blend 和 Visual Studio 设计器
 - `xmlns:mc` - 标记兼容性命名空间
 - `xmlns:local` - 本地命名空间，指向项目根命名空间
@@ -191,6 +205,7 @@ public partial class MyControl : UserControl
 ```
 
 ### Page 布局规范
+
 - **禁止在 Page 根元素添加 ScrollViewer**：NavigationView 内部已经有 ScrollViewer 处理滚动，Page 中不应再添加额外的 ScrollViewer
 - **Page 应直接使用 Grid 或其他布局控件作为根元素**：让 NavigationView 的 ScrollViewer 处理页面内容的滚动
 - **控件内部的 ScrollViewer 是允许的**：如 ListBox、DataGrid 等控件内部的 ScrollViewer 是正常的，不受此限制
@@ -217,11 +232,13 @@ public partial class MyControl : UserControl
 </Page>
 ```
 
-**原因**：
+**原因：**
+
 - NavigationView 的内容区域（Frame）内部已经有 ScrollViewer
 - 嵌套的 ScrollViewer 会导致滚动冲突和布局问题
 - ListBox 等控件可能会无限扩展，无法被正确限制高度
 
 ### 必需的包
+
 - `CommunityToolkit.Mvvm` - MVVM 特性
 - `DependencyPropertyGenerator` - DependencyProperty 源生成器
