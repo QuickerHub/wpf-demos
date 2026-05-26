@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using System;
 using System.Collections.Generic;
@@ -12,7 +11,6 @@ namespace WebViewMarkdownTip
     public partial class MainViewModel : ObservableObject
     {
         private WebViewManager? _webViewManager;
-        private bool _markdownPosted;
         private readonly IReadOnlyList<MarkdownTipWebButton> _buttons;
 
         [ObservableProperty]
@@ -60,19 +58,12 @@ namespace WebViewMarkdownTip
         {
             try
             {
-                _markdownPosted = false;
-
                 _webViewManager = new WebViewManager(webView);
                 _webViewManager.CloseWindowRequested += (_, _) =>
                     Application.Current.Dispatcher.Invoke(() => CloseRequested?.Invoke(this, EventArgs.Empty));
+                _webViewManager.UiReady += WebView_UiReady;
 
-                await _webViewManager.InitializeAsync(() =>
-                {
-                    if (webView.CoreWebView2 != null)
-                    {
-                        webView.CoreWebView2.NavigationCompleted += WebView_NavigationCompleted;
-                    }
-                });
+                await _webViewManager.InitializeAsync();
             }
             catch (Exception ex)
             {
@@ -81,19 +72,12 @@ namespace WebViewMarkdownTip
             }
         }
 
-        private async void WebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        private async void WebView_UiReady(object? sender, EventArgs e)
         {
-            if (!e.IsSuccess)
+            if (_webViewManager == null)
             {
                 return;
             }
-
-            if (_webViewManager == null || _markdownPosted)
-            {
-                return;
-            }
-
-            _markdownPosted = true;
 
             try
             {

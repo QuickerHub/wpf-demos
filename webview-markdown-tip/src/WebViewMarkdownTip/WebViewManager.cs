@@ -41,6 +41,11 @@ namespace WebViewMarkdownTip
         /// </summary>
         public event EventHandler<string>? WebMessageReceived;
 
+        /// <summary>
+        /// Raised when the React shell has registered <c>window.receiveMarkdownPayload</c> and is ready for host injection.
+        /// </summary>
+        public event EventHandler? UiReady;
+
         /// <param name="afterCoreWebViewReady">
         /// Called after CoreWebView2 is ready and host objects are registered, before navigation starts.
         /// Subscribe to <see cref="CoreWebView2.NavigationCompleted"/> here so the first navigation is observed.
@@ -196,6 +201,18 @@ namespace WebViewMarkdownTip
                     if (token is JObject obj)
                     {
                         var type = obj["type"]?.ToString();
+                        if (string.Equals(type, "host", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var hostAction = obj["action"]?.ToString();
+                            if (string.Equals(hostAction, "uiReady", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Application.Current.Dispatcher.Invoke(() =>
+                                    UiReady?.Invoke(this, EventArgs.Empty));
+                            }
+
+                            return;
+                        }
+
                         if (string.Equals(type, "action", StringComparison.OrdinalIgnoreCase))
                         {
                             var action = obj["action"]?.ToString();

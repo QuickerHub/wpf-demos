@@ -76,3 +76,9 @@ body {
   overflow: auto;
   scrollbar-gutter: stable;
 }
+
+.md-tip-main .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
