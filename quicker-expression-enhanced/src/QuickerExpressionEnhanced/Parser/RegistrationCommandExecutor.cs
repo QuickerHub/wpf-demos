@@ -172,38 +172,25 @@ namespace QuickerExpressionEnhanced.Parser
                 throw new ArgumentException("Assembly name cannot be null or empty", nameof(assemblyName));
             }
 
-            Assembly assembly;
-
-            // Check if it's a file path first
-            if (IsFilePath(assemblyName))
+            var regCache = EvalRegistrationCache.For(eval);
+            var regKey = "asm:" + assemblyName;
+            if (!regCache.TryMark(regKey))
             {
-                // It's a file path, use LoadFrom
-                try
-                {
-                    assembly = Assembly.LoadFrom(assemblyName);
-                    _log.Debug($"Loaded assembly from file path: {assemblyName}");
-                }
-                catch (Exception loadEx)
-                {
-                    var details = FormatExceptionDetails(loadEx);
-                    _log.Error($"Failed to load assembly from file path '{assemblyName}':\n{details}", loadEx);
-                    throw new InvalidOperationException($"Failed to load assembly from file path '{assemblyName}'.\n\n{details}", loadEx);
-                }
+                _log.Debug($"Assembly already registered on eval context: {assemblyName}");
+                return;
             }
-            else
+
+            Assembly assembly;
+            try
             {
-                // It's an assembly name, use Assembly.Load
-                try
-                {
-                    assembly = Assembly.Load(assemblyName);
-                    _log.Debug($"Loaded assembly by name: {assemblyName}");
-                }
-                catch (Exception loadEx)
-                {
-                    var details = FormatExceptionDetails(loadEx);
-                    _log.Error($"Failed to load assembly by name '{assemblyName}':\n{details}", loadEx);
-                    throw new InvalidOperationException($"Failed to load assembly '{assemblyName}'.\n\n{details}", loadEx);
-                }
+                assembly = AssemblyLoadCache.GetOrLoad(assemblyName);
+                _log.Debug($"Loaded assembly (cached): {assemblyName}");
+            }
+            catch (Exception loadEx)
+            {
+                var details = FormatExceptionDetails(loadEx);
+                _log.Error($"Failed to load assembly '{assemblyName}':\n{details}", loadEx);
+                throw new InvalidOperationException($"Failed to load assembly '{assemblyName}'.\n\n{details}", loadEx);
             }
 
             // Try to register assembly, throw exception with detailed LoaderException information if it fails
@@ -229,44 +216,6 @@ namespace QuickerExpressionEnhanced.Parser
         }
 
         /// <summary>
-        /// Check if the string is a file path
-        /// </summary>
-        /// <param name="path">String to check</param>
-        /// <returns>True if it appears to be a file path</returns>
-        private static bool IsFilePath(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return false;
-            }
-
-            // Check for path separators
-            if (path.Contains(Path.DirectorySeparatorChar.ToString()) || path.Contains(Path.AltDirectorySeparatorChar.ToString()))
-            {
-                return true;
-            }
-
-            // Check for file extension (common assembly extensions)
-            var extension = Path.GetExtension(path);
-            if (!string.IsNullOrEmpty(extension))
-            {
-                var ext = extension.ToLowerInvariant();
-                if (ext == ".dll" || ext == ".exe")
-                {
-                    return true;
-                }
-            }
-
-            // Check if it's an absolute path (starts with drive letter on Windows or / on Unix)
-            if (Path.IsPathRooted(path))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Register namespace to EvalContext
         /// </summary>
         /// <param name="eval">Eval context</param>
@@ -285,10 +234,15 @@ namespace QuickerExpressionEnhanced.Parser
                 throw new ArgumentException($"Assembly name is required to register namespace '{namespaceName}'", nameof(assemblyName));
             }
 
-            // Load assembly (but don't register it - that should be done via load command)
-            var assembly = LoadAssembly(assemblyName);
+            var regCache = EvalRegistrationCache.For(eval);
+            var regKey = "ns:" + namespaceName + "|" + assemblyName;
+            if (!regCache.TryMark(regKey))
+            {
+                _log.Debug($"Namespace already registered on eval context: {namespaceName}");
+                return;
+            }
 
-            // Register namespace - requires assembly
+            var assembly = AssemblyLoadCache.GetOrLoad(assemblyName);
             eval.RegisterNamespace(assembly, namespaceName);
             _log.Debug($"Registered namespace: {namespaceName} from assembly: {assemblyName}");
         }
@@ -311,65 +265,19 @@ namespace QuickerExpressionEnhanced.Parser
                 throw new ArgumentException("Assembly name is required to register type", nameof(assemblyName));
             }
 
-            // Use TypeInference to get the type (will try multiple methods if Type.GetType fails)
-            var type = TypeInference.GetType(className, assemblyName) 
+            var regCache = EvalRegistrationCache.For(eval);
+            var regKey = "type:" + className + "|" + assemblyName;
+            if (!regCache.TryMark(regKey))
+            {
+                _log.Debug($"Type already registered on eval context: {className}");
+                return;
+            }
+
+            var type = TypeInference.GetType(className, assemblyName)
                 ?? throw new InvalidOperationException($"Failed to find type '{className}' in assembly '{assemblyName}'. Make sure the type name and assembly name are correct.");
-            
+
             eval.RegisterType(type);
             _log.Debug($"Registered type: {className} from assembly: {assemblyName}");
-        }
-
-        /// <summary>
-        /// Load assembly by name or path
-        /// </summary>
-        /// <param name="assemblyName">Assembly name or path</param>
-        /// <returns>Loaded assembly</returns>
-        /// <exception cref="InvalidOperationException">Thrown when assembly cannot be loaded</exception>
-        private static Assembly LoadAssembly(string assemblyName)
-        {
-            if (string.IsNullOrWhiteSpace(assemblyName))
-            {
-                throw new ArgumentException("Assembly name cannot be null or empty", nameof(assemblyName));
-            }
-
-            // Check if it's a file path first
-            if (IsFilePath(assemblyName))
-            {
-                // It's a file path, use LoadFrom
-                try
-                {
-                    return Assembly.LoadFrom(assemblyName);
-                }
-                catch (Exception loadEx)
-                {
-                    var details = FormatExceptionDetails(loadEx);
-                    _log.Error($"Failed to load assembly from file path '{assemblyName}':\n{details}", loadEx);
-                    throw new InvalidOperationException($"Failed to load assembly from file path '{assemblyName}'.\n\n{details}", loadEx);
-                }
-            }
-            else
-            {
-                // It's an assembly name, try Load first
-                try
-                {
-                    return Assembly.Load(assemblyName);
-                }
-                catch (Exception loadEx)
-                {
-                    // If Load fails, try GetType as fallback
-                    var type = Type.GetType(assemblyName);
-                    if (type != null)
-                    {
-                        return type.Assembly;
-                    }
-                    else
-                    {
-                        var details = FormatExceptionDetails(loadEx);
-                        _log.Error($"Failed to load assembly '{assemblyName}':\n{details}", loadEx);
-                        throw new InvalidOperationException($"Failed to load assembly '{assemblyName}'. Assembly.Load failed, and Type.GetType returned null.\n\n{details}", loadEx);
-                    }
-                }
-            }
         }
     }
 }

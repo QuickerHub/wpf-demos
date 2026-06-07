@@ -1,6 +1,25 @@
 #!/usr/bin/env pwsh
-# Build QuickerExpressionAgent.Quicker using qkbuild
+# Build QuickerExpressionAgent.Quicker via qkbuild (see wpf-demos/README.md)
 
-Write-Host "Building QuickerExpressionAgent.Quicker..." -ForegroundColor Cyan
-qkbuild build -c "build-quicker.yaml" --project-path "src\QuickerExpressionAgent.Quicker" @args
+param(
+    [Alias('p')]
+    [switch]$Publish,
+    [Alias('n')]
+    [switch]$NoVersion,
+    [Alias('t')]
+    [switch]$Test,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$QkbuildArgs
+)
 
+$ErrorActionPreference = 'Stop'
+$invoke = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Invoke-Qkbuild.ps1'
+& $invoke 
+    -ProjectRoot $PSScriptRoot 
+    -ConfigFile 'build-quicker.yaml' 
+    -ProjectPath 'src\QuickerExpressionAgent.Quicker' 
+    -Publish:$Publish 
+    -NoVersion:$NoVersion 
+    -Test:$Test 
+    -QkbuildArgs $QkbuildArgs
+exit $LASTEXITCODE

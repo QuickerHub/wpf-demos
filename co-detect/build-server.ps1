@@ -1,6 +1,25 @@
 #!/usr/bin/env pwsh
-# Build CoDetectNet.Server using qkbuild
+# Build CoDetectNet.Server via qkbuild (see wpf-demos/README.md)
 
-Write-Host "Building CoDetectNet.Server..." -ForegroundColor Cyan
-qkbuild build -c "build-server.yaml" --project-path "src\CoDetectNet.Server" @args
+param(
+    [Alias('p')]
+    [switch]$Publish,
+    [Alias('n')]
+    [switch]$NoVersion,
+    [Alias('t')]
+    [switch]$Test,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$QkbuildArgs
+)
 
+$ErrorActionPreference = 'Stop'
+$invoke = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Invoke-Qkbuild.ps1'
+& $invoke 
+    -ProjectRoot $PSScriptRoot 
+    -ConfigFile 'build-server.yaml' 
+    -ProjectPath 'src\CoDetectNet.Server' 
+    -Publish:$Publish 
+    -NoVersion:$NoVersion 
+    -Test:$Test 
+    -QkbuildArgs $QkbuildArgs
+exit $LASTEXITCODE

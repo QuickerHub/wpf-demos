@@ -24,8 +24,8 @@ name/
 ├── {ProjectName}.slnx
 └── README.md  // 项目说明
 ├── build.yaml
-├── build.ps1
-├── version.json
+├── build.ps1          # calls ../scripts/Invoke-Qkbuild.ps1
+├── version.json       # four-part M.m.b.r; key matches build.yaml versionKey
 ```
 
 ## 项目配置文件

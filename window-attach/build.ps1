@@ -1,6 +1,25 @@
 #!/usr/bin/env pwsh
-# Build WindowAttach using qkbuild
+# Build WindowAttach via qkbuild (see wpf-demos/README.md)
 
-Write-Host "Building WindowAttach..." -ForegroundColor Cyan
-qkbuild build -c "build.yaml" --project-path "src\WindowAttach" @args
+param(
+    [Alias('p')]
+    [switch]$Publish,
+    [Alias('n')]
+    [switch]$NoVersion,
+    [Alias('t')]
+    [switch]$Test,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$QkbuildArgs
+)
 
+$ErrorActionPreference = 'Stop'
+$invoke = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Invoke-Qkbuild.ps1'
+& $invoke 
+    -ProjectRoot $PSScriptRoot 
+    -ConfigFile 'build.yaml' 
+    -ProjectPath 'src\WindowAttach' 
+    -Publish:$Publish 
+    -NoVersion:$NoVersion 
+    -Test:$Test 
+    -QkbuildArgs $QkbuildArgs
+exit $LASTEXITCODE

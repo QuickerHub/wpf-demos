@@ -1,6 +1,25 @@
 #!/usr/bin/env pwsh
-# Build quicker-dev-tools using qkbuild
+# Build quicker-dev-tools via qkbuild (see wpf-demos/README.md)
 
-Write-Host "Building quicker-dev-tools..." -ForegroundColor Cyan
-qkbuild build -c "build.yaml" --project-path "src\quicker-dev-tools" @args
+param(
+    [Alias('p')]
+    [switch]$Publish,
+    [Alias('n')]
+    [switch]$NoVersion,
+    [Alias('t')]
+    [switch]$Test,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$QkbuildArgs
+)
 
+$ErrorActionPreference = 'Stop'
+$invoke = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Invoke-Qkbuild.ps1'
+& $invoke 
+    -ProjectRoot $PSScriptRoot 
+    -ConfigFile 'build.yaml' 
+    -ProjectPath 'src\quicker-dev-tools' 
+    -Publish:$Publish 
+    -NoVersion:$NoVersion 
+    -Test:$Test 
+    -QkbuildArgs $QkbuildArgs
+exit $LASTEXITCODE

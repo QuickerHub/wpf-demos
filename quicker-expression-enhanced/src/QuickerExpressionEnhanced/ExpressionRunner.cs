@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using Quicker.Public.Interfaces;
@@ -21,6 +23,10 @@ namespace QuickerExpressionEnhanced
     public static class ExpressionRunner
     {
         private static readonly ILog _log = LogManager.GetLogger(typeof(ExpressionRunner));
+
+        private static readonly Regex VariablePlaceholderPattern = new(
+            @"\{([a-zA-Z_][a-zA-Z0-9_]*)\}",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
         /// <summary>
         /// Run expression with support for variable substitution and optional UI thread execution
         /// Supports direct variable assignment in expressions
@@ -130,11 +136,7 @@ namespace QuickerExpressionEnhanced
                 RegistrationCommandExecutor.Register(eval, codeParseResult.Commands);
             }
 
-            // Replace variable placeholders {key} with variable names
-            foreach (var key in context.GetVariables().Keys)
-            {
-                code = code.Replace($"{{{key}}}", key);
-            }
+            code = ReplaceVariablePlaceholders(code, context);
 
             if (onUiThread)
             {
@@ -170,6 +172,16 @@ namespace QuickerExpressionEnhanced
                     return false;
             }
             return true;
+        }
+
+        private static string ReplaceVariablePlaceholders(string code, IActionContext context)
+        {
+            var known = new HashSet<string>(context.GetVariables().Keys, StringComparer.Ordinal);
+            return VariablePlaceholderPattern.Replace(code, match =>
+            {
+                var key = match.Groups[1].Value;
+                return known.Contains(key) ? key : match.Value;
+            });
         }
 
         /// <summary>

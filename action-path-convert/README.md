@@ -1,5 +1,7 @@
 # Action Path Convert
 
+> 源码已发布至私有仓库 [`QuickerHub/action-path-convert`](https://github.com/QuickerHub/action-path-convert)。`wpf-demos` 内为同步副本。
+
 播放列表路径转换工具 - 将播放列表中的文件路径转换为目标目录中的实际路径
 
 ## 功能说明
@@ -215,5 +217,5 @@ var notFoundFiles = result.NotFoundFiles;  // 未找到的文件
 
 ## 参考
 
-- 原始实现：`D:\source\repos\quicker\build-action\PlaylistPathReplacer\Program.cs`
+- 控制台原型：`prototype/`（`src/PathConvertService.cs`）；历史备份见 `old/path-convert-prototype/`
 - Quicker 动作：`C:\Users\ldy\Desktop\路径转换_20251210_132900.qka`

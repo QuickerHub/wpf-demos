@@ -1,5 +1,25 @@
 #!/usr/bin/env pwsh
-# Build XmlExtractTool using qkbuild
+# Build XmlExtractTool via qkbuild (see wpf-demos/README.md)
 
-Write-Host "Building XmlExtractTool..." -ForegroundColor Cyan
-qkbuild build -c "build.yaml" --project-path "src\XmlExtractTool" @args
+param(
+    [Alias('p')]
+    [switch]$Publish,
+    [Alias('n')]
+    [switch]$NoVersion,
+    [Alias('t')]
+    [switch]$Test,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$QkbuildArgs
+)
+
+$ErrorActionPreference = 'Stop'
+$invoke = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Invoke-Qkbuild.ps1'
+& $invoke 
+    -ProjectRoot $PSScriptRoot 
+    -ConfigFile 'build.yaml' 
+    -ProjectPath 'src\XmlExtractTool' 
+    -Publish:$Publish 
+    -NoVersion:$NoVersion 
+    -Test:$Test 
+    -QkbuildArgs $QkbuildArgs
+exit $LASTEXITCODE

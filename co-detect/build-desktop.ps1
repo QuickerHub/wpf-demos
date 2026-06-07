@@ -1,6 +1,25 @@
 #!/usr/bin/env pwsh
-# Build CoDetectNet.Desktop using qkbuild
+# Build CoDetectNet.Desktop via qkbuild (see wpf-demos/README.md)
 
-Write-Host "Building CoDetectNet.Desktop..." -ForegroundColor Cyan
-qkbuild build -c "build-desktop.yaml" --project-path "src\CoDetectNet.Desktop" @args
+param(
+    [Alias('p')]
+    [switch]$Publish,
+    [Alias('n')]
+    [switch]$NoVersion,
+    [Alias('t')]
+    [switch]$Test,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [object[]]$QkbuildArgs
+)
 
+$ErrorActionPreference = 'Stop'
+$invoke = Join-Path (Split-Path $PSScriptRoot -Parent) 'scripts\Invoke-Qkbuild.ps1'
+& $invoke 
+    -ProjectRoot $PSScriptRoot 
+    -ConfigFile 'build-desktop.yaml' 
+    -ProjectPath 'src\CoDetectNet.Desktop' 
+    -Publish:$Publish 
+    -NoVersion:$NoVersion 
+    -Test:$Test 
+    -QkbuildArgs $QkbuildArgs
+exit $LASTEXITCODE
