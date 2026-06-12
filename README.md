@@ -1,39 +1,23 @@
 # wpf-demos
 
-> **主仓库已迁移至 [quicker-workspace](https://github.com/QuickerHub/quicker-workspace)**  
-> 28 个 WPF/DLL 依赖包现位于 `quicker-workspace/packages/`（分级 monorepo）。本仓库仅保留尚未迁入的实验性/遗留项目。
+> **已归档。** WPF/DLL 主开发在 [quicker-workspace](https://github.com/QuickerHub/quicker-workspace)；语言检测在 [co-detect](https://github.com/QuickerHub/co-detect)。
 
-## 仍在 wpf-demos 的项目
+本仓库仅保留少量遗留/模板目录，**不再维护构建脚本**。
+
+## 剩余目录
 
 | 目录 | 说明 |
 |------|------|
-| `example/` | net472 脚手架模板 |
-| `quicker-reptile-tools/`、`word-control/` | 遗留/无 qkbuild |
+| `example/` | net472 脚手架示例（依赖根目录 `qkref.props`） |
+| `quicker-reptile-tools/` | 遗留小工具 |
+| `word-control/` | Word 自动化实验 |
 
-**已迁出归档：** [co-detect](https://github.com/QuickerHub/co-detect)（ONNX 语言检测，原 `co-detect/`）
-
-## 新开发入口
+## 新开发请用
 
 ```powershell
-# 克隆工作区
 git clone https://github.com/QuickerHub/quicker-workspace.git
 cd quicker-workspace/packages/platform/expression-enhanced
 .\build.ps1 -Test
 ```
 
-构建说明、skills、子程序约定见 [quicker-workspace README](https://github.com/QuickerHub/quicker-workspace/blob/main/README.md)。
-
-## co-detect 构建（已归档）
-
-已迁至独立仓库 **[QuickerHub/co-detect](https://github.com/QuickerHub/co-detect)**：
-
-```powershell
-git clone https://github.com/QuickerHub/co-detect.git
-cd co-detect
-.\build-desktop.ps1    # 或 build-server.ps1
-```
-
-## 前置
-
-- [qkbuild](https://github.com/QuickerHub/quicker_build_net) 已安装
-- Quicker + QuickerRpc 插件（更新子程序 `version` 时需要）
+规范与 skills 见 [quicker-workspace](https://github.com/QuickerHub/quicker-workspace)。

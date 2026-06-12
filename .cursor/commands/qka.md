@@ -1,1 +1,0 @@
-请 Read 项目 skill **quicker-wpf-net472-scaffold**：`.cursor/skills/quicker-wpf-net472-scaffold/SKILL.md`，并配合 **wpf-coding-standards**：`.cursor/skills/wpf-coding-standards/SKILL.md`，按用户描述创建或调整 WPF net472（Quicker）项目结构与文件。
