@@ -51,7 +51,7 @@ function Expand-QkbuildArgTokens {
 }
 
 $extra = Expand-QkbuildArgTokens -Raw $QkbuildArgs
-if ($Publish) { $extra = @('--publish') + $extra }
+if ($Publish) { $extra = @('--publish', '-y') + $extra }
 if ($NoVersion) { $extra = @('--no-version') + $extra }
 if ($Test) { $extra = @('--test') + $extra }
 
@@ -63,8 +63,10 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 }
 
 Write-Host "qkbuild: $ConfigFile -> $ProjectPath" -ForegroundColor Cyan
+[Console]::Out.Flush()
 if ($extra.Count -gt 0) {
     Write-Host "args: $($extra -join ' ')" -ForegroundColor DarkGray
+    [Console]::Out.Flush()
 }
 
 Push-Location $ProjectRoot

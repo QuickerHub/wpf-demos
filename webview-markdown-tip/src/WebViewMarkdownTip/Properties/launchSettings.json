@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "WebViewMarkdownTip": {
-      "commandName": "Project",
-      "commandLineArgs": "--demo"
-    }
-  }
-}

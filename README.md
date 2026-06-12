@@ -1,44 +1,40 @@
 # wpf-demos
 
-Quicker 集成的 WPF / 工具示例集合。各子目录为独立项目，统一使用 [qkbuild](https://github.com/QuickerHub/quicker_build_net) 构建与发布 Quicker 依赖包。
+> **主仓库已迁移至 [quicker-workspace](https://github.com/QuickerHub/quicker-workspace)**  
+> 28 个 WPF/DLL 依赖包现位于 `quicker-workspace/packages/`（分级 monorepo）。本仓库仅保留尚未迁入的实验性/遗留项目。
 
-## qkbuild 用法（各子目录）
+## 仍在 wpf-demos 的项目
 
-在子项目根目录执行 `build.ps1`（内部调用 `scripts/Invoke-Qkbuild.ps1`）：
-
-| 场景 | 命令 |
+| 目录 | 说明 |
 |------|------|
-| 本地 Release 构建 | `.\build.ps1` |
-| 热更新测试（revision +1，写入 `_packages` + OSS） | `.\build.ps1 -Test` 或 `.\build.ps1 -t` |
-| 发布到 Quicker 官方（交互选版本） | `.\build.ps1 -Publish` |
-| 发布当前 `version.json` 版本 | `.\build.ps1 -Publish -NoVersion` |
-| 指定四段版本发布 | `.\build.ps1 -Publish --version 1.2.3.0` |
+| `co-detect/` | 双产物（desktop + server），体积大 |
+| `quicker-mcp/` | MCP 实验 |
+| `sync-mvp/` | 同步方案 MVP |
+| `text-process/` | 文本处理 |
+| `example/` | net472 脚手架模板 |
+| `quicker-modifier/`、`quicker-reptile-tools/`、`word-control/` | 遗留/无 qkbuild |
 
-**注意**：PowerShell 中勿单独使用裸 `-p` / `-n`（会与通用参数冲突），请用 `-Publish` / `-NoVersion` 或 `--publish` / `--no-version`。
+## 新开发入口
 
-### 环境变量（`.env` 或 qkbuild 安装目录）
+```powershell
+# 克隆工作区
+git clone https://github.com/QuickerHub/quicker-workspace.git
+cd quicker-workspace/packages/platform/expression-enhanced
+.\build.ps1 -Test
+```
 
-| 变量 | 用途 |
-|------|------|
-| `QUICKER_EMAIL` / `QUICKER_PASSWORD` | 首次登录 getquicker，上传依赖包 |
-| `BITIFUL_*` | OSS 上传（Bitiful） |
-| `QUICKER_BROWSER_HEADLESS` | 默认无头上传；设为 `false` 可显示浏览器 |
+构建说明、skills、子程序约定见 [quicker-workspace README](https://github.com/QuickerHub/quicker-workspace/blob/main/README.md)。
 
-### 版本与上传策略
+## co-detect 构建（仍在本仓库）
 
-- `version.json` 使用**四段**版本 `M.m.b.r`（与 Release 程序集 `Name.M.m.b.r.dll` 一致）。
-- `-Test`：仅第四段 +1，包目录仍为 `_packages/{packageName}/M.m.b/`。
-- `-Publish` 时 qkbuild 自动选择 Quicker 上传页面：**新建包** / **追加版本** / **编辑替换**（revision 热更时替换已有 M.m.b 的 zip）。
+```powershell
+cd co-detect
+.\build-desktop.ps1    # 或 build-server.ps1
+```
 
-### 双产物项目
-
-| 目录 | 脚本 |
-|------|------|
-| `quicker-expression-agent/` | `build-quicker.ps1`、`build-desktop.ps1` |
-| `co-detect/` | `build-server.ps1`、`build-desktop.ps1` |
+依赖根目录 `scripts/Invoke-Qkbuild.ps1` 与 `qkref.props`。
 
 ## 前置
 
-- 本机已安装 `qkbuild`（`%LOCALAPPDATA%\Programs\qkbuild` 或 PATH）
-- Quicker + QuickerRpc 插件（`qkrpc` 更新子程序 `version` 变量时需要）
-- 可选：仓库根 `qkref.props` / `QUICKER_DLL_PATH` 指向 Quicker 安装目录
+- [qkbuild](https://github.com/QuickerHub/quicker_build_net) 已安装
+- Quicker + QuickerRpc 插件（更新子程序 `version` 时需要）

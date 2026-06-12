@@ -1,6 +1,0 @@
-ChangeWindowMessageFilterEx
-ChangeWindowMessageFilter
-DragAcceptFiles
-DragQueryFile
-DragFinish
-

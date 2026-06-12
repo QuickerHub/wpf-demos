@@ -1,9 +1,0 @@
-SetWinEventHook
-UnhookWinEvent
-HWINEVENTHOOK
-WINEVENTPROC
-HWND
-HINSTANCE
-IsWindow
-GetForegroundWindow
-
