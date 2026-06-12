@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="SyncMvp.Core/SyncMvp.Core.csproj" />
-  <Project Path="SyncMvp.Server/SyncMvp.Server.csproj" />
-  <Project Path="SyncMvp.Wpf/SyncMvp.Wpf.csproj" />
-</Solution>

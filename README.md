@@ -7,8 +7,6 @@
 
 | 目录 | 说明 |
 |------|------|
-| `sync-mvp/` | WebDAV 同步 MVP |
-| `text-process/` | 文本处理（空目录占位） |
 | `example/` | net472 脚手架模板 |
 | `quicker-reptile-tools/`、`word-control/` | 遗留/无 qkbuild |
 
