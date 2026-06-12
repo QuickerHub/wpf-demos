@@ -10,7 +10,7 @@
 | `sync-mvp/` | WebDAV 同步 MVP |
 | `text-process/` | 文本处理（空目录占位） |
 | `example/` | net472 脚手架模板 |
-| `quicker-modifier/`、`quicker-reptile-tools/`、`word-control/` | 遗留/无 qkbuild |
+| `quicker-reptile-tools/`、`word-control/` | 遗留/无 qkbuild |
 
 **已迁出归档：** [co-detect](https://github.com/QuickerHub/co-detect)（ONNX 语言检测，原 `co-detect/`）
 

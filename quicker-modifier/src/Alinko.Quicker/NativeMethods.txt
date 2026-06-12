@@ -1,3 +1,0 @@
-SetWinEventHook
-UnhookWinEvent
-GetForegroundWindow
