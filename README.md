@@ -8,7 +8,6 @@
 | 目录 | 说明 |
 |------|------|
 | `co-detect/` | 双产物（desktop + server），体积大 |
-| `quicker-mcp/` | MCP 实验 |
 | `sync-mvp/` | 同步方案 MVP |
 | `text-process/` | 文本处理 |
 | `example/` | net472 脚手架模板 |
