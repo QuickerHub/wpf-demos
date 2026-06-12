@@ -1,0 +1,4 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)qkref.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)qkref.props')" />
+</Project>

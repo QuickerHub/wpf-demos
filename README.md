@@ -8,9 +8,7 @@
 
 | 目录 | 说明 |
 |------|------|
-| `example/` | net472 脚手架示例（依赖根目录 `qkref.props`） |
-| `quicker-reptile-tools/` | 遗留小工具 |
-| `word-control/` | Word 自动化实验 |
+| `example/` | 最小 net472 模板（项目文件在目录根，见 `Directory.Build.props`） |
 
 ## 新开发请用
 
