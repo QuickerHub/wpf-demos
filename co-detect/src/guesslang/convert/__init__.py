@@ -1,2 +1,0 @@
-"""ONNX model conversion utilities"""
-

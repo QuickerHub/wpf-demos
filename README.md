@@ -7,11 +7,12 @@
 
 | 目录 | 说明 |
 |------|------|
-| `co-detect/` | 双产物（desktop + server），体积大 |
-| `sync-mvp/` | 同步方案 MVP |
-| `text-process/` | 文本处理 |
+| `sync-mvp/` | WebDAV 同步 MVP |
+| `text-process/` | 文本处理（空目录占位） |
 | `example/` | net472 脚手架模板 |
 | `quicker-modifier/`、`quicker-reptile-tools/`、`word-control/` | 遗留/无 qkbuild |
+
+**已迁出归档：** [co-detect](https://github.com/QuickerHub/co-detect)（ONNX 语言检测，原 `co-detect/`）
 
 ## 新开发入口
 
@@ -24,14 +25,15 @@ cd quicker-workspace/packages/platform/expression-enhanced
 
 构建说明、skills、子程序约定见 [quicker-workspace README](https://github.com/QuickerHub/quicker-workspace/blob/main/README.md)。
 
-## co-detect 构建（仍在本仓库）
+## co-detect 构建（已归档）
+
+已迁至独立仓库 **[QuickerHub/co-detect](https://github.com/QuickerHub/co-detect)**：
 
 ```powershell
+git clone https://github.com/QuickerHub/co-detect.git
 cd co-detect
 .\build-desktop.ps1    # 或 build-server.ps1
 ```
-
-依赖根目录 `scripts/Invoke-Qkbuild.ps1` 与 `qkref.props`。
 
 ## 前置
 
